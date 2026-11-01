@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+# Secrets & runtime data (never commit)
+backend/.env
+backend/data/
+*.db
+*.db-wal
+*.db-shm
+*.pid
+# Android build outputs
+android/**/build/
+android/.gradle/
+android/local.properties
+android/build_out/
+*.keystore
+*.jks
+!android/app/debug-keystore-README.md
+# OS / IDE
+.DS_Store
+.idea/
+*.iml
