@@ -67,6 +67,7 @@ Keyin — [OWNER_SETUP.md](OWNER_SETUP.md): botda Business Mode'ni yoqish, Teleg
 | `scripts/status.sh` | Jarayon, `/api/v1/health`, xotira, disk, oxirgi loglar |
 | `scripts/run_tests.sh` | Barcha backend testlari (pytest) |
 | `scripts/backup.sh [--shared]` | Bazaning onlayn zaxira nusxasi |
+| `scripts/restore.sh [fayl]` | Nusxalar ro'yxati / tiklash (to'xtatish → joriy baza nusxasi → tiklash → ishga tushirish) |
 | `scripts/run_android_tests.sh` | APK yig'ish + Robolectric testlari (kompyuter/CI uchun) |
 
 ## 5. Sozlamalar

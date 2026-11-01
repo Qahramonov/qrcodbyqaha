@@ -9,6 +9,7 @@ if pid="$(running_pid)"; then
   rm -f "$PIDFILE"
   c_ok "stopped"
 else
+  rm -f "$PIDFILE"   # stale PID file from a crash
   c_info "not running"
 fi
 command -v tmux >/dev/null && tmux kill-session -t "$SESSION" 2>/dev/null || true

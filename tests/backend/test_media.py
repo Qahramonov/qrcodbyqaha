@@ -15,7 +15,6 @@ from chat_helper.media.av import AV
 from chat_helper.media.ffmpeg import FFmpeg, MediaError, atempo_chain, volume_gain_db
 from chat_helper.modules.media_cmds import parse_meme
 
-pytestmark = pytest.mark.asyncio
 needs_ffmpeg = pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg not installed")
 
 
@@ -163,3 +162,46 @@ async def test_path_traversal_blocked(tmp_path: Path):
     with pytest.raises(ValueError):
         safe_join(tmp_path, "../../etc/passwd")
     assert "/" not in safe_filename("../../evil.sh")
+
+
+@needs_ffmpeg
+async def test_remaining_av_operations_smoke(av, tmp_path: Path):
+    """normalize, denoise, voice, compress, convert (audio+video), merge (audio+video), extract — each produces valid media."""
+    for d in ("a", "v", "v2"):
+        (tmp_path / d).mkdir()
+    a = await av.make_test_media(tmp_path / "a", "audio")
+    v = await av.make_test_media(tmp_path / "v", "video")
+    v2 = await av.make_test_media(tmp_path / "v2", "video")
+    checks = [
+        (await av.normalize(a, "audio", tmp_path / "a"), "audio"),
+        (await av.denoise(a, "audio", tmp_path / "a"), "audio"),
+        (await av.to_voice(v, "video", tmp_path / "v"), "voice"),
+        (await av.compress(v, "video", tmp_path / "v", 3), "video"),
+        (await av.compress(a, "voice", tmp_path / "a", 2), "voice"),
+        (await av.convert(a, "audio", tmp_path / "a", "wav"), "document"),
+        (await av.convert(v, "video", tmp_path / "v", "webm"), "document"),
+        (await av.convert(v, "video", tmp_path / "v", "gif"), "document"),
+        (await av.merge([v, v2], ["video", "video"], tmp_path / "v"), "video"),
+        (await av.merge([a, a], ["voice", "voice"], tmp_path / "a"), "voice"),
+    ]
+    for (out, kind, _), expect in checks:
+        assert kind == expect, (out, kind)
+        info = await av.ff.probe(out)
+        assert out.stat().st_size > 0 and info["duration"] > 0, out
+    single = (await av.ff.probe(v))["duration"]
+    merged = checks[8][0][0]
+    assert (await av.ff.probe(merged))["duration"] >= single * 1.8
+    ex = await av.extract_audio(v, tmp_path / "v")
+    info = await av.ff.probe(ex)
+    assert info["has_audio"] and not info["has_video"]
+    with pytest.raises(MediaError):
+        await av.convert(a, "audio", tmp_path / "a", "mp4")
+
+
+def test_photo_filters_keep_size_and_change_pixels():
+    im = I.demo_image((200, 150))
+    for fn in (I.bw, I.sepia, I.sharpen, lambda x: I.noise(x, 30), lambda x: I.brightness(x, 1.5),
+               lambda x: I.contrast(x, 1.5), lambda x: I.mirror(x, "h"), lambda x: I.watermark(x, "Chat helper")):
+        out = fn(im)
+        assert out.size == im.size
+        assert out.convert("RGB").tobytes() != im.convert("RGB").tobytes()

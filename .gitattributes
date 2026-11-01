@@ -1,0 +1,4 @@
+dist/Chat_helper_FULL_PROJECT.zip export-ignore
+.gitattributes export-ignore
+*.sh text eol=lf
+gradlew text eol=lf

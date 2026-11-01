@@ -12,7 +12,6 @@ from conftest import OWNER, USER2
 from chat_helper.api.server import create_api
 from chat_helper.auth.service import AuthError
 
-pytestmark = pytest.mark.asyncio
 
 FAKE_BOT_TOKEN = "1234567890:" + "A" * 35          # shape of a token, not a real one
 FAKE_OPENAI = "sk-" + "x" * 40

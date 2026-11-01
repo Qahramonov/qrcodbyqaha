@@ -1104,9 +1104,9 @@ public final class AdminScreens {
                             sb.append("• ").append(b.optString("name")).append("\n   ").append(Fmt.bytes(b.optLong("size"))).append(" · ")
                                     .append(Fmt.dateTime(b.optLong("created_at"))).append('\n');
                         }
-                        sb.append(L.t("\nВосстановление: остановите бота (./scripts/stop.sh) и замените backend/data/chat_helper.db выбранной копией.",
-                                "\nTiklash: botni to'xtating (./scripts/stop.sh) va backend/data/chat_helper.db ni tanlangan nusxa bilan almashtiring.",
-                                "\nRestore: stop the bot (./scripts/stop.sh) and replace backend/data/chat_helper.db with the chosen copy."));
+                        sb.append(L.t("\nВосстановление (в Termux): ./scripts/restore.sh <имя файла> — бот остановится, текущая база сохранится отдельной копией, затем запустится снова.",
+                                "\nTiklash (Termux'da): ./scripts/restore.sh <fayl nomi> — bot to'xtaydi, joriy baza alohida nusxa sifatida saqlanadi va qayta ishga tushadi.",
+                                "\nRestore (in Termux): ./scripts/restore.sh <file name> — stops the bot, keeps a safety copy of the current database, then starts it again."));
                         UI.info(c, "Backup Center", sb.toString());
                     }
                 });

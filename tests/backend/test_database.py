@@ -11,7 +11,6 @@ from chat_helper.database.db import Database
 from chat_helper.database.migrations import MIGRATIONS, apply_migrations, current_version
 from chat_helper.services.settings import SettingsError
 
-pytestmark = pytest.mark.asyncio
 
 
 async def test_migrations_idempotent(tmp_path: Path):
@@ -128,3 +127,35 @@ async def test_scheduler_runs_and_recovers(env):
     assert sorted(ran) == [1, 2]
     await sch.run_due()
     assert sorted(ran) == [1, 2]  # never executed twice
+
+
+async def test_cli_restore_keeps_safety_copy_and_refuses_while_running(tmp_path: Path):
+    import os
+
+    import main as entry
+    from chat_helper.config import load_settings
+
+    cfg = load_settings(None, data_dir=tmp_path / "data", bot_token="")
+    db = Database(cfg.database_path)
+    await db.connect()
+    try:
+        await apply_migrations(db)
+        await db.execute("INSERT INTO users(id, created_at) VALUES (?,?)", (OWNER, 1))
+        snap = await db.backup_to(cfg.backups_dir / "chat_helper_snap.db")
+        await db.execute("INSERT INTO users(id, created_at) VALUES (?,?)", (USER2, 1))
+    finally:
+        await db.close()
+
+    pid = cfg.data_dir / "chat_helper.pid"
+    pid.write_text(str(os.getpid()))                      # "running" → must refuse
+    assert entry.restore_backup(cfg, snap.name) == 2
+    pid.unlink()
+    assert entry.restore_backup(cfg, "does_not_exist.db") == 2
+    assert entry.restore_backup(cfg, snap.name) == 0
+    assert list(cfg.backups_dir.glob("*_pre_restore.db")), "safety copy of the replaced database"
+    db = Database(cfg.database_path)
+    await db.connect()
+    try:
+        assert [r["id"] for r in await db.fetchall("SELECT id FROM users ORDER BY id")] == [OWNER]
+    finally:
+        await db.close()

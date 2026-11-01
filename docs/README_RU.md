@@ -67,9 +67,10 @@ nano backend/.env                     # BOT_TOKEN=... (из @BotFather)
 | `scripts/status.sh` | Процесс, `/api/v1/health`, память, диск, последние логи |
 | `scripts/run_tests.sh` | Все backend-тесты (pytest) |
 | `scripts/backup.sh [--shared]` | Онлайн-бэкап БД (в `backend/data/backups` или в общую папку телефона) |
+| `scripts/restore.sh [файл]` | Список копий / восстановление (остановка → копия текущей базы → восстановление → запуск) |
 | `scripts/run_android_tests.sh` | Сборка + тесты APK под Robolectric против живого backend (для ПК/CI) |
 
-Запуск вручную: `cd backend && python main.py` (флаги `--check`, `--init-db`, `--no-api`, `--api-only`, `--env путь`).
+Запуск вручную: `cd backend && python main.py` (флаги `--check`, `--init-db`, `--no-api`, `--api-only`, `--restore файл`, `--env путь`).
 
 ## 5. Конфигурация
 
@@ -98,7 +99,7 @@ Chat_helper/
 │   ├── app/                 Gradle-модуль (AGP 8.7, compileSdk 34, minSdk 24)
 │   ├── build_apk.sh         сборка без Android Studio / Gradle (Termux или Linux)
 │   └── robolectric/         тестовый стенд (Maven + Robolectric)
-├── tests/backend/           pytest: 135 тестов
+├── tests/backend/           pytest: 148 тестов
 ├── scripts/                 install/start/stop/restart/status/tests/backup
 ├── assets/fonts/            Oswald (OFL) для мемов
 ├── docs/                    вся документация

@@ -10,7 +10,6 @@ from fakes import business_connection, update_connection
 
 from chat_helper.api.server import create_api
 
-pytestmark = pytest.mark.asyncio
 
 
 @pytest.fixture

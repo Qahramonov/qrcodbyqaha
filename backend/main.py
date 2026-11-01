@@ -5,6 +5,7 @@
     python main.py --init-db    # create / migrate the database and exit
     python main.py --no-api     # run without the Android control API
     python main.py --api-only   # only the REST API (no Telegram polling)
+    python main.py --restore FILE   # offline restore of a backup (bot must be stopped)
 """
 from __future__ import annotations
 
@@ -36,6 +37,8 @@ async def run(args: argparse.Namespace) -> int:
         return 0
     if args.check:
         return await self_check(cfg)
+    if args.restore:
+        return restore_backup(cfg, args.restore)
 
     want_bot = not args.api_only
     app, dp = await build_app(cfg, with_bot=want_bot)
@@ -51,23 +54,42 @@ async def run(args: argparse.Namespace) -> int:
 
     tasks: list[asyncio.Task] = []
     await start_background(app)
+    exit_code = 0
     if want_bot:
-        me = await app.bot.get_me()
-        app.bot_info = me
-        log.info("%s v%s started as @%s", APP_NAME, __version__, me.username)
-        if not getattr(me, "can_connect_to_business", True):
-            log.warning("Business Mode is OFF for this bot. Enable it in @BotFather → Bot Settings → Business Mode.")
-        stats = await app.connections.restore(app.bot)
-        log.info("business connections restored: %s", stats)
+        from aiogram.exceptions import TelegramNetworkError, TelegramServerError, TelegramUnauthorizedError
 
-        async def polling() -> None:
+        async def bot_main() -> None:
+            nonlocal exit_code
+            delay = 5
+            while True:  # the phone may be offline right after boot (Termux:Boot) — wait instead of exiting
+                try:
+                    me = await app.bot.get_me()
+                    break
+                except TelegramUnauthorizedError:
+                    log.error("Telegram rejected BOT_TOKEN (Unauthorized). Copy the token again from @BotFather into backend/.env")
+                    exit_code = 3
+                    return
+                except (TelegramNetworkError, TelegramServerError, OSError) as e:
+                    log.warning("Telegram is unreachable (%s) — retrying in %ss", type(e).__name__, delay)
+                    await asyncio.sleep(delay)
+                    delay = min(delay * 2, 60)
+            # long polling and a webhook cannot coexist: drop a webhook left from another setup (pending updates are kept)
+            if (await app.bot.get_webhook_info()).url:
+                log.warning("a webhook was set for this bot — removing it to use long polling")
+                await app.bot.delete_webhook(drop_pending_updates=False)
+            app.bot_info = me
+            log.info("%s v%s started as @%s", APP_NAME, __version__, me.username)
+            if not getattr(me, "can_connect_to_business", True):
+                log.warning("Business Mode is OFF for this bot. Enable it in @BotFather → Bot Settings → Business Mode.")
+            stats = await app.connections.restore(app.bot)
+            log.info("business connections restored: %s", stats)
             app.polling_active = True
             try:
                 await dp.start_polling(app.bot, allowed_updates=dp.resolve_used_update_types(), handle_signals=False,
                                        polling_timeout=cfg.polling_timeout, close_bot_session=False)
             finally:
                 app.polling_active = False
-        tasks.append(asyncio.create_task(polling(), name="polling"))
+        tasks.append(asyncio.create_task(bot_main(), name="bot"))
 
     if cfg.api_enabled and not args.no_api:
         import uvicorn
@@ -85,18 +107,21 @@ async def run(args: argparse.Namespace) -> int:
     waiter = asyncio.create_task(stop.wait())
     done, _ = await asyncio.wait([waiter, *tasks], return_when=asyncio.FIRST_COMPLETED)
     for t in done:
-        if t is not waiter and t.exception():
+        if t is not waiter and not t.cancelled() and t.exception():
             log.error("component crashed: %s", t.exception())
     log.info("shutting down…")
     if want_bot:
-        await dp.stop_polling() if dp._running_lock.locked() else None  # noqa: SLF001
+        if dp._running_lock.locked():  # noqa: SLF001
+            await dp.stop_polling()
+        elif not app.polling_active:
+            tasks[0].cancel()  # still waiting for Telegram — nothing to drain
     server = getattr(app, "api_server", None)
     if server is not None:
         server.should_exit = True
     for t in tasks:
         try:
             await asyncio.wait_for(t, timeout=10)
-        except (asyncio.TimeoutError, Exception):
+        except (asyncio.TimeoutError, asyncio.CancelledError, Exception):
             t.cancel()
     await stop_background(app)
     if app.bot is not None:
@@ -104,6 +129,43 @@ async def run(args: argparse.Namespace) -> int:
     await app.db.close()
     pid_file.unlink(missing_ok=True)
     log.info("bye")
+    return exit_code
+
+
+def restore_backup(cfg, name: str) -> int:
+    """Validate a backup, keep a safety copy of the current DB, then replace it (WAL/SHM files are removed)."""
+    import sqlite3
+    import time
+
+    from chat_helper.database.db import Database
+
+    pid_file = cfg.data_dir / "chat_helper.pid"
+    if pid_file.exists():
+        try:
+            os.kill(int(pid_file.read_text().strip()), 0)
+            print("ERROR: Chat helper is running — stop it first (./scripts/stop.sh)", file=sys.stderr)
+            return 2
+        except (ValueError, ProcessLookupError, PermissionError):
+            pid_file.unlink(missing_ok=True)
+    src = Path(name).expanduser()
+    if not src.is_file():
+        src = cfg.backups_dir / name
+    if not src.is_file():
+        print(f"ERROR: backup not found: {name}", file=sys.stderr)
+        return 2
+    db_path = Path(cfg.database_path)
+    if db_path.exists():
+        safety = cfg.backups_dir / time.strftime("chat_helper_%Y%m%d_%H%M%S_pre_restore.db")
+        safety.parent.mkdir(parents=True, exist_ok=True)
+        with sqlite3.connect(str(db_path)) as cur, sqlite3.connect(str(safety)) as dst:
+            cur.backup(dst)
+        print(f"current database saved to {safety}")
+    try:
+        Database.restore_from(src, db_path)
+    except ValueError as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        return 2
+    print(f"restored {src.name} → {db_path}. Start again: ./scripts/start.sh")
     return 0
 
 
@@ -143,6 +205,7 @@ def main() -> None:
     parser.add_argument("--init-db", action="store_true")
     parser.add_argument("--no-api", action="store_true")
     parser.add_argument("--api-only", action="store_true")
+    parser.add_argument("--restore", metavar="FILE", default=None, help="restore a backup (name in data/backups or a path)")
     args = parser.parse_args()
     try:
         code = asyncio.run(run(args))

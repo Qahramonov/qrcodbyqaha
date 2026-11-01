@@ -10,7 +10,6 @@ from fakes import biz_message, business_connection, update_business_message, upd
 from chat_helper.ai.providers.adapters import EchoProvider
 from chat_helper.ai.service import AIError, estimate_cost
 
-pytestmark = pytest.mark.asyncio
 
 
 async def connect(env):

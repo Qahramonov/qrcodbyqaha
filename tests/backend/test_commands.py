@@ -9,7 +9,6 @@ from chat_helper.commands.parser import parse
 from chat_helper.utils.calc import CalcError, evaluate
 from chat_helper.utils.textfix import fix_text
 
-pytestmark = pytest.mark.asyncio
 
 
 def test_parser_variants():

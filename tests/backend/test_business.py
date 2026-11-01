@@ -7,7 +7,6 @@ from aiogram.methods import SendMessage
 from conftest import CONTACT, OWNER, USER2
 from fakes import biz_message, business_connection, update_business_message, update_connection
 
-pytestmark = pytest.mark.asyncio
 
 
 async def connect(env, conn_id="bc1", owner=OWNER, **rights):

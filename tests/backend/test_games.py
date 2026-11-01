@@ -10,7 +10,6 @@ from fakes import biz_message, business_connection, update_business_message, upd
 
 from chat_helper.games.games import last_letter, slot_combo, ttt_best, ttt_winner
 
-pytestmark = pytest.mark.asyncio
 STRANGER = 999
 
 
