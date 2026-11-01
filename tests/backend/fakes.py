@@ -74,7 +74,8 @@ class FakeSession(BaseSession):
         if name == "GetChat":
             return ChatFullInfo(id=int(method.chat_id), type="private", first_name="Owner", last_name="Test", bio="old bio",
                                 accent_color_id=0, max_reaction_count=11, accepted_gift_types={"unlimited_gifts": True, "limited_gifts": True,
-                                                                                              "unique_gifts": True, "premium_subscription": True})
+                                                                                              "unique_gifts": True, "premium_subscription": True,
+                                                                                              "gifts_from_channels": True})
         if name == "GetFile":
             return File(file_id=method.file_id, file_unique_id=method.file_id + "_u", file_path=f"files/{method.file_id}")
         if name == "GetUpdates":

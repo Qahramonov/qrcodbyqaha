@@ -28,7 +28,7 @@
 - [x] 2–3. RBAC (только super admin), gating до подключения, онбординг + инфографика RU/UZ, `tg://settings/edit` — `handlers/ui.py`, `handlers/onboarding.py`, `media/infographic.py`, tests `test_v3_access.py`
 - [x] 4–6. Chat Context Manager (`bizChat`), Chat Control Framework, Mute Engine, Protect/.g, .nogif, .nomute, карточки AFK/auto/online, `.sum`, инспектор прав — `services/chat_controls.py`, `modules/controls.py`, `modules/chat_filters.py`, `handlers/controls.py`, `handlers/chatmgr.py`, миграция M003, tests `test_v3_controls.py`
   - TODO позже: экспорт/удаление данных пользователя должны включать новые таблицы (Phase 12); `.re` (Phase 7) использует карточку `re`
-- [ ] 7–9. Animation Engine, .re, .r (RTL), .mad, .online, новые команды, AI Twin, `.ai`
+- [x] 7–9. Animation Engine (`modules/animations.py`, 16 типов, 4 скорости, студия), `.re` (`modules/repeat.py`), `.r` RTL (`utils/unicode.py`), `.mad`, `.ball`, `.morse`, `.info`/`.finfo`, `.geo`, `.ptext` (tesseract/AI), `.qr` decode (zxing-cpp/zbarimg/AI), `.gif` из фото, `.wtm` видео/кружок, `.remind`/`.remindf` (`services/reminders.py`), `.ai` (+`.gpt`), AI Twin (`ai/twin.py`, `handlers/twin.py`, `.twin`), tests `test_v3_features.py`
 - [ ] 11–12. Локализация (JSON + codemod), новые панели (user/admin), делегирование, миграция M003, API
 - [ ] 13–14. Flutter-приложение + дизайн-система (Figma-ready)
 - [ ] 15–16. Тесты, документация (15 файлов), ZIP v3, отчёт

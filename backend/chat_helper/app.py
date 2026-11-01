@@ -23,7 +23,7 @@ log = logging.getLogger(__name__)
 def load_modules() -> None:
     """Importing modules registers their commands in the global registry (idempotent)."""
     from .games import games  # noqa: F401
-    from .modules import afk, ai_cmds, autoreply, controls, media_cmds, profile, system_cmds, text_tools  # noqa: F401
+    from .modules import afk, ai_cmds, animations, autoreply, controls, extra_cmds, media_cmds, profile, repeat, system_cmds, text_tools  # noqa: F401
 
 
 class ActivityMiddleware(BaseMiddleware):
@@ -77,7 +77,9 @@ async def build_app(cfg: Settings, bot: Bot | None = None, *, with_bot: bool = T
     from .handlers.business import router as business_router
     from .handlers.chatmgr import router as chatmgr_router
     from .handlers.controls import router as controls_router
+    from .modules.animations import router as animations_router
     from .handlers.onboarding import router as onboarding_router
+    from .handlers.twin import router as twin_router
     from .handlers.panel import router as panel_router
     from .media.service import MediaService
     from .modules.afk import AFKService
@@ -140,6 +142,8 @@ async def build_app(cfg: Settings, bot: Bot | None = None, *, with_bot: bool = T
     app.custom_commands = CustomCommandService(app)
     app.ai = AIService(app.db, cfg, app.quotas, app.subs, app.metrics, app.events, app.settings)
     app.ai_auto = AIAutoReply(app)
+    from .ai.twin import TwinService
+    app.twin = TwinService(app)
     app.health = HealthService(app)
     await app.health.check_ffmpeg()
     app.media = MediaService(app)
@@ -158,6 +162,11 @@ async def build_app(cfg: Settings, bot: Bot | None = None, *, with_bot: bool = T
     app.backups = BackupService(app)
     app.analytics = AnalyticsService(app)
     app.scheduler = Scheduler(app.db)
+    from .services.reminders import ReminderService
+    app.reminders = ReminderService(app)
+    from .modules.repeat import interrupt_running
+    await interrupt_running(app)
+    await app.db.execute("UPDATE animation_jobs SET status='interrupted', finished_at=? WHERE status='running'", (int(time.time()),))
 
     if with_bot and bot is None:
         if not cfg.bot_token:
@@ -192,8 +201,8 @@ async def build_app(cfg: Settings, bot: Bot | None = None, *, with_bot: bool = T
     dp["app"] = app
     app.fsm_storage = dp.storage
     dp.update.outer_middleware(ActivityMiddleware(app))
-    for r in (payments_router, business_router, controls_router, ai_drafts_router, ai_cmds_router, media_router, text_router,
-              system_router, games_router, onboarding_router, chatmgr_router, panel_router):
+    for r in (payments_router, business_router, controls_router, animations_router, ai_drafts_router, ai_cmds_router, media_router, text_router,
+              system_router, games_router, onboarding_router, chatmgr_router, twin_router, panel_router):
         if r.parent_router is not None:  # routers are module-level singletons; allow re-binding (tests, restarts)
             r._parent_router = None  # noqa: SLF001
         dp.include_router(r)
@@ -203,9 +212,6 @@ async def build_app(cfg: Settings, bot: Bot | None = None, *, with_bot: bool = T
 def _register_jobs(app: AppContext) -> None:
     sch = app.scheduler
 
-    async def reminder(task: dict[str, Any]) -> None:
-        from .security.sanitize import esc
-        await app.sender.send_text(task["user_id"], "⏰ " + esc(task["payload"].get("text") or ""))
 
     async def timer_delete(task: dict[str, Any]) -> None:
         p = task["payload"]
@@ -222,7 +228,8 @@ def _register_jobs(app: AppContext) -> None:
     async def broadcast_start(task: dict[str, Any]) -> None:
         await app.broadcast.start(int(task["payload"]["id"]), task["user_id"])
 
-    sch.register("reminder", reminder)
+    sch.register("reminder", app.reminders.fire_dm)
+    sch.register("reminder_chat", app.reminders.fire_chat)
     sch.register("timer_delete", timer_delete)
     sch.register("resume_automation", resume_automation)
     sch.register("broadcast_start", broadcast_start)

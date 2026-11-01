@@ -151,11 +151,12 @@ class BusinessSender:
             parse_mode=parse_mode, link_preview_options=LinkPreviewOptions(is_disabled=not preview), protect_content=pc))
 
     async def edit_text(self, chat_id: int, message_id: int, text: str, *, bc_id: str | None = None,
-                        markup: InlineKeyboardMarkup | None = None, parse_mode: str | None = "HTML") -> SendResult:
+                        markup: InlineKeyboardMarkup | None = None, parse_mode: str | None = "HTML", retries: int = 2) -> SendResult:
+        """``retries=0`` for animations: a rate-limited edit is reported at once instead of sleeping on FloodWait."""
         return await self._call(chat_id, lambda: self.bot.edit_message_text(
             text=text[:4096], chat_id=chat_id, message_id=message_id, business_connection_id=bc_id,
             reply_markup=markup, parse_mode=parse_mode, link_preview_options=LinkPreviewOptions(is_disabled=True)),
-            flood=False)
+            flood=False, retries=retries)
 
     async def edit_markup(self, chat_id: int, message_id: int, markup: InlineKeyboardMarkup | None, *,
                           bc_id: str | None = None) -> SendResult:
@@ -206,6 +207,10 @@ class BusinessSender:
         if kind not in factories:
             return SendResult(False, kind=BAD_REQUEST, error=f"unsupported media kind {kind}")
         return await self._call(chat_id, factories[kind], retries=1)
+
+    async def send_location(self, chat_id: int, lat: float, lon: float, *, bc_id: str | None = None) -> SendResult:
+        return await self._call(chat_id, lambda: self.bot.send_location(chat_id=chat_id, latitude=lat, longitude=lon,
+                                                                        business_connection_id=bc_id))
 
     async def send_dice(self, chat_id: int, emoji: str = "🎲", *, bc_id: str | None = None,
                         reply_to: int | None = None) -> SendResult:

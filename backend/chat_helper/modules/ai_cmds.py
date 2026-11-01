@@ -63,7 +63,7 @@ def _need_text(ctx: CommandContext, text: str) -> str:
     return text
 
 
-@registry.command("gpt", "ai", aliases=["ai", "ask", "гпт", "спроси", "ии"],
+@registry.command("ai", "ai", aliases=["gpt", "ask", "гпт", "спроси", "ии"],
                   ru="Задать вопрос AI (можно ответом на сообщение — оно станет контекстом)",
                   uz="AI'ga savol berish (xabarga javob sifatida — u kontekst bo'ladi)",
                   syntax=".gpt вопрос", examples=[".gpt Придумай название для кофейни", ".ask что такое API?"], **AI_COMMON)
@@ -428,3 +428,43 @@ async def cmd_tts(ctx: CommandContext) -> None:
 
 
 __all__ = ["router", "BufferedInputFile"]
+
+
+@registry.command("twin", "ai", aliases=["двойник", "egizak"],
+                  ru="AI-двойник: настройки в личке; auto | manual | draft | off — режим; learn — добавить пример вашего стиля; forget — удалить примеры",
+                  uz="AI-egizak: sozlamalar shaxsiy chatda; auto | manual | draft | off — rejim; learn — uslubingiz namunasini qo'shish; forget — o'chirish",
+                  syntax=".twin [auto|manual|draft|off] | .twin learn [текст или ответом на ВАШЕ сообщение] | .twin forget",
+                  examples=[".twin", ".twin manual", ".twin learn (ответом на своё сообщение)"], rate=(20, 60))
+async def cmd_twin(ctx: CommandContext) -> None:
+    app = ctx.app
+    sub = ctx.parsed.first
+    modes = {"auto": "auto", "manual": "manual", "draft": "draft", "off": "disabled", "выкл": "disabled", "disabled": "disabled"}
+    if sub in modes:
+        await app.twin.update(ctx.user_id, mode=modes[sub])
+        await ctx.answer(ctx.t("🤖 Режим AI-двойника: {m}", "🤖 AI-egizak rejimi: {m}", m=modes[sub]), private=True)
+        return
+    if sub in ("learn", "учись", "o'rgan"):
+        text = ctx.raw.split(None, 1)[1] if len(ctx.raw.split(None, 1)) > 1 else ""
+        if not text and ctx.reply is not None:
+            if ctx.reply.from_user is None or ctx.reply.from_user.id != ctx.user_id:
+                raise CommandError(ctx.t("Добавлять можно только ВАШИ сообщения — ответьте на своё сообщение.",
+                                         "Faqat O'Z xabarlaringizni qo'shish mumkin — o'z xabaringizga javob bering."))
+            text = ctx.reply.text or ctx.reply.caption or ""
+        try:
+            n = await app.twin.add_example(ctx.user_id, text)
+        except ValueError:
+            raise UsageError(ctx.t("Пример: 2–500 символов.", "Namuna: 2–500 belgi.")) from None
+        await ctx.answer(ctx.t("✅ Пример стиля сохранён ({n}). Удалить все: {p}twin forget",
+                               "✅ Uslub namunasi saqlandi ({n}). Hammasini o'chirish: {p}twin forget", n=n, p=ctx.prefix), private=True)
+        return
+    if sub in ("forget", "забудь", "unut"):
+        await app.twin.clear_examples(ctx.user_id)
+        await ctx.answer(ctx.t("🗑 Примеры стиля удалены.", "🗑 Uslub namunalari o'chirildi."), private=True)
+        return
+    from ..handlers.twin import screen_twin
+    text, markup = await screen_twin(app, ctx.user_id, ctx.settings)
+    if ctx.source == "sandbox":
+        await ctx.answer(text)
+        return
+    await app.sender.send_text(ctx.user_id, text, markup=markup)
+    await ctx.cleanup_command(fallback_text="🤖")

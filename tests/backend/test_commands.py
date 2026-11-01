@@ -31,7 +31,8 @@ def test_registry_aliases(env=None):
     assert registry.resolve("дуэль").id == "duel"
     assert registry.resolve("рулетка").id == "revo"
     assert registry.resolve("реверс").id == "reverse"
-    assert registry.resolve("GPT").id == "gpt"
+    assert registry.resolve("GPT").id == "ai" and registry.resolve("ai").id == "ai"   # v3: .ai is the main command, .gpt an alias
+    assert registry.resolve("r").id == "r" and registry.resolve("mad").id == "mad" and registry.resolve("re").id == "re"
     assert len(registry) >= 130
     for spec in registry.commands.values():
         assert spec.handler is not None and spec.ru and spec.uz and spec.syntax and spec.examples, spec.id

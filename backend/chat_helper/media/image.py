@@ -396,6 +396,37 @@ def watermark(im: Image.Image, text: str, position: str = "br", opacity: int = 1
     return Image.alpha_composite(im, layer).convert("RGB")
 
 
+def watermark_layer(size: tuple[int, int], text: str, position: str = "br", opacity: int = 170,
+                    font_path: str | None = None) -> Image.Image:
+    """Transparent full-size RGBA layer with the watermark text (used to overlay videos with FFmpeg)."""
+    blank = Image.new("RGBA", size, (0, 0, 0, 0))
+    layer = Image.new("RGBA", size, (0, 0, 0, 0))
+    d = ImageDraw.Draw(layer)
+    fnt = font(max(14, size[0] // 22), font_path, "Medium")
+    tw, th = d.textlength(text, font=fnt), fnt.size
+    m = size[0] // 40 + 4
+    pos = {"br": (size[0] - tw - m, size[1] - th - m * 1.5), "bl": (m, size[1] - th - m * 1.5), "tr": (size[0] - tw - m, m),
+           "tl": (m, m), "c": ((size[0] - tw) / 2, (size[1] - th) / 2)}.get(position, (size[0] - tw - m, size[1] - th - m * 1.5))
+    d.text(pos, text, font=fnt, fill=(255, 255, 255, opacity), stroke_width=max(1, th // 14), stroke_fill=(0, 0, 0, opacity // 2))
+    return Image.alpha_composite(blank, layer)
+
+
+def zoom_gif(im: Image.Image, out: Path, seconds: float = 2.5, fps: int = 12, max_side: int = 480) -> Path:
+    """Photo → short animated GIF (slow zoom, «Ken Burns»)."""
+    im = im.convert("RGB")
+    im.thumbnail((max_side, max_side))
+    w, h = im.size
+    frames = []
+    n = max(2, int(seconds * fps))
+    for i in range(n):
+        z = 1 + 0.12 * i / (n - 1)
+        cw, ch = int(w / z), int(h / z)
+        left, top = (w - cw) // 2, (h - ch) // 2
+        frames.append(im.crop((left, top, left + cw, top + ch)).resize((w, h), Image.LANCZOS).quantize(colors=128))
+    frames[0].save(out, save_all=True, append_images=frames[1:], duration=int(1000 / fps), loop=0, optimize=True)
+    return out
+
+
 def noise(im: Image.Image, amount: int = 25) -> Image.Image:
     im = im.convert("RGB")
     amount = max(1, min(amount, 100))

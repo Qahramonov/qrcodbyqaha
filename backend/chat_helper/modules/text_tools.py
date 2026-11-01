@@ -29,6 +29,7 @@ from ..keyboards import kb
 from ..security.sanitize import clip, esc
 from ..utils.calc import CalcError, evaluate, fmt_number
 from ..utils.textfix import apply_choice, fix_text
+from ..utils.unicode import reverse_graphemes, rlo
 
 router = Router(name="text_tools")
 TXT = dict(sandbox_safe=True, rate=(30, 60))
@@ -179,7 +180,84 @@ async def cmd_zalgo(ctx: CommandContext) -> None:
 @registry.command("reverse_text", "text", aliases=["перевернуть", "rtext", "teskari_matn"], ru="Перевернуть текст задом наперёд", uz="Matnni teskari qilish",
                   syntax=".reverse_text текст", examples=[".reverse_text привет"], **TXT)
 async def cmd_reverse_text(ctx: CommandContext) -> None:
-    await ctx.answer(esc(_need(ctx)[::-1]))
+    await ctx.answer(esc(reverse_graphemes(_need(ctx))))
+
+
+@registry.command("r", "text", aliases=["rtl", "справаналево", "o'ngdan"],
+                  ru="Текст справа налево (Unicode-безопасно: эмодзи и акценты не ломаются); rlo — направление через RLO-символ",
+                  uz="O'ngdan chapga matn (Unicode xavfsiz: emoji va urg'ular buzilmaydi); rlo — RLO belgisi orqali yo'nalish",
+                  syntax=".r текст | .r rlo текст", examples=[".r Привет 👋🏽", ".r rlo hello"], **TXT)
+async def cmd_r(ctx: CommandContext) -> None:
+    raw = _need(ctx, 2000)
+    first, _, rest = raw.partition(" ")
+    if first.lower() == "rlo" and rest:
+        await ctx.answer(esc(rlo(rest)))
+        return
+    await ctx.answer(esc(reverse_graphemes(raw)))
+
+
+BALL_RU = ["Бесспорно", "Предрешено", "Никаких сомнений", "Определённо да", "Можешь быть уверен в этом", "Мне кажется — да",
+           "Вероятнее всего", "Хорошие перспективы", "Знаки говорят — да", "Да", "Пока не ясно, попробуй снова", "Спроси позже",
+           "Лучше не рассказывать", "Сейчас нельзя предсказать", "Сконцентрируйся и спроси опять", "Даже не думай",
+           "Мой ответ — нет", "По моим данным — нет", "Перспективы не очень хорошие", "Весьма сомнительно"]
+BALL_UZ = ["Shubhasiz", "Oldindan hal qilingan", "Hech qanday shubha yo'q", "Albatta ha", "Bunga ishonishingiz mumkin",
+           "Menimcha — ha", "Ehtimol", "Istiqbol yaxshi", "Belgilar — ha", "Ha", "Hali aniq emas, yana urinib ko'ring",
+           "Keyinroq so'rang", "Aytmaganim ma'qul", "Hozir bashorat qilib bo'lmaydi", "Diqqat qiling va yana so'rang",
+           "Hatto o'ylamang", "Javobim — yo'q", "Ma'lumotlarimga ko'ra — yo'q", "Istiqbol unchalik yaxshi emas", "Juda shubhali"]
+
+
+@registry.command("ball", "text", aliases=["шар", "8ball", "shar"], ru="Магический шар: случайный ответ на вопрос (для развлечения)",
+                  uz="Sehrli shar: savolga tasodifiy javob (ko'ngilochar)", syntax=".ball [вопрос]", examples=[".ball Пойти сегодня в кино?"], **TXT)
+async def cmd_ball(ctx: CommandContext) -> None:
+    q = ctx.raw.strip()
+    answer = _rng.choice(BALL_UZ if ctx.lang == "uz" else BALL_RU)
+    await ctx.answer((f"❓ {esc(clip(q, 300))}\n" if q else "") + f"🎱 <b>{esc(answer)}</b>")
+
+
+MORSE = {**{c: m for c, m in zip("ABCDEFGHIJKLMNOPQRSTUVWXYZ", ".- -... -.-. -.. . ..-. --. .... .. .--- -.- .-.. -- -. --- .--. --.- .-. ... - ..- ...- .-- -..- -.-- --..".split())},
+         **{c: m for c, m in zip("0123456789", "----- .---- ..--- ...-- ....- ..... -.... --... ---.. ----.".split())},
+         ".": ".-.-.-", ",": "--..--", "?": "..--..", "!": "-.-.--", "-": "-....-", "/": "-..-.", "(": "-.--.", ")": "-.--.-",
+         ":": "---...", "'": ".----.", "\"": ".-..-.", "@": ".--.-.", "=": "-...-", "+": ".-.-."}
+MORSE_RU = {c: m for c, m in zip("АБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЬЫЭЮЯ",
+                                  ".- -... .-- --. -.. . ...- --.. .. .--- -.- .-.. -- -. --- .--. .-. ... - ..- ..-. .... -.-. ---. ---- --.- -..- -.-- ..-.. ..-- .-.-".split())}
+MORSE_RU["Ё"] = MORSE_RU["Е"]
+_MORSE_DECODE_LAT = {v: k for k, v in MORSE.items()}
+_MORSE_DECODE_RU = {v: k for k, v in MORSE_RU.items() if k != "Ё"}
+
+
+def morse_encode(text: str) -> str:
+    words = []
+    for w in text.upper().split():
+        words.append(" ".join(MORSE_RU.get(ch) or MORSE.get(ch, "") for ch in w if MORSE_RU.get(ch) or MORSE.get(ch)))
+    return " / ".join(x for x in words if x)
+
+
+def morse_decode(code: str, cyrillic: bool = False) -> str:
+    table = {**_MORSE_DECODE_LAT, **(_MORSE_DECODE_RU if cyrillic else {})}
+    if cyrillic:  # letters shared with Latin decode to Cyrillic when asked
+        table.update(_MORSE_DECODE_RU)
+    out = []
+    for word in re.split(r"\s*/\s*|\s{3,}", code.strip()):
+        out.append("".join(table.get(sym, "�") for sym in word.split()))
+    return " ".join(out)
+
+
+@registry.command("morse", "text", aliases=["морзе", "morze"], ru="Азбука Морзе: текст → код или код → текст (латиница, кириллица, цифры)",
+                  uz="Morze alifbosi: matn → kod yoki kod → matn (lotin, kirill, raqamlar)",
+                  syntax=".morse текст | .morse ... --- ... | .morse ru код", examples=[".morse SOS", ".morse ... --- ...", ".morse ru .--. .-. .. .-- . -"], **TXT)
+async def cmd_morse(ctx: CommandContext) -> None:
+    raw = _need(ctx, 1500).strip()
+    first, _, rest = raw.partition(" ")
+    cyr = first.lower() in ("ru", "кир", "cyr")
+    body = rest if cyr else raw
+    if body and set(body) <= set(".-/ \n·–—"):
+        norm = body.replace("·", ".").replace("–", "-").replace("—", "-")
+        await ctx.answer("📡 " + esc(morse_decode(norm, cyrillic=cyr)))
+        return
+    code = morse_encode(body)
+    if not code:
+        raise CommandError(ctx.t("Нет символов, которые можно закодировать.", "Kodlash mumkin bo'lgan belgilar yo'q."))
+    await ctx.answer(f"📡 <code>{esc(code)}</code>")
 
 
 @registry.command("upper", "text", aliases=["верх", "katta"], ru="ВЕРХНИЙ РЕГИСТР", uz="KATTA HARFLAR", syntax=".upper текст", examples=[".upper привет"], **TXT)
@@ -287,10 +365,21 @@ async def cmd_password(ctx: CommandContext) -> None:
     await ctx.answer(f"🔑 <tg-spoiler><code>{esc(pw)}</code></tg-spoiler>", private=True)
 
 
-@registry.command("qr", "text", aliases=["кьюар", "qrcode"], ru="QR-код из текста или ссылки", uz="Matn yoki havoladan QR-kod", syntax=".qr текст",
-                  examples=[".qr https://t.me/libPM"], rate=(10, 60))
+@registry.command("qr", "text", aliases=["кьюар", "qrcode"], ru="QR-код из текста или ссылки; ответом на фото — распознать QR",
+                  uz="Matn yoki havoladan QR-kod; rasmga javob — QR'ni o'qish", syntax=".qr текст | .qr (ответом на фото с QR)",
+                  examples=[".qr https://t.me/libPM", ".qr (ответом на фото)"], rate=(10, 60))
 async def cmd_qr(ctx: CommandContext) -> None:
     import segno
+    from .media_util import find_media
+    ref = find_media(ctx) if not ctx.raw else None
+    if ref is not None and ref.is_image:          # reply to a picture → decode
+        from .extra_cmds import decode_qr
+        found, engine = await decode_qr(ctx.app, ctx, ref)
+        if not found:
+            await ctx.answer(ctx.t("🔳 QR-код на изображении не найден.", "🔳 Rasmda QR-kod topilmadi."))
+            return
+        await ctx.answer("🔳 " + "\n".join(f"<code>{esc(clip(x, 1500))}</code>" for x in found[:5]) + f"\n<i>{esc(engine)}</i>")
+        return
     text = _need(ctx, 1500)
     qr = segno.make(text, error="m")
     buf = io.BytesIO()

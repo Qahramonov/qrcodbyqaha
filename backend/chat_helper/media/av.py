@@ -132,8 +132,22 @@ class AV:
         if not info["has_video"]:
             raise MediaError("video required")
         out = out_dir / "animation.mp4"
-        await self.ff.run(["-i", str(src), "-t", "60", "-an", "-vf", _scale(480)] + _video_codec(28) + [str(out)], **kw)
+        await self.ff.run(["-i", str(src), "-t", "15", "-an", "-vf", _scale(480)] + _video_codec(28) + [str(out)], **kw)
         return out, "animation", await self._send_extra(out, "animation")
+
+    async def watermark(self, src: Path, kind: str, out_dir: Path, layer_png: Path, **kw: Any) -> Result:
+        """Overlay a full-frame transparent PNG (see image.watermark_layer); keeps video notes round."""
+        info = await self.ff.probe(src)
+        if not info["has_video"]:
+            raise MediaError("video required")
+        out = out_dir / "watermarked.mp4"
+        note = kind == "video_note"
+        fc = "[1:v][0:v]scale2ref[wm][base];[base][wm]overlay=0:0" + (f",{NOTE_FILTER}" if note else f",{_scale()}")
+        args = ["-i", str(src), "-i", str(layer_png), "-filter_complex", fc, "-t", "60" if note else "600"]
+        args += ["-c:a", "aac", "-b:a", "96k"] if info["has_audio"] else ["-an"]
+        await self.ff.run(args + _video_codec(26) + [str(out)], **kw)
+        send = "video_note" if note else ("animation" if kind == "animation" else "video")
+        return out, send, await self._send_extra(out, send)
 
     async def trim(self, src: Path, kind: str, out_dir: Path, start: float, end: float | None, **kw: Any) -> Result:
         info = await self.ff.probe(src)

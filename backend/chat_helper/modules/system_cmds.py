@@ -304,64 +304,110 @@ async def cmd_timer(ctx: CommandContext) -> None:
 ACTIONS = {"typing": "typing", "печать": "typing", "voice": "record_voice", "голос": "record_voice", "video": "record_video_note",
            "кружок": "record_video_note", "photo": "upload_photo", "фото": "upload_photo", "doc": "upload_document", "file": "upload_document",
            "location": "find_location", "sticker": "choose_sticker", "videofile": "upload_video"}
-_ACTIVE_R: dict[tuple[int, int], asyncio.Task] = {}
+MAD_SEQUENCE = ["typing", "record_voice", "upload_photo", "record_video_note", "upload_document", "choose_sticker", "upload_video"]
+_ACTIVE_MAD: dict[tuple[int, int], asyncio.Task] = {}
 
 
-@registry.command("r", "system", aliases=["печатает", "action"], ru="Показать собеседнику «печатает…/записывает…» до 60 с",
-                  uz="Suhbatdoshga «yozmoqda…/yozib olmoqda…» ni 60 s gacha ko'rsatish",
-                  syntax=".r [typing|voice|video|photo|doc|sticker] [секунды]", examples=[".r", ".r voice 20"], where="business", rights=["can_reply"], **SYS)
-async def cmd_r(ctx: CommandContext) -> None:
-    action, secs = "typing", 15
-    for a in ctx.args:
-        if a.lower() in ACTIONS:
-            action = ACTIONS[a.lower()]
-        elif a.isdigit():
-            secs = max(3, min(int(a), 60))
+@registry.command("mad", "system", aliases=["action", "печатает", "актив"],
+                  ru="Короткая контролируемая серия статусов «печатает… / записывает… / отправляет фото…» (до 60 с); stop — отмена. "
+                     "Это не «онлайн»",
+                  uz="Qisqa nazoratli holatlar seriyasi «yozmoqda… / yozib olmoqda… / rasm yubormoqda…» (60 s gacha); stop — bekor. "
+                     "Bu «onlayn» emas",
+                  syntax=".mad [секунды 5–60] [typing|voice|video|photo|doc|sticker…] | .mad stop",
+                  examples=[".mad", ".mad 20", ".mad 30 voice photo", ".mad stop"], where="business", rights=["can_reply"], rate=(4, 60))
+async def cmd_mad(ctx: CommandContext) -> None:
     key = (ctx.user_id, ctx.chat_id)
-    old = _ACTIVE_R.pop(key, None)
-    if old:
+    old = _ACTIVE_MAD.pop(key, None)
+    if old and not old.done():
         old.cancel()
     await ctx.cleanup_command()
+    if ctx.parsed.first in ("stop", "стоп", "off"):
+        return
+    secs, chosen = 15, []
+    for a in ctx.args:
+        if a.isdigit():
+            secs = max(5, min(int(a), 60))
+        elif a.lower() in ACTIONS:
+            chosen.append(ACTIONS[a.lower()])
+    seq = chosen or MAD_SEQUENCE
 
-    async def loop():
+    async def loop() -> None:
         end = time.monotonic() + secs
-        while time.monotonic() < end:
-            await ctx.app.sender.action(ctx.chat_id, action, bc_id=ctx.bc_id)
-            await asyncio.sleep(4.5)
-        _ACTIVE_R.pop(key, None)
-    _ACTIVE_R[key] = asyncio.create_task(loop())
+        i = 0
+        try:
+            while time.monotonic() < end:
+                res = await ctx.app.sender.action(ctx.chat_id, seq[i % len(seq)], bc_id=ctx.bc_id)
+                if not res.ok:
+                    break
+                i += 1
+                await asyncio.sleep(min(4.5, max(0.5, end - time.monotonic())))
+        finally:
+            if _ACTIVE_MAD.get(key) is asyncio.current_task():
+                _ACTIVE_MAD.pop(key, None)
+    _ACTIVE_MAD[key] = asyncio.create_task(loop())
 
 
-@registry.command("a", "system", aliases=["анимация", "typewriter"], ru="Текст «печатается» анимацией (до 8 кадров, безопасно для лимитов)",
-                  uz="Matn animatsiya bilan «yoziladi» (8 kadrgacha)", syntax=".a текст", examples=[".a Привет! Как дела?"], where="business",
-                  rights=["can_reply"], rate=(5, 60))
-async def cmd_a(ctx: CommandContext) -> None:
-    text = ctx.raw.strip()
-    if not text or len(text) > 500:
-        raise UsageError()
-    frames = 8 if len(text) > 16 else max(2, len(text) // 2)
-    step = max(1, len(text) // frames)
-    for i in range(step, len(text), step):
-        res = await ctx.app.sender.edit_text(ctx.chat_id, ctx.message.message_id, esc(text[:i]) + "▌", bc_id=ctx.bc_id)
-        if not res.ok:
-            break
-        await asyncio.sleep(0.9)
-    await ctx.app.sender.edit_text(ctx.chat_id, ctx.message.message_id, esc(text), bc_id=ctx.bc_id)
-
-
-@registry.command("remind", "system", aliases=["напомни", "eslat"], ru="Напоминание вам в личку через время", uz="Vaqt o'tib shaxsiy chatga eslatma",
-                  syntax=".remind время текст", examples=[".remind 30m позвонить маме", ".remind 2h проверить почту"], rate=(10, 60))
-async def cmd_remind(ctx: CommandContext) -> None:
+def _parse_when(ctx: CommandContext) -> tuple[int, str]:
     if len(ctx.args) < 2:
         raise UsageError()
     dur = parse_duration(ctx.args[0])
-    if not dur or not 30 <= dur <= 30 * 86400:
-        raise UsageError()
-    text = ctx.raw.split(None, 1)[1]
-    run_at = int(time.time()) + dur
-    await ctx.app.scheduler.add(ctx.user_id, "reminder", {"text": text[:1000], "chat_id": ctx.chat_id if ctx.is_business else None}, run_at)
+    if not dur or not 30 <= dur <= 365 * 86400:
+        raise UsageError(ctx.t("Время от 30 секунд до года: 10m, 2h, 1d.", "Vaqt 30 soniyadan bir yilgacha: 10m, 2h, 1d."))
+    return int(time.time()) + dur, ctx.raw.split(None, 1)[1]
+
+
+async def _reminder_list(ctx: CommandContext) -> None:
+    rows = await ctx.app.reminders.list(ctx.user_id)
+    tz_name = ctx.settings.get("timezone") or ctx.app.config.timezone
+    lines = [ctx.t("⏰ <b>Напоминания</b>", "⏰ <b>Eslatmalar</b>")]
+    for r in rows:
+        where = ctx.t("в чат", "chatga") if r["kind"] == "chat" else ctx.t("в личку", "shaxsiyga")
+        lines.append(f"#{r['id']} · {fmt_dt(r['run_at'], tz_name)} · {where} · {esc(clip(r['text'], 50))}")
+    if not rows:
+        lines.append(ctx.t("Нет активных напоминаний.", "Faol eslatmalar yo'q."))
+    lines.append(ctx.t("Отменить: <code>{p}remind del ID</code>", "Bekor qilish: <code>{p}remind del ID</code>", p=ctx.prefix))
+    await ctx.answer("\n".join(lines), private=True)
+
+
+@registry.command("remind", "system", aliases=["напомни", "eslat"], ru="Личное напоминание в личку с ботом; list — список, del ID — отменить",
+                  uz="Shaxsiy eslatma bot bilan chatga; list — ro'yxat, del ID — bekor qilish",
+                  syntax=".remind время текст | .remind list | .remind del ID",
+                  examples=[".remind 30m позвонить маме", ".remind 1d оплатить интернет", ".remind list"], rate=(10, 60))
+async def cmd_remind(ctx: CommandContext) -> None:
+    sub = ctx.parsed.first
+    if sub in ("list", "список", "ro'yxat"):
+        await _reminder_list(ctx)
+        return
+    if sub in ("del", "cancel", "удалить", "o'chir"):
+        rid = ctx.args[1] if len(ctx.args) > 1 else ""
+        ok = rid.isdigit() and await ctx.app.reminders.cancel(ctx.user_id, int(rid))
+        await ctx.answer(ctx.t("🗑 Отменено", "🗑 Bekor qilindi") if ok else ctx.t("Не найдено", "Topilmadi"), private=True)
+        return
+    run_at, text = _parse_when(ctx)
+    try:
+        await ctx.app.reminders.create(ctx.user_id, text, run_at, kind="dm")
+    except ValueError as e:
+        raise CommandError(ctx.t("Не удалось создать напоминание: {e}", "Eslatma yaratib bo'lmadi: {e}", e=esc(str(e)))) from None
     tz_name = ctx.settings.get("timezone") or ctx.app.config.timezone
     await ctx.answer(ctx.t("⏰ Напомню в {t}", "⏰ {t} da eslataman", t=fmt_dt(run_at, tz_name)), private=True)
+
+
+@registry.command("remindf", "system", aliases=["напомнивчат", "eslatchat"],
+                  ru="Напоминание в этот чат в указанное время (от вашего имени; нужно право «Ответы» и окно 24 ч Telegram)",
+                  uz="Belgilangan vaqtda shu chatga eslatma (sizning nomingizdan; «Javob berish» huquqi va Telegram 24 soat oynasi kerak)",
+                  syntax=".remindf время текст", examples=[".remindf 1h Не забудь документы!"], where="business",
+                  rights=["can_reply"], status=LIMITED_BY_TELEGRAM, rate=(10, 60))
+async def cmd_remindf(ctx: CommandContext) -> None:
+    run_at, text = _parse_when(ctx)
+    try:
+        await ctx.app.reminders.create(ctx.user_id, text, run_at, kind="chat", chat_id=ctx.chat_id, connection_id=ctx.conn.id)
+    except ValueError as e:
+        raise CommandError(ctx.t("Не удалось создать напоминание: {e}", "Eslatma yaratib bo'lmadi: {e}", e=esc(str(e)))) from None
+    tz_name = ctx.settings.get("timezone") or ctx.app.config.timezone
+    await ctx.cleanup_command(fallback_text="⏰")
+    await ctx.app.sender.send_text(ctx.user_id, ctx.t("⏰ Напоминание для чата «{c}» — {t}", "⏰ «{c}» chati uchun eslatma — {t}",
+                                                      c=esc(clip((await ctx.app.chats.get(ctx.user_id, ctx.chat_id) or {}).get("title") or "", 40)),
+                                                      t=fmt_dt(run_at, tz_name)))
 
 
 @registry.command("tpl", "autoreply", aliases=["шаблон", "template", "shablon"], ru="Шаблоны ответов: save имя | текст, имя (вставить), list, del",

@@ -51,9 +51,13 @@ def _ext(ref: MediaRef) -> str:
 
 
 async def run_media(ctx: CommandContext, op: str, *, need: str = "any", av_fn: Callable | None = None, img_fn: Callable | None = None,
-                    img_format: str | None = None, label: str = "", ref: MediaRef | None = None) -> None:
+                    img_format: str | None = None, label: str = "", ref: MediaRef | None = None,
+                    img_out_fn: Callable | None = None) -> None:
+    """img_out_fn(image, job_dir) -> (path, send_kind) for image ops that produce a non-photo result (GIF)."""
     app = ctx.app
-    ref = ref or require_media(ctx, image=need == "image", av=need == "av")
+    ref = ref or require_media(ctx, image=None if need == "any" else need == "image", av=None if need == "any" else need == "av")
+    if img_out_fn is not None and img_fn is None:
+        img_fn = img_out_fn
     if ref.is_image and img_fn is None:
         raise CommandError(ctx.t("Эта команда работает с аудио/видео.", "Bu buyruq audio/video bilan ishlaydi."))
     if not ref.is_image and av_fn is None:
@@ -73,7 +77,10 @@ async def run_media(ctx: CommandContext, op: str, *, need: str = "any", av_fn: C
         try:
             src = await download(app, ref, d / f"input{_ext(ref)}")
             extra: dict[str, Any] = {}
-            if ref.is_image:
+            if ref.is_image and img_out_fn is not None:
+                im = await app.media.image_op(I.open_image, src)
+                out, kind = await app.media.image_op(img_out_fn, im, d)
+            elif ref.is_image:
                 im = await app.media.image_op(I.open_image, src)
                 out_im = await app.media.image_op(img_fn, im)
                 if op == "sticker":
@@ -203,10 +210,12 @@ async def cmd_circle(ctx: CommandContext) -> None:
     await run_media(ctx, "circle", need="av", av_fn=lambda s, k, d, **kw: ctx.app.media.av.to_circle(s, k, d, **kw), label="circle")
 
 
-@registry.command("gif", "media", aliases=["гиф"], ru="Видео → GIF (анимация без звука)", uz="Video → GIF (ovozsiz animatsiya)",
-                  syntax=".gif", examples=[".gif"], **MEDIA)
+@registry.command("gif", "media", aliases=["гиф"], ru="Фото или видео (до 15 с) → GIF-анимация без звука",
+                  uz="Rasm yoki video (15 s gacha) → ovozsiz GIF animatsiya", syntax=".gif (ответом на фото или видео)",
+                  examples=[".gif"], rate=(8, 60))
 async def cmd_gif(ctx: CommandContext) -> None:
-    await run_media(ctx, "gif", need="av", av_fn=lambda s, k, d, **kw: ctx.app.media.av.to_gif(s, k, d, **kw), label="gif")
+    await run_media(ctx, "gif", need="any", av_fn=lambda s, k, d, **kw: ctx.app.media.av.to_gif(s, k, d, **kw), label="gif",
+                    img_out_fn=lambda im, d: (I.zoom_gif(im, d / "animation.gif"), "animation"))
 
 
 def _time(s: str) -> float:
@@ -404,8 +413,10 @@ async def cmd_sepia(ctx: CommandContext) -> None:
     await run_media(ctx, "sepia", need="image", img_fn=I.sepia)
 
 
-@registry.command("watermark", "media", aliases=["вотермарк", "водянойзнак", "wm"], ru="Водяной знак (позиция: br, bl, tr, tl, c)",
-                  uz="Suv belgisi (joylashuv: br, bl, tr, tl, c)", syntax=".watermark [позиция] текст", examples=[".watermark © Мой бренд", ".watermark c DRAFT"], **IMG)
+@registry.command("watermark", "media", aliases=["вотермарк", "водянойзнак", "wm", "wtm"],
+                  ru="Водяной знак на фото, видео или кружок (позиция: br, bl, tr, tl, c)",
+                  uz="Rasm, video yoki dumaloq videoga suv belgisi (joylashuv: br, bl, tr, tl, c)",
+                  syntax=".wtm [позиция] текст", examples=[".wtm © Мой бренд", ".wtm c DRAFT"], **IMG)
 async def cmd_watermark(ctx: CommandContext) -> None:
     if not ctx.raw:
         raise UsageError()
@@ -414,7 +425,14 @@ async def cmd_watermark(ctx: CommandContext) -> None:
     if first in ("br", "bl", "tr", "tl", "c") and len(ctx.args) > 1:
         pos, text = first, ctx.raw.split(None, 1)[1]
     fp = ctx.app.media.font_path
-    await run_media(ctx, "watermark", need="image", img_fn=lambda im: I.watermark(im, text[:80], pos, 170, fp))
+
+    async def video_wm(src, kind, d, **kw):
+        info = await ctx.app.media.ff.probe(src)
+        layer = d / "wm.png"
+        I.watermark_layer((max(2, info["width"]), max(2, info["height"])), text[:80], pos, 170, fp).save(layer)
+        return await ctx.app.media.av.watermark(src, kind, d, layer, **kw)
+
+    await run_media(ctx, "watermark", need="any", img_fn=lambda im: I.watermark(im, text[:80], pos, 170, fp), av_fn=video_wm)
 
 
 @registry.command("noise", "media", aliases=["шум", "shovqin"], ru="Эффект шума/зерна для фото (1–100)", uz="Rasm uchun shovqin effekti (1–100)",
@@ -451,9 +469,9 @@ async def cmd_sticker(ctx: CommandContext) -> None:
     await run_media(ctx, "sticker", need="image", img_fn=I.sticker)
 
 
-@registry.command("info", "media", aliases=["инфо", "meta"], ru="Метаданные файла (формат, размер, длительность, кодеки)", uz="Fayl metama'lumotlari",
-                  syntax=".info (ответом на медиа)", examples=[".info"], rate=(15, 60))
-async def cmd_info(ctx: CommandContext) -> None:
+@registry.command("finfo", "media", aliases=["fileinfo", "медиаинфо", "meta"], ru="Метаданные файла (формат, размер, длительность, кодеки)",
+                  uz="Fayl metama'lumotlari", syntax=".finfo (ответом на медиа)", examples=[".finfo"], rate=(15, 60))
+async def cmd_finfo(ctx: CommandContext) -> None:
     ref = require_media(ctx)
     app = ctx.app
     d = app.media.files.job_dir("info")
