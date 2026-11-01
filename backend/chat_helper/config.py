@@ -287,8 +287,10 @@ def load_settings(env_file: str | os.PathLike[str] | None = None, **overrides: A
             values[field] = raw.strip()
     values.update(overrides)
     s = Settings(**values)
-    # Never listen publicly unless remote mode is explicitly enabled.
-    if not s.api_remote_enabled and s.api_host not in ("127.0.0.1", "localhost", "::1"):
+    # Never listen publicly unless remote mode is explicitly enabled — and then only over TLS:
+    # pairing codes and bearer tokens must not cross a network in plain HTTP.
+    loopback = s.api_host in ("127.0.0.1", "localhost", "::1")
+    if not loopback and not (s.api_remote_enabled and s.api_ssl_certfile and s.api_ssl_keyfile):
         s.api_host = "127.0.0.1"
     s.media_concurrency = max(1, min(s.media_concurrency, 4))
     s.ai_max_concurrency = max(1, min(s.ai_max_concurrency, 10))

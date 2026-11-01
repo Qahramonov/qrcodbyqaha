@@ -1,4 +1,9 @@
 # Builds Chat helper Control in the cloud — download the APK from the run's "Artifacts" on your phone.
+# Optional release signing: add repository secrets
+#   CH_KEYSTORE_B64  — base64 of your .keystore/.jks   (base64 -w0 my.keystore)
+#   CH_KS_PASS       — keystore + key password
+#   CH_KEY_ALIAS     — key alias
+# Without them the APK is signed with the Gradle debug key.
 name: Android APK
 
 on:
@@ -16,18 +21,27 @@ jobs:
           distribution: temurin
           java-version: "17"
       - uses: android-actions/setup-android@v3
+      - name: Restore signing key (if configured)
+        env:
+          CH_KEYSTORE_B64: ${{ secrets.CH_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$CH_KEYSTORE_B64" ]; then
+            echo "$CH_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+            echo "CH_KEYSTORE=$RUNNER_TEMP/release.keystore" >> "$GITHUB_ENV"
+          fi
       - name: Build release APK (Gradle)
         working-directory: android
         env:
-          CH_KEYSTORE: ${{ secrets.CH_KEYSTORE_PATH }}
           CH_KS_PASS: ${{ secrets.CH_KS_PASS }}
+          CH_KEY_ALIAS: ${{ secrets.CH_KEY_ALIAS }}
         run: |
           chmod +x gradlew
           ./gradlew --no-daemon assembleRelease
-      - name: Unit + UI tests (Robolectric)
-        working-directory: android
-        run: ./gradlew --no-daemon testReleaseUnitTest || true
       - uses: actions/upload-artifact@v4
         with:
           name: Chat_helper_Control
           path: android/app/build/outputs/apk/release/*.apk
+      # Robolectric unit + UI tests (the live-backend flow test is skipped here; scripts/run_android_tests.sh runs it)
+      - name: Unit + UI tests (Robolectric)
+        working-directory: android
+        run: ./gradlew --no-daemon testReleaseUnitTest

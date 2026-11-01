@@ -9,13 +9,15 @@ import time
 from pathlib import Path
 from typing import Any
 
-_TOKEN_RE = re.compile(r"\b\d{6,12}:[A-Za-z0-9_-]{30,}\b")
+# no \b before the digits: the token is usually glued to "bot" in URLs (…/bot123:ABC…/getMe)
+_TOKEN_RE = re.compile(r"(?<![0-9])\d{6,12}:[A-Za-z0-9_-]{30,}(?![A-Za-z0-9_-])")
 _KEY_RES = [
     re.compile(r"\bsk-[A-Za-z0-9_\-]{16,}"),
     re.compile(r"\bsk-ant-[A-Za-z0-9_\-]{16,}"),
     re.compile(r"\bAIza[0-9A-Za-z_\-]{30,}"),
     re.compile(r"(?i)(bearer\s+)[A-Za-z0-9._\-]{16,}"),
     re.compile(r"(?i)([?&]key=)[A-Za-z0-9_\-]{16,}"),
+    re.compile(r"\bch[ar]_[A-Za-z0-9_\-]{20,}"),   # Chat helper access/refresh tokens
 ]
 
 

@@ -128,6 +128,8 @@ async def self_check(cfg) -> int:
     provs = [p["name"] for p in app.ai.providers_status() if p["configured"]]
     print(f"  AI providers     : {', '.join(provs) or 'none (AI features disabled)'}")
     print(f"  API              : {cfg.api_host}:{cfg.api_port} remote={cfg.api_remote_enabled}")
+    if cfg.api_remote_enabled and not (cfg.api_ssl_certfile and cfg.api_ssl_keyfile):
+        print("  WARNING          : API_REMOTE_ENABLED needs API_SSL_CERTFILE + API_SSL_KEYFILE; listening on 127.0.0.1 only")
     print(f"  super admin      : {cfg.super_admin_id}")
     await app.db.close()
     print("RESULT:", "OK" if ok else "PROBLEMS FOUND")

@@ -222,3 +222,16 @@ async def test_security_endpoints(env, api):
     assert r.status_code == 400 and "supervisor" in r.json()["error"]["message"]
     r = await api.post("/api/v1/system/backup", json={"confirm": True}, headers=h(tok))
     assert r.status_code == 200 and r.json()["size"] > 0
+
+
+async def test_api_binds_publicly_only_with_remote_mode_and_tls(tmp_path, monkeypatch):
+    from chat_helper.config import load_settings
+
+    for k in ("API_HOST", "API_REMOTE_ENABLED", "API_SSL_CERTFILE", "API_SSL_KEYFILE"):
+        monkeypatch.delenv(k, raising=False)
+    base = dict(data_dir=tmp_path, bot_token="")
+    assert load_settings(None, api_host="0.0.0.0", **base).api_host == "127.0.0.1"
+    # remote flag alone is not enough: plain HTTP must never leave loopback
+    assert load_settings(None, api_host="0.0.0.0", api_remote_enabled=True, **base).api_host == "127.0.0.1"
+    tls = load_settings(None, api_host="0.0.0.0", api_remote_enabled=True, api_ssl_certfile="c.pem", api_ssl_keyfile="k.pem", **base)
+    assert tls.api_host == "0.0.0.0"
