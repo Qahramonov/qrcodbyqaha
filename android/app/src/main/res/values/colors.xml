@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ch_bg">#FF0A0C16</color>
+    <color name="ch_bg_top">#FF11142A</color>
+    <color name="ch_accent">#FF7C5CFF</color>
+    <color name="ch_accent2">#FF2EC5FF</color>
+    <color name="ch_icon_bg">#FF5B3FE0</color>
+</resources>

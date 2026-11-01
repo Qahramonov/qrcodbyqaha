@@ -37,6 +37,9 @@ def create_api(ctx: Any) -> FastAPI:
         ok, retry = ctx.limiter.check(f"api:ip:{ip}", 600, 60)
         if not ok:
             return error(429, "rate_limited", "Too many requests", headers={"Retry-After": str(retry)})
+        override = request.headers.get("x-http-method-override", "").upper()
+        if request.method == "POST" and override in ("PATCH", "PUT", "DELETE"):
+            request.scope["method"] = override
         cl = request.headers.get("content-length")
         if cl and cl.isdigit() and int(cl) > MAX_BODY:
             return error(413, "payload_too_large", "Request body too large")

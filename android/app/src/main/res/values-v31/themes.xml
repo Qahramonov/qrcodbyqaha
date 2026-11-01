@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="AppTheme" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/ch_bg</item>
+        <item name="android:colorAccent">@color/ch_accent</item>
+        <item name="android:colorPrimary">@color/ch_bg_top</item>
+        <item name="android:statusBarColor">@color/ch_bg_top</item>
+        <item name="android:navigationBarColor">@color/ch_bg</item>
+        <item name="android:windowSplashScreenBackground">@color/ch_bg</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="android:windowSplashScreenIconBackgroundColor">@color/ch_icon_bg</item>
+    </style>
+</resources>
