@@ -590,7 +590,7 @@ public final class AiScreens {
                         final JSONObject d = items.optJSONObject(i);
                         LinearLayout card = UI.card(c);
                         card.addView(UI.caption(c, "#" + d.optInt("id") + " · " + d.optString("status") + " · " + Fmt.dateTime(d.optLong("created_at"))));
-                        card.addView(UI.mt(UI.body2(c, "💬 " + d.optString("incoming_text")), 6));
+                        card.addView(UI.mt(UI.body2(c, "💬 " + str(d, "incoming_text")), 6));
                         card.addView(UI.mt(UI.body(c, "🤖 " + d.optString("draft_text")), 6));
                         if ("pending".equals(d.optString("status"))) {
                             LinearLayout row = UI.row(c);

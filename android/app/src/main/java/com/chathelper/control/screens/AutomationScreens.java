@@ -222,10 +222,10 @@ public final class AutomationScreens {
             for (final String part : new String[]{"morning", "day", "evening", "night"}) {
                 final String key = "afk_text_" + part;
                 afkSet.addView(UI.listRow(c, "moon", Theme.accent, L.t("Свой текст: ", "O'z matni: ", "Custom text: ") + part,
-                        s.optString(key).isEmpty() ? L.t("по умолчанию", "standart", "default") : s.optString(key), null, new Runnable() {
+                        str(s, key).isEmpty() ? L.t("по умолчанию", "standart", "default") : str(s, key), null, new Runnable() {
                             @Override
                             public void run() {
-                                UI.prompt(c, part + " — {name} {reason} {duration} {until}", "", s.optString(key), true, new UI.TextCallback() {
+                                UI.prompt(c, part + " — {name} {reason} {duration} {until}", "", str(s, key), true, new UI.TextCallback() {
                                     @Override
                                     public void on(String v) {
                                         setSetting(key, v);
@@ -257,10 +257,10 @@ public final class AutomationScreens {
                     });
                 }
             }));
-            bh.addView(UI.listRow(c, "chat", Theme.INFO, L.t("Текст вне рабочего времени", "Ish vaqtidan tashqari matn", "Off-hours text"), s.optString("offhours_text"), null, new Runnable() {
+            bh.addView(UI.listRow(c, "chat", Theme.INFO, L.t("Текст вне рабочего времени", "Ish vaqtidan tashqari matn", "Off-hours text"), str(s, "offhours_text"), null, new Runnable() {
                 @Override
                 public void run() {
-                    UI.prompt(c, L.t("Текст вне рабочего времени", "Ish vaqtidan tashqari matn", "Off-hours text"), "", s.optString("offhours_text"), true, new UI.TextCallback() {
+                    UI.prompt(c, L.t("Текст вне рабочего времени", "Ish vaqtidan tashqari matn", "Off-hours text"), "", str(s, "offhours_text"), true, new UI.TextCallback() {
                         @Override
                         public void on(String v) {
                             setSetting("offhours_text", v);
@@ -269,10 +269,10 @@ public final class AutomationScreens {
                     });
                 }
             }));
-            bh.addView(UI.toggleRow(c, L.t("Приветствие новых собеседников", "Yangi suhbatdoshlarni salomlash", "Greet new contacts"), s.optString("welcome_text"), s.optBoolean("welcome_enabled"), new UI.BoolCallback() {
+            bh.addView(UI.toggleRow(c, L.t("Приветствие новых собеседников", "Yangi suhbatdoshlarni salomlash", "Greet new contacts"), str(s, "welcome_text"), s.optBoolean("welcome_enabled"), new UI.BoolCallback() {
                 @Override
                 public void on(boolean v) {
-                    if (v && s.optString("welcome_text").isEmpty()) {
+                    if (v && str(s, "welcome_text").isEmpty()) {
                         UI.prompt(c, L.t("Текст приветствия", "Salomlashish matni", "Welcome text"), "{name}, {owner}, {time}", "", true, new UI.TextCallback() {
                             @Override
                             public void on(String t) {
@@ -344,8 +344,8 @@ public final class AutomationScreens {
             UI.mt(card, 12);
             for (int i = 0; i < items.length(); i++) {
                 final JSONObject r = items.optJSONObject(i);
-                LinearLayout row = UI.toggleRow(c, "#" + r.optInt("id") + " · " + r.optString("pattern", r.optString("trigger_type")),
-                        "→ " + r.optString("response") + " · " + r.optInt("hits") + "×", r.optInt("enabled") == 1, new UI.BoolCallback() {
+                LinearLayout row = UI.toggleRow(c, "#" + r.optInt("id") + " · " + (str(r, "pattern").isEmpty() ? r.optString("trigger_type") : str(r, "pattern")),
+                        "→ " + str(r, "response") + " · " + r.optInt("hits") + "×", r.optInt("enabled") == 1, new UI.BoolCallback() {
                             @Override
                             public void on(boolean v) {
                                 api.patch("/autoreply/rules/" + r.optInt("id"), put(new JSONObject(), "enabled", v), new Cb(false) {
@@ -805,7 +805,7 @@ public final class AutomationScreens {
                         final JSONObject t = items.optJSONObject(i);
                         LinearLayout card = UI.card(c);
                         card.addView(UI.h3(c, t.optString("title")));
-                        card.addView(UI.caption(c, t.optString("description") + " · " + t.optJSONArray("rules").length() + L.t(" правил", " qoida", " rules")));
+                        card.addView(UI.caption(c, str(t, "description") + " · " + t.optJSONArray("rules").length() + L.t(" правил", " qoida", " rules")));
                         card.addView(UI.mt(UI.smallButton(c, L.t("Установить", "O'rnatish", "Install"), new Runnable() {
                             @Override
                             public void run() {
@@ -844,7 +844,7 @@ public final class AutomationScreens {
                     for (int i = 0; i < items.length(); i++) {
                         JSONObject e = items.optJSONObject(i);
                         card.addView(UI.listRow(c, "bolt", "ok".equals(e.optString("status")) ? Theme.SUCCESS : Theme.WARNING,
-                                "rule #" + e.optInt("rule_id") + " · " + e.optString("status"), e.optString("detail"), Fmt.dateTime(e.optLong("created_at")), null));
+                                "rule #" + e.optInt("rule_id") + " · " + e.optString("status"), str(e, "detail"), Fmt.dateTime(e.optLong("created_at")), null));
                     }
                     body.addView(card);
                 }
@@ -1448,7 +1448,7 @@ public final class AutomationScreens {
             for (int i = 0; top != null && i < top.length(); i++) {
                 JSONObject p = top.optJSONObject(i);
                 String medal = i == 0 ? "🥇 " : i == 1 ? "🥈 " : i == 2 ? "🥉 " : (i + 1) + ". ";
-                lc.addView(UI.keyValue(c, medal + p.optString("name", String.valueOf(p.optLong("player_id"))),
+                lc.addView(UI.keyValue(c, medal + (str(p, "name").isEmpty() ? String.valueOf(p.optLong("player_id")) : str(p, "name")),
                         p.optInt("wins") + "W / " + p.optInt("losses") + "L · " + p.optInt("rating") + (p.isNull("best_ms") ? "" : " · ⚡" + p.optInt("best_ms") + "ms")));
             }
             body.addView(lc);

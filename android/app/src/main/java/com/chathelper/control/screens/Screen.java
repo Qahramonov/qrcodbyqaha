@@ -116,6 +116,12 @@ public abstract class Screen {
         return new String[]{first.length() >= 10 ? first.substring(5) : first, last.length() >= 10 ? last.substring(5) : last};
     }
 
+    /** JSON string or "" when the key is missing or JSON null (optString would return the text "null"). */
+    public static String str(JSONObject o, String key) {
+        if (o == null || o.isNull(key)) return "";
+        return o.optString(key, "");
+    }
+
     protected static JSONObject obj(String... kv) {
         JSONObject o = new JSONObject();
         try {

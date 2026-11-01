@@ -63,7 +63,7 @@ public final class SettingsScreens {
             ar.addView(UI.iconBubble(c, "user", Theme.accent));
             LinearLayout at = UI.col(c);
             at.setPadding(Theme.dp(12), 0, 0, 0);
-            at.addView(UI.h3(c, user == null ? "—" : (user.optString("first_name", "") + (user.isNull("username") ? "" : "  @" + user.optString("username")))));
+            at.addView(UI.h3(c, user == null ? "—" : (str(user, "first_name") + (user.isNull("username") ? "" : "  @" + user.optString("username")))));
             at.addView(UI.caption(c, me.optString("role") + " · " + me.optString("plan").toUpperCase() + (user == null ? "" : " · ID " + user.optLong("id"))));
             ar.addView(at, UI.weight(1));
             acc.addView(ar);

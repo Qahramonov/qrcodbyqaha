@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- JVM test harness for Chat helper Control: compiles the app sources against the real Android 14 framework
+     (Robolectric android-all) and runs unit + UI-flow tests without a device or Android Studio.
+     Run via: ../scripts/run_android_tests.sh  (starts a real backend for the flow test) -->
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>com.chathelper</groupId>
+    <artifactId>chat-helper-control-tests</artifactId>
+    <version>1.0.0</version>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <maven.compiler.release>17</maven.compiler.release>
+        <robolectric.version>4.17</robolectric.version>
+        <android.all>14-robolectric-10818077-i7</android.all>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <!-- compile against the public Android 14 SDK stub; Robolectric supplies the real framework at runtime -->
+            <groupId>android</groupId>
+            <artifactId>android-stub</artifactId>
+            <version>34</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/../.tools/android-34.jar</systemPath>
+        </dependency>
+        <dependency>
+            <groupId>org.robolectric</groupId>
+            <artifactId>robolectric</artifactId>
+            <version>${robolectric.version}</version>
+            <scope>test</scope>
+            <exclusions>
+                <!-- androidx.test is published only on Google Maven; the few classes Robolectric needs are provided
+                     as minimal compatible shims in src-shims (see README in that folder) -->
+                <exclusion><groupId>androidx.test</groupId><artifactId>monitor</artifactId></exclusion>
+                <exclusion><groupId>androidx.test.espresso</groupId><artifactId>espresso-idling-resource</artifactId></exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>4.13.2</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <sourceDirectory>../app/src/main/java</sourceDirectory>
+        <testSourceDirectory>../app/src/test/java</testSourceDirectory>
+        <testResources>
+            <testResource>
+                <directory>target/generated-test-resources</directory>
+            </testResource>
+        </testResources>
+        <plugins>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+                <version>3.6.0</version>
+                <executions>
+                    <execution>
+                        <id>add-shims</id>
+                        <phase>generate-test-sources</phase>
+                        <goals><goal>add-test-source</goal></goals>
+                        <configuration>
+                            <sources><source>src-shims</source></sources>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>add-generated-r</id>
+                        <phase>generate-sources</phase>
+                        <goals><goal>add-source</goal></goals>
+                        <configuration>
+                            <sources><source>../build_out/gen</source></sources>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <version>3.8.1</version>
+                <executions>
+                    <execution>
+                        <id>copy-android-all</id>
+                        <phase>process-test-resources</phase>
+                        <goals><goal>copy</goal></goals>
+                        <configuration>
+                            <artifactItems>
+                                <artifactItem>
+                                    <groupId>org.robolectric</groupId>
+                                    <artifactId>android-all-instrumented</artifactId>
+                                    <version>${android.all}</version>
+                                </artifactItem>
+                            </artifactItems>
+                            <outputDirectory>${project.build.directory}/robolectric-deps</outputDirectory>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.5.2</version>
+                <configuration>
+                    <systemPropertyVariables>
+                        <robolectric.offline>true</robolectric.offline>
+                        <robolectric.dependency.dir>${project.build.directory}/robolectric-deps</robolectric.dependency.dir>
+                        <ch.server>${ch.server}</ch.server>
+                        <ch.code>${ch.code}</ch.code>
+                        <ch.code2>${ch.code2}</ch.code2>
+                    </systemPropertyVariables>
+                    <argLine>--add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.net=ALL-UNNAMED</argLine>
+                    <redirectTestOutputToFile>false</redirectTestOutputToFile>
+                    <trimStackTrace>false</trimStackTrace>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

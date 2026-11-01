@@ -47,7 +47,7 @@ public final class HomeScreens {
             JSONObject today = d.optJSONObject("today");
             boolean global = "global".equals(d.optString("scope"));
             JSONObject user = act.me().optJSONObject("user");
-            String name = user != null ? user.optString("first_name", "") : "";
+            String name = user != null ? str(user, "first_name") : "";
             body.addView(UI.caption(c, L.f("Привет, %s 👋", "Salom, %s 👋", "Hi, %s 👋", name.isEmpty() ? "👤" : name)));
 
             // hero status card
@@ -394,7 +394,7 @@ public final class HomeScreens {
             LinearLayout card = UI.card(c);
             for (int i = 0; i < items.length(); i++) {
                 final JSONObject ch = items.optJSONObject(i);
-                String title = ch.optString("title", String.valueOf(ch.optLong("chat_id")));
+                String title = str(ch, "title").isEmpty() ? String.valueOf(ch.optLong("chat_id")) : str(ch, "title");
                 String sub = (ch.isNull("last_preview") ? "" : ch.optString("last_preview"));
                 String trail = ch.optInt("unanswered") > 0 ? "● " + ch.optInt("unanswered") : Fmt.ago(ch.optLong("last_incoming_at"), now());
                 int color = ch.optInt("ignored") == 1 ? Theme.text3 : (ch.optInt("priority_score") >= 5 ? Theme.DANGER : Theme.accent);
@@ -668,7 +668,7 @@ public final class HomeScreens {
                         boolean ok = cap.optBoolean("available");
                         JSONArray miss = cap.optJSONArray("missing_titles");
                         String sub = ok ? null : L.t("Нужно: ", "Kerak: ", "Requires: ") + (miss == null ? "" : miss.toString().replace("[", "").replace("]", "").replace("\"", ""));
-                        caps.addView(UI.listRow(c, ok ? "check" : "close", ok ? Theme.SUCCESS : Theme.DANGER, cap.optString("description"), sub, null, null));
+                        caps.addView(UI.listRow(c, ok ? "check" : "close", ok ? Theme.SUCCESS : Theme.DANGER, str(cap, "description"), sub, null, null));
                     }
                     body.addView(caps);
                     body.addView(UI.section(c, L.t("Права бизнес-бота", "Biznes-bot huquqlari", "Business bot rights")));
@@ -739,7 +739,7 @@ public final class HomeScreens {
                         String lvl = n.optString("level");
                         int color = "error".equals(lvl) ? Theme.DANGER : "warning".equals(lvl) ? Theme.WARNING : Theme.accent;
                         String title = (n.isNull("read_at") ? "● " : "") + n.optString("title");
-                        card.addView(UI.listRow(c, "bell", color, title, n.optString("body"), Fmt.dateTime(n.optLong("created_at")), null));
+                        card.addView(UI.listRow(c, "bell", color, title, str(n, "body"), Fmt.dateTime(n.optLong("created_at")), null));
                     }
                     body.addView(card);
                 }

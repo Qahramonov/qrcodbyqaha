@@ -106,7 +106,7 @@ public final class AdminScreens {
             LinearLayout card = UI.card(c);
             for (int i = 0; i < items.length(); i++) {
                 final JSONObject u = items.optJSONObject(i);
-                String name = (u.optString("first_name", "") + " " + (u.isNull("last_name") ? "" : u.optString("last_name"))).trim();
+                String name = (str(u, "first_name") + " " + (u.isNull("last_name") ? "" : u.optString("last_name"))).trim();
                 if (name.isEmpty()) name = String.valueOf(u.optLong("id"));
                 String sub = (u.isNull("username") ? "" : "@" + u.optString("username") + " · ") + u.optString("plan").toUpperCase()
                         + " · " + (u.optInt("active_connections") > 0 ? "🔗" : "—") + ("restricted".equals(u.optString("status")) ? " · ⛔" : "");
@@ -162,7 +162,7 @@ public final class AdminScreens {
             body.removeAllViews();
             JSONObject u = r.optJSONObject("user");
             LinearLayout card = UI.card(c);
-            card.addView(UI.h2(c, (u.optString("first_name", "") + " " + (u.isNull("last_name") ? "" : u.optString("last_name"))).trim()));
+            card.addView(UI.h2(c, (str(u, "first_name") + " " + (u.isNull("last_name") ? "" : u.optString("last_name"))).trim()));
             card.addView(UI.caption(c, (u.isNull("username") ? "" : "@" + u.optString("username") + " · ") + "ID " + uid));
             card.addView(UI.divider(c));
             card.addView(UI.keyValue(c, L.t("Роль", "Rol", "Role"), r.optString("role")));
@@ -417,7 +417,7 @@ public final class AdminScreens {
                 head.addView(UI.h3(c, p.optString("name")), UI.weight(1));
                 head.addView(UI.badge(c, p.optInt("price_stars") + " ⭐ / " + p.optInt("duration_days") + L.t("д", "k", "d"), Theme.WARNING));
                 card.addView(head);
-                card.addView(UI.caption(c, p.optString("description")));
+                card.addView(UI.caption(c, str(p, "description")));
                 JSONObject lim = p.optJSONObject("limits");
                 if (lim != null) card.addView(UI.mt(UI.caption(c, "AI " + lim.optInt("ai_requests_day") + "/" + L.t("день", "kun", "day") + " · Media " + lim.optInt("media_jobs_day")
                         + " · " + L.t("правил ", "qoidalar ", "rules ") + (lim.optInt("autoreply_rules") == -1 ? "∞" : String.valueOf(lim.optInt("autoreply_rules")))), 6));
@@ -435,7 +435,7 @@ public final class AdminScreens {
                                                 b.put("name", p.optString("name"));
                                                 b.put("price_stars", Integer.parseInt(parts[0]));
                                                 b.put("duration_days", Integer.parseInt(parts.length > 1 ? parts[1] : "30"));
-                                                b.put("description", p.optString("description"));
+                                                b.put("description", str(p, "description"));
                                                 b.put("sort", p.optInt("sort"));
                                                 api.put("/subscriptions/plans/" + p.optString("id"), b, new Cb(false) {
                                                     @Override
@@ -582,7 +582,7 @@ public final class AdminScreens {
                             running |= "running".equals(st);
                             String sub = st + " · " + b.optInt("sent") + "/" + b.optInt("total") + (b.optInt("failed") > 0 ? " · ✕" + b.optInt("failed") : "");
                             card.addView(UI.listRow(c, "megaphone", "done".equals(st) ? Theme.SUCCESS : "running".equals(st) ? Theme.INFO : Theme.text3,
-                                    "#" + b.optInt("id") + " " + b.optString("text", "").replace("\n", " "), sub, Fmt.dateTime(b.optLong("created_at")), new Runnable() {
+                                    "#" + b.optInt("id") + " " + str(b, "text").replace("\n", " "), sub, Fmt.dateTime(b.optLong("created_at")), new Runnable() {
                                         @Override
                                         public void run() {
                                             manage(b);
@@ -872,8 +872,8 @@ public final class AdminScreens {
             JSONArray items = sessions.optJSONArray("items");
             for (int i = 0; items != null && i < items.length(); i++) {
                 final JSONObject s = items.optJSONObject(i);
-                sc.addView(UI.listRow(c, "phone", Theme.accent, s.optString("device_name", s.optString("device_id")),
-                        "user " + s.optLong("user_id") + " · " + s.optString("last_ip", "") + " · " + Fmt.dateTime(s.optLong("last_used_at")),
+                sc.addView(UI.listRow(c, "phone", Theme.accent, str(s, "device_name").isEmpty() ? str(s, "device_id") : str(s, "device_name"),
+                        "user " + s.optLong("user_id") + " · " + str(s, "last_ip") + " · " + Fmt.dateTime(s.optLong("last_used_at")),
                         L.t("отозвать", "bekor", "revoke"), new Runnable() {
                             @Override
                             public void run() {
@@ -913,7 +913,7 @@ public final class AdminScreens {
                 JSONObject e = li.optJSONObject(i);
                 boolean ok = e.optInt("success") == 1;
                 lc.addView(UI.listRow(c, ok ? "check" : "close", ok ? Theme.SUCCESS : Theme.DANGER, (ok ? "✓ " : "✕ ") + e.optString("reason"),
-                        e.optString("ip", "") + " · " + e.optString("device_name", ""), Fmt.dateTime(e.optLong("created_at")), null));
+                        str(e, "ip") + " · " + str(e, "device_name"), Fmt.dateTime(e.optLong("created_at")), null));
             }
             body.addView(lc);
             body.addView(UI.button(c, L.t("Журнал действий (аудит)", "Amallar jurnali (audit)", "Audit log"), false, new Runnable() {
@@ -1202,10 +1202,10 @@ public final class AdminScreens {
                     UI.mt(card, 12);
                     for (int i = 0; i < items.length(); i++) {
                         final JSONObject f = items.optJSONObject(i);
-                        card.addView(UI.toggleRow(c, f.optString("key"), f.optString("description", ""), f.optBoolean("enabled", f.optBoolean("active_for_me")), new UI.BoolCallback() {
+                        card.addView(UI.toggleRow(c, f.optString("key"), str(f, "description"), f.optBoolean("enabled", f.optBoolean("active_for_me")), new UI.BoolCallback() {
                             @Override
                             public void on(boolean v) {
-                                save(f.optString("key"), v, f.optString("description", ""));
+                                save(f.optString("key"), v, str(f, "description"));
                             }
                         }));
                     }
