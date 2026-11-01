@@ -214,7 +214,7 @@ class GameEngine:
                 await self.games[s.game].timeout(self, s)
             return "⌛"
         game = self.games[s.game]
-        allowed = uid in s.players or (action == "accept" and uid == s.state.get("invitee"))
+        allowed = uid in s.players or (action in ("accept", "decline") and uid == s.state.get("invitee"))
         if not allowed:
             return self.t(s, "Это не ваша игра 🙂", "Bu sizning o'yiningiz emas 🙂")
         async with self.locks[sid]:

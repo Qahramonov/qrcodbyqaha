@@ -175,6 +175,8 @@ class AnalyticsService:
             bw = (x1 - x0) / n
             for i, v in enumerate(vals):
                 h = (y1 - y0 - 10) * (v / mx)
+                if h < 2:
+                    continue
                 d.rectangle((x0 + i * bw + 2, y1 - h, x0 + (i + 1) * bw - 2, y1 - 1), fill=(108, 92, 231))
             y += 260
             if y > H - 260:

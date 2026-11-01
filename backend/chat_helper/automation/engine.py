@@ -330,11 +330,11 @@ class AutomationEngine:
         for a in actions or rule["actions"]:
             t = a["type"]
             try:
-                if t in CHAT_ACTIONS and (chat_id is None or conn is None):
-                    done.append(f"{t}:skipped(no chat)")
-                    continue
                 if dry_run:
                     done.append(f"{t}:would_run")
+                    continue
+                if t in CHAT_ACTIONS and (chat_id is None or conn is None):
+                    done.append(f"{t}:skipped(no chat)")
                     continue
                 if t in ("reply", "reply_template", "ai_reply"):
                     why = app.pipeline.gate(conn, settings, chat_row or {"chat_id": chat_id}, False)

@@ -35,7 +35,7 @@ class Duel(Game):
     ttl = 180
 
     async def start(self, eng, s, args):
-        a, b = list(s.players)[0], s.state["invitee"]
+        a = list(s.players)[0]
         if s.vs_bot:
             s.status = "active"
             await eng.send(s, eng.t(s, "⚔️ <b>Дуэль на реакцию</b> с Chat helper!\nКогда загорится 🟢 — жми кнопку. Раньше времени — фальстарт.",
@@ -159,9 +159,10 @@ class Revo(Game):
         if pos == s.state["bullet"]:
             winner = s.other(uid)
             s.state["pos"] = pos + 1
-            await eng.edit(s, await self._render(eng, s, eng.t(s, "💥 <b>БАХ!</b> {p} выбывает (виртуально 😉)\n🏆 Победитель: <b>{w}</b>",
-                                                               "💥 <b>BAH!</b> {p} chiqib ketdi (virtual 😉)\n🏆 G'olib: <b>{w}</b>",
-                                                               p=s.name(uid), w=s.name(winner))).rsplit("\n", 1)[0], None)
+            rendered = await self._render(eng, s, eng.t(s, "💥 <b>БАХ!</b> {p} выбывает (виртуально 😉)\n🏆 Победитель: <b>{w}</b>",
+                                                        "💥 <b>BAH!</b> {p} chiqib ketdi (virtual 😉)\n🏆 G'olib: <b>{w}</b>",
+                                                        p=s.name(uid), w=s.name(winner)))
+            await eng.edit(s, rendered.rsplit("\n", 1)[0], None)
             await eng.finish(s, winner, uid, score={"shot": pos + 1})
             return "💥"
         s.state["pos"] = pos + 1

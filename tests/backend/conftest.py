@@ -29,6 +29,7 @@ async def env(tmp_path: Path):
     app.bot_info = await bot.get_me()
     app.sender.flood.per_chat_interval = 0.0
     app.sender.flood.global_interval = 0.0
+    app.media.queue.start()
     session.clear()
 
     class Env:
