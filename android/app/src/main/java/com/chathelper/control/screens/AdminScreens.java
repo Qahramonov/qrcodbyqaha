@@ -1046,6 +1046,7 @@ public final class AdminScreens {
                     {L.t("Журнал логов", "Loglar", "Logs"), "logs"},
                     {L.t("Очистить временные файлы", "Vaqtinchalik fayllarni tozalash", "Clean temp files"), "cleanup"},
                     {L.t("Создать резервную копию", "Zaxira nusxa yaratish", "Create backup"), "backup"},
+                    {L.t("Резервные копии (Backup Center)", "Zaxira nusxalar (Backup Center)", "Backups (Backup Center)"), "backups"},
                     {L.t("Проверка целостности БД", "Baza yaxlitligini tekshirish", "Database integrity"), "integrity"},
                     {L.t("Перезапуск очереди медиа", "Media navbatini qayta ishga tushirish", "Restart media queue"), "restart:media_queue"},
                     {L.t("Перезапуск планировщика", "Rejalashtiruvchini qayta ishga tushirish", "Restart scheduler"), "restart:scheduler"},
@@ -1088,6 +1089,25 @@ public final class AdminScreens {
                                 toast("🗄 " + r.optString("name") + " · " + Fmt.bytes(r.optLong("size")));
                             }
                         });
+                    }
+                });
+            } else if ("backups".equals(a)) {
+                api.get("/system/backups", new Cb(false) {
+                    @Override
+                    public void ok(JSONObject r) {
+                        JSONArray items = r.optJSONArray("items");
+                        StringBuilder sb = new StringBuilder(L.f("Хранится последних: %d · авто каждые %d ч\n\n", "Saqlanadi: %d · avto har %d soat\n\n",
+                                "Keeping last %d · auto every %d h\n\n", r.optInt("keep"), r.optInt("interval_hours")));
+                        if (items == null || items.length() == 0) sb.append(L.t("Копий пока нет", "Hozircha nusxalar yo'q", "No backups yet"));
+                        for (int i = 0; items != null && i < items.length(); i++) {
+                            JSONObject b = items.optJSONObject(i);
+                            sb.append("• ").append(b.optString("name")).append("\n   ").append(Fmt.bytes(b.optLong("size"))).append(" · ")
+                                    .append(Fmt.dateTime(b.optLong("created_at"))).append('\n');
+                        }
+                        sb.append(L.t("\nВосстановление: остановите бота (./scripts/stop.sh) и замените backend/data/chat_helper.db выбранной копией.",
+                                "\nTiklash: botni to'xtating (./scripts/stop.sh) va backend/data/chat_helper.db ni tanlangan nusxa bilan almashtiring.",
+                                "\nRestore: stop the bot (./scripts/stop.sh) and replace backend/data/chat_helper.db with the chosen copy."));
+                        UI.info(c, "Backup Center", sb.toString());
                     }
                 });
             } else if ("integrity".equals(a)) {
