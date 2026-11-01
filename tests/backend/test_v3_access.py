@@ -270,3 +270,38 @@ async def test_delegation_limits_admin_changes(env):
     assert await env.app.delegation.decide_profile_change(USER2, rid, True) == "already_decided"
     hist = await env.app.delegation.history(USER2)
     assert {h["action"] for h in hist} >= {"grant", "use", "request"}
+
+
+async def test_v3_api_endpoints(env):
+    from fakes import biz_message, update_business_message
+    await connect(env, USER2, "bc2")
+    await env.feed(update_business_message(biz_message("bc2", 5550000009, 5550000009, "привет")))
+    api_app = create_api(env.app)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=api_app), base_url="http://127.0.0.1") as api:
+        code, _ = await env.app.auth.create_pairing_code(USER2)
+        tok = (await api.post("/api/v1/auth/pair", json={"code": code, "device_id": "dev-v3", "device_name": "P"})).json()
+        h = {"Authorization": f"Bearer {tok['access_token']}"}
+        ob = (await api.get("/api/v1/onboarding", headers=h)).json()
+        assert ob["connected"] and ob["settings_link"] == "tg://settings/edit"
+        r = await api.patch("/api/v1/chats/5550000009/controls", headers=h, json={"module": "mute", "enabled": True})
+        assert r.status_code == 409 and r.json()["error"]["code"] == "confirmation_required"
+        r = await api.patch("/api/v1/chats/5550000009/controls", headers=h, json={"module": "mute", "enabled": True, "until_for": 600, "confirm": True})
+        assert r.status_code == 200 and r.json()["modules"]["mute"]["enabled"]
+        r = await api.patch("/api/v1/chats/123/controls", headers=h, json={"module": "protect", "enabled": True})
+        assert r.status_code == 404                                          # not this user's chat
+        assert (await api.get("/api/v1/mute", headers=h)).json()["active"][0]["module"] == "mute"
+        r = await api.put("/api/v1/ai/twin", headers=h, json={"mode": "manual", "formality": 80, "persona": "female"})
+        assert r.json()["profile"]["mode"] == "manual"
+        assert (await api.put("/api/v1/ai/twin", headers=h, json={"mode": "bad"})).status_code == 422
+        frames = (await api.post("/api/v1/animations/preview", headers=h, json={"kind": "progress", "text": "Go"})).json()["frames"]
+        assert frames[-1] == "Go"
+        rem = (await api.post("/api/v1/reminders", headers=h, json={"text": "test", "in_sec": 600})).json()
+        assert (await api.delete(f"/api/v1/reminders/{rem['id']}", headers=h)).status_code == 200
+        perms = (await api.get("/api/v1/permissions", headers=h)).json()["connections"][0]
+        assert any(x["right"] == "can_delete_all_messages" and "mute" in x["commands"] for x in perms["rights"])
+        await api.put("/api/v1/delegation/ai", headers=h, json={"granted": True})
+        # user cannot use admin delegation endpoints
+        assert (await api.get(f"/api/v1/admin/delegated/{USER2}", headers=h)).status_code == 403
+        export = (await api.get("/api/v1/export", headers=h)).json()
+        assert {"chat_controls", "mute_events", "ai_twin", "reminders", "delegation", "chat_history"} <= set(export)
+        assert export["chat_history"][0]["text"] == "привет"

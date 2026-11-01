@@ -70,6 +70,16 @@ class BackupService:
             "app_sessions": await self.app.auth.sessions(uid, include_revoked=True),
             "notifications": await q("SELECT * FROM notification_events WHERE user_id=? ORDER BY id DESC LIMIT 500", uid),
             "command_history": await q("SELECT command_id, source, ok, created_at FROM command_history WHERE user_id=? ORDER BY id DESC LIMIT 2000", uid),
+            # v3
+            "chat_controls": await q("SELECT chat_id, module, enabled, state_json, until_at, updated_at FROM chat_control_states WHERE owner_id=?", uid),
+            "mute_rules": await q("SELECT * FROM mute_rules WHERE owner_id=?", uid),
+            "mute_events": await q("SELECT chat_id, message_id, msg_type, source, result, created_at FROM mute_events WHERE owner_id=? "
+                                   "ORDER BY id DESC LIMIT 2000", uid),
+            "ai_twin": await self.app.twin.get(uid) if getattr(self.app, "twin", None) else None,
+            "reminders": await q("SELECT id, kind, chat_id, text, run_at, status, created_at FROM reminders WHERE owner_id=?", uid),
+            "delegation": await q("SELECT scope, granted_at, expires_at, revoked_at FROM delegated_permissions WHERE owner_id=?", uid),
+            "delegation_log": await q("SELECT scope, action, actor_id, details_json, created_at FROM delegation_consents WHERE owner_id=?", uid),
+            "chat_history": await q("SELECT chat_id, outgoing, msg_type, text, created_at FROM chat_messages WHERE owner_id=? ORDER BY id DESC LIMIT 5000", uid),
         }
         for r in data["chats"]:
             r["tags"] = loads(r.pop("tags_json", "[]"), [])

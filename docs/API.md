@@ -8,7 +8,7 @@
 
 **Ошибки:** `{"error": {"code": "...", "message": "..."}}` · 401 токен · 403 роль · 404 не найдено/чужое · 409 конфликт · 422 валидация · 429 лимит (`Retry-After`).
 
-**Роли:** `user` — только свои данные; `moderator` — пользователи/аналитика/система (чтение); `super_admin` (ID из `SUPER_ADMIN_ID`) — всё. Роль вычисляется на сервере; передача чужого Telegram ID в запросе ничего не даёт.
+**Роли:** `user` — только свои данные; `super_admin` (ID из `SUPER_ADMIN_ID`) — всё. Роль вычисляется на сервере; передача чужого Telegram ID в запросе ничего не даёт.
 
 ## afk
 
@@ -42,12 +42,30 @@
 | `PATCH` | `/ai/system` | Ai System |
 | `GET` | `/ai/usage` | Usage |
 
+## ai-twin
+
+| Метод | Путь | Описание |
+|---|---|---|
+| `GET` | `/ai/twin` | Twin Get |
+| `PUT` | `/ai/twin` | Twin Put |
+| `POST` | `/ai/twin/examples` | Twin Example |
+| `DELETE` | `/ai/twin/examples` | Twin Examples Clear |
+| `POST` | `/ai/twin/preview` | Twin Preview |
+
 ## analytics
 
 | Метод | Путь | Описание |
 |---|---|---|
 | `GET` | `/analytics/export` | Analytics Export |
 | `GET` | `/analytics/overview` | Analytics |
+
+## animations
+
+| Метод | Путь | Описание |
+|---|---|---|
+| `GET` | `/animations` | Animations |
+| `POST` | `/animations/preview` | Animation Preview |
+| `PUT` | `/animations/settings` | Animation Settings |
 
 ## auth
 
@@ -98,6 +116,14 @@
 | `GET` | `/broadcasts/{bid}` | Broadcast Detail |
 | `POST` | `/broadcasts/{bid}/{action}` | Broadcast Action |
 
+## chat-controls
+
+| Метод | Путь | Описание |
+|---|---|---|
+| `GET` | `/admin/chat-controls` | Admin Controls |
+| `GET` | `/chats/{chat_id}/controls` | Chat Controls |
+| `PATCH` | `/chats/{chat_id}/controls` | Set Chat Control |
+
 ## chats
 
 | Метод | Путь | Описание |
@@ -137,6 +163,16 @@
 |---|---|---|
 | `GET` | `/dashboard` | Dashboard |
 
+## delegation
+
+| Метод | Путь | Описание |
+|---|---|---|
+| `GET` | `/admin/delegated/{uid}` | Admin Delegated |
+| `POST` | `/admin/delegated/{uid}/profile-request` | Admin Profile Request |
+| `PATCH` | `/admin/delegated/{uid}/settings` | Admin Delegated Settings |
+| `GET` | `/delegation` | Delegation |
+| `PUT` | `/delegation/{scope}` | Delegation Set |
+
 ## flags
 
 | Метод | Путь | Описание |
@@ -174,12 +210,25 @@
 | `PATCH` | `/media/settings` | Media System |
 | `GET` | `/media/stats` | Media Stats |
 
+## mute
+
+| Метод | Путь | Описание |
+|---|---|---|
+| `GET` | `/mute` | Mute Overview |
+| `PUT` | `/mute/settings` | Mute Settings |
+
 ## notifications
 
 | Метод | Путь | Описание |
 |---|---|---|
 | `GET` | `/notifications` | Notifications |
 | `POST` | `/notifications/read` | Notifications Read |
+
+## onboarding
+
+| Метод | Путь | Описание |
+|---|---|---|
+| `GET` | `/onboarding` | Onboarding |
 
 ## payments
 
@@ -188,11 +237,31 @@
 | `GET` | `/payments` | Payments |
 | `POST` | `/payments/{pid}/refund` | Refund |
 
+## permissions
+
+| Метод | Путь | Описание |
+|---|---|---|
+| `GET` | `/permissions` | Permissions |
+
 ## privacy
 
 | Метод | Путь | Описание |
 |---|---|---|
 | `GET` | `/export` | Export Me |
+
+## protect
+
+| Метод | Путь | Описание |
+|---|---|---|
+| `GET` | `/protect` | Protect Overview |
+
+## reminders
+
+| Метод | Путь | Описание |
+|---|---|---|
+| `GET` | `/reminders` | Reminders |
+| `POST` | `/reminders` | Reminder Create |
+| `DELETE` | `/reminders/{rid}` | Reminder Cancel |
 
 ## security
 
@@ -260,4 +329,4 @@
 | `POST` | `/users/{uid}/subscription` | Grant |
 | `DELETE` | `/users/{uid}/subscription` | Revoke Sub |
 
-Всего эндпоинтов: **135**.
+Всего эндпоинтов: **159**.

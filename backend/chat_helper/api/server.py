@@ -69,7 +69,7 @@ def create_api(ctx: Any) -> FastAPI:
     async def value_exc(_: Request, exc: ValueError):
         return error(400, "bad_request", str(exc)[:300])
 
-    from .routers import admin_routes, ai_routes, auth_routes, ops_routes, user_routes
-    for r in (auth_routes.router, user_routes.router, ai_routes.router, ops_routes.router, admin_routes.router):
+    from .routers import admin_routes, ai_routes, auth_routes, ops_routes, user_routes, v3_routes
+    for r in (auth_routes.router, user_routes.router, ai_routes.router, ops_routes.router, admin_routes.router, v3_routes.router):
         api.include_router(r, prefix="/api/v1")
     return api

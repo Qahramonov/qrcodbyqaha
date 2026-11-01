@@ -159,6 +159,19 @@ class UserService:
                 "DELETE FROM automation_rules WHERE user_id=?",
                 "DELETE FROM custom_commands WHERE user_id=?",
                 "DELETE FROM profile_history WHERE user_id=?",
+                # v3 tables
+                "DELETE FROM chat_control_states WHERE owner_id=?",
+                "DELETE FROM control_messages WHERE owner_id=?",
+                "DELETE FROM mute_rules WHERE owner_id=?",
+                "DELETE FROM mute_events WHERE owner_id=?",
+                "DELETE FROM ai_twin_profiles WHERE user_id=?",
+                "DELETE FROM animation_jobs WHERE owner_id=?",
+                "DELETE FROM repetition_jobs WHERE owner_id=?",
+                "DELETE FROM reminders WHERE owner_id=?",
+                "DELETE FROM permission_snapshots WHERE owner_id=?",
+                "DELETE FROM delegated_permissions WHERE owner_id=?",
+                "DELETE FROM delegation_consents WHERE owner_id=?",
+                "DELETE FROM chat_messages WHERE owner_id=?",
                 "DELETE FROM pairing_codes WHERE user_id=?",
             ):
                 await tx.execute(sql, (user_id,))
