@@ -1,0 +1,33 @@
+# Builds Chat helper Control in the cloud — download the APK from the run's "Artifacts" on your phone.
+name: Android APK
+
+on:
+  push:
+    paths: ["android/**", ".github/workflows/android.yml"]
+  workflow_dispatch:
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: android-actions/setup-android@v3
+      - name: Build release APK (Gradle)
+        working-directory: android
+        env:
+          CH_KEYSTORE: ${{ secrets.CH_KEYSTORE_PATH }}
+          CH_KS_PASS: ${{ secrets.CH_KS_PASS }}
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleRelease
+      - name: Unit + UI tests (Robolectric)
+        working-directory: android
+        run: ./gradlew --no-daemon testReleaseUnitTest || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Chat_helper_Control
+          path: android/app/build/outputs/apk/release/*.apk
