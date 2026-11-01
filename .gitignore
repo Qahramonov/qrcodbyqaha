@@ -24,3 +24,6 @@ android/build_out/
 .idea/
 *.iml
 android/.tools/
+
+# Robolectric (Maven) build output
+android/robolectric/target/
