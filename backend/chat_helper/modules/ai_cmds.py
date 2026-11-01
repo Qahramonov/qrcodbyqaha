@@ -102,7 +102,53 @@ async def cmd_translate(ctx: CommandContext) -> None:
     await ctx.answer(esc(out))
 
 
-@registry.command("summary", "ai", aliases=["sum", "кратко", "резюме", "xulosa"],
+async def chat_history_text(app: Any, owner: int, chat_id: int, n: int) -> str:
+    """Last *n* stored messages of the chat (only this owner's data; requires history storage to be enabled)."""
+    rows = await app.db.fetchall("SELECT outgoing, msg_type, text, created_at FROM chat_messages WHERE owner_id=? AND chat_id=? "
+                                 "ORDER BY id DESC LIMIT ?", (owner, chat_id, n))
+    lines = [f"{'Me' if r['outgoing'] else 'Them'}: {r['text'] or '[' + (r['msg_type'] or 'message') + ']'}" for r in reversed(rows)]
+    if not lines:  # older installs: fall back to the AI conversation history
+        hist = await app.ai.memory.history(owner, chat_id, n)
+        lines = [f"{'Them' if h['role'] == 'user' else 'Me'}: {h['content']}" for h in hist]
+    return "\n".join(lines)
+
+
+async def summarize_chat(app: Any, owner: int, chat_id: int, n: int, lang: str) -> str:
+    from ..localization import tr as _tr
+    if not app.ai.available():
+        return _tr(lang, "🧠 AI-провайдер не настроен — пересказ недоступен.", "🧠 AI provayderi sozlanmagan — xulosa mavjud emas.")
+    history = await chat_history_text(app, owner, chat_id, n)
+    if not history:
+        return _tr(lang, "📭 Нет сохранённых сообщений этого чата. Проверьте, что включено «Хранить историю» (меню → AI).",
+                   "📭 Bu chatning saqlangan xabarlari yo'q. «Tarixni saqlash» yoqilganini tekshiring (menyu → AI).")
+    s = await app.settings.all(owner)
+    try:
+        res = await app.ai.ask(owner, wrap_untrusted(history, "conversation"), s,
+                               task_system=TASK_PROMPTS["summary_chat"].format(lang=LANGS.get(lang, "Russian")), kind="summary_chat",
+                               max_tokens=900)
+    except AIError as e:
+        return ai_error_text(lang, e)
+    title = (await app.chats.get(owner, chat_id) or {}).get("title") or str(chat_id)
+    return _tr(lang, "📝 <b>Пересказ чата «{t}»</b> ({n} сообщ.)\n\n{x}", "📝 <b>«{t}» chati xulosasi</b> ({n} xabar)\n\n{x}",
+               t=esc(title), n=history.count("\n") + 1, x=esc(res.text))
+
+
+@registry.command("sum", "ai", aliases=["пересказ", "qaytaaytish"],
+                  ru="AI-пересказ последних 10–100 сообщений этого чата: темы, договорённости, вопросы, задачи — вам в личку",
+                  uz="Ushbu chatning so'nggi 10–100 xabari AI-xulosasi: mavzular, kelishuvlar, savollar, vazifalar — shaxsiy chatga",
+                  syntax=".sum [10–100]", examples=[".sum", ".sum 50"], where="business", **AI_COMMON)
+async def cmd_sum(ctx: CommandContext) -> None:
+    n = 30
+    if ctx.args:
+        if not ctx.parsed.first.isdigit() or not 10 <= int(ctx.parsed.first) <= 100:
+            raise UsageError(ctx.t("Число сообщений от 10 до 100.", "Xabarlar soni 10 dan 100 gacha."))
+        n = int(ctx.parsed.first)
+    await ctx.require_ai()
+    await ctx.cleanup_command(fallback_text="📝")
+    await ctx.app.sender.send_text(ctx.user_id, await summarize_chat(ctx.app, ctx.user_id, ctx.chat_id, n, ctx.lang))
+
+
+@registry.command("summary", "ai", aliases=["кратко", "резюме", "xulosa"],
                   ru="Краткое содержание текста, сообщения-ответа или недавней переписки чата",
                   uz="Matn, javob xabari yoki so'nggi suhbatning qisqacha mazmuni",
                   syntax=".summary [текст]", examples=[".summary (ответом на длинное сообщение)", ".summary"], **AI_COMMON)

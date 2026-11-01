@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import time
 
 from aiogram import Router
 from aiogram.types import BusinessConnection, BusinessMessagesDeleted, Message
@@ -27,6 +28,11 @@ async def on_business_connection(bc: BusinessConnection, app: AppContext) -> Non
     change = await app.connections.upsert(bc.id, u.id, bc.user_chat_id, bc.is_enabled, bc.rights,
                                           int(bc.date.timestamp()) if hasattr(bc.date, "timestamp") else None)
     conn = change.conn
+    if change.kind != "unchanged":
+        from ..database.db import dumps
+        await app.db.execute("INSERT INTO permission_snapshots(connection_id, owner_id, is_enabled, rights_json, status, change, created_at) "
+                             "VALUES (?,?,?,?,?,?,?)", (bc.id, u.id, 1 if conn.is_enabled else 0, dumps(conn.rights), conn.status, change.kind,
+                                                       int(time.time())))
     settings = await app.settings.all(u.id)
     lang = settings["lang"]
     app.events.emit("business_connection", user_id=u.id, kind=change.kind, status=conn.status)
@@ -62,6 +68,7 @@ async def on_business_connection(bc: BusinessConnection, app: AppContext) -> Non
                                            "New business connection", f"user {u.id} (@{u.username or '-'}) → {conn.status}")
     elif change.kind == "disabled":
         await app.metrics.incr("connections_lost", u.id)
+        await app.controls.revoke_connection(bc.id)   # old control buttons stop working
         await app.notifications.notify(u.id, "disconnect", tr(lang, "Бизнес-подключение отключено", "Biznes ulanish uzildi"),
                                        level="warning")
         if settings.get("notify_disconnect", True):

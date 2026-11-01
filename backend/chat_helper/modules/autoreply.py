@@ -73,6 +73,11 @@ class AutoReplyService:
             await self.app.afk.disable(user_id, notify=False, restore_mode=False)
         await self.app.settings.set(user_id, "mode", mode)
         self.app.events.emit("mode", user_id=user_id, mode=mode)
+        try:
+            from .controls import refresh_owner_module
+            await refresh_owner_module(self.app, user_id, "auto")
+        except Exception:  # pragma: no cover
+            pass
         return mode
 
     # ---- rules CRUD ------------------------------------------------------------------
@@ -259,7 +264,11 @@ async def cmd_auto(ctx: CommandContext) -> None:
     if not mode:
         raise UsageError(ctx.t("Неизвестный режим.", "Noma'lum rejim."))
     await ctx.app.autoreply.set_mode(ctx.user_id, mode)
-    await ctx.answer(ctx.t("✅ Режим: {m}", "✅ Rejim: {m}", m=mode_title(mode, ctx.lang)), private=ctx.is_business)
+    if ctx.is_business:
+        from .controls import post_card
+        await post_card(ctx.app, ctx.user_id, ctx.chat_id, "auto", conn=ctx.conn, ctx=ctx)
+        return
+    await ctx.answer(ctx.t("✅ Режим: {m}", "✅ Rejim: {m}", m=mode_title(mode, ctx.lang)))
 
 
 @registry.command("reply", "autoreply", aliases=["ответ", "rule", "javob"],
@@ -392,26 +401,6 @@ async def cmd_allow(ctx: CommandContext) -> None:
     await ctx.app.chats.touch(ctx.user_id, chat_id)
     await ctx.app.chats.update(ctx.user_id, chat_id, {"ignored": False, "whitelisted": True})
     await ctx.answer(ctx.t("✅ Чат в белом списке.", "✅ Chat oq ro'yxatda."), private=True)
-
-
-@registry.command("mute", "autoreply", aliases=["заглушить", "jim"],
-                  ru="Заглушить автоматизацию и уведомления в чате на время", uz="Chatda avtomatlashtirish va bildirishnomalarni vaqtincha o'chirish",
-                  syntax=".mute [время|off]", examples=[".mute 2h", ".mute off"])
-async def cmd_mute(ctx: CommandContext) -> None:
-    chat_id = await _chat_target(ctx)
-    await ctx.app.chats.touch(ctx.user_id, chat_id)
-    arg = ctx.parsed.first
-    if arg in ("off", "выкл"):
-        await ctx.app.chats.update(ctx.user_id, chat_id, {"muted_until": None})
-        await ctx.answer(ctx.t("🔔 Чат снова активен.", "🔔 Chat yana faol."), private=True)
-        return
-    dur = parse_duration(arg) if arg else 3600 * 24 * 365
-    if not dur:
-        raise UsageError()
-    until = int(time.time()) + dur
-    await ctx.app.chats.update(ctx.user_id, chat_id, {"muted_until": until})
-    tz_name = ctx.settings.get("timezone") or ctx.app.config.timezone
-    await ctx.answer(ctx.t("🔕 Заглушено до {t}", "🔕 {t} gacha o'chirildi", t=fmt_dt(until, tz_name)), private=True)
 
 
 @registry.command("pause", "autoreply", aliases=["пауза", "to'xtat"],

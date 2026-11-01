@@ -80,8 +80,8 @@ class ProfileService:
             await self.app.sender.send_text(uid, tr(lang, "⚠️ Сначала подключите бизнес-аккаунт.", "⚠️ Avval biznes akkauntni ulang."))
             return
         if not conn.can(FIELD_RIGHT[field]):
-            await self.app.sender.send_text(uid, tr(lang, "🔒 Нет права на это изменение. Включите его: Настройки → Telegram для бизнеса → Чат-боты → Chat helper.",
-                                                    "🔒 Bu o'zgartirish uchun huquq yo'q. Yoqing: Sozlamalar → Telegram Business → Chat-botlar → Chat helper."))
+            await self.app.sender.send_text(uid, tr(lang, "🔒 Нет права на это изменение. Включите его: Настройки → Изм. → Автоматизация чатов → Chat helper → Профиль.",
+                                                    "🔒 Bu o'zgartirish uchun huquq yo'q. Yoqing: Sozlamalar → Tahrirlash → Chat automation → Chat helper → Profil."))
             return
         if field == "name" and not (values.get("first_name") or "").strip():
             await self.app.sender.send_text(uid, tr(lang, "Имя не может быть пустым.", "Ism bo'sh bo'lishi mumkin emas."))
@@ -321,13 +321,17 @@ async def cmd_profile_restore(ctx: CommandContext) -> None:
     await ctx.cleanup_command(fallback_text="👤")
 
 
-@registry.command("online", "profile", aliases=["онлайн"], ru="Постоянный «онлайн» — не поддерживается Bot API (объяснение)",
-                  uz="Doimiy «onlayn» — Bot API qo'llab-quvvatlamaydi (tushuntirish)", syntax=".online", examples=[".online"], status=NOT_SUPPORTED,
-                  sandbox_safe=True)
+@registry.command("online", "profile", aliases=["онлайн", "offline", "оффлайн"],
+                  ru="«В сети» — честно: официальный Bot API не управляет онлайн-статусом (NOT_SUPPORTED_BY_OFFICIAL_API); "
+                     "карточка с альтернативами (AFK, Chat Activity)",
+                  uz="«Onlayn» — halol: rasmiy Bot API onlayn holatni boshqarmaydi (NOT_SUPPORTED_BY_OFFICIAL_API); "
+                     "muqobillar kartasi (AFK, Chat Activity)",
+                  syntax=".online | .offline", examples=[".online"], status=NOT_SUPPORTED, sandbox_safe=True)
 async def cmd_online(ctx: CommandContext) -> None:
-    await ctx.answer(ctx.t("ℹ️ Telegram Bot API не позволяет ботам менять статус «в сети» бизнес-аккаунта. "
-                           "Мы не делаем фейковых имитаций и не используем пользовательские сессии. "
-                           "Альтернатива: AFK-автоответ ({p}afk) и часы в профиле ({p}clock).",
-                           "ℹ️ Telegram Bot API botlarga biznes akkauntning «onlayn» holatini o'zgartirishga ruxsat bermaydi. "
-                           "Biz soxta taqlid qilmaymiz va foydalanuvchi sessiyalaridan foydalanmaymiz. "
-                           "Muqobil: AFK avtojavob ({p}afk) va profildagi soat ({p}clock).", p=ctx.prefix), private=ctx.is_business)
+    if ctx.source == "sandbox":
+        await ctx.answer(ctx.t("ℹ️ Статус «в сети» не управляется Bot API (NOT_SUPPORTED_BY_OFFICIAL_API).",
+                               "ℹ️ «Onlayn» holati Bot API orqali boshqarilmaydi (NOT_SUPPORTED_BY_OFFICIAL_API)."))
+        return
+    from .controls import post_card
+    await post_card(ctx.app, ctx.user_id, ctx.chat_id if ctx.is_business else ctx.user_id, "online",
+                    conn=ctx.conn if ctx.is_business else None, ctx=ctx if ctx.is_business else None, location="dm")

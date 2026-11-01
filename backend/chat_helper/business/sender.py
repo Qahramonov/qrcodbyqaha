@@ -99,6 +99,18 @@ class BusinessSender:
         self.flood = FloodControl()
         self.sent_ok = 0
         self.sent_failed = 0
+        # v3 Protect: async (bc_id, chat_id) -> bool, set by the app; every business send consults it
+        self.protect_resolver: Any = None
+
+    async def _protect(self, protect: bool | None, bc_id: str | None, chat_id: int) -> bool | None:
+        if protect is not None:
+            return protect
+        if bc_id and self.protect_resolver is not None:
+            try:
+                return bool(await self.protect_resolver(bc_id, chat_id)) or None
+            except Exception:  # pragma: no cover - never block a send on the resolver
+                log.exception("protect resolver failed")
+        return None
 
     async def _call(self, chat_id: int, coro_factory, *, retries: int = 2, flood: bool = True) -> SendResult:
         attempt = 0
@@ -130,12 +142,13 @@ class BusinessSender:
     # ---- text --------------------------------------------------------------------------
     async def send_text(self, chat_id: int, text: str, *, bc_id: str | None = None, reply_to: int | None = None,
                         markup: InlineKeyboardMarkup | None = None, parse_mode: str | None = "HTML",
-                        preview: bool = False) -> SendResult:
+                        preview: bool = False, protect: bool | None = None) -> SendResult:
         text = text[:4096]
         rp = ReplyParameters(message_id=reply_to, allow_sending_without_reply=True) if reply_to else None
+        pc = await self._protect(protect, bc_id, chat_id)
         return await self._call(chat_id, lambda: self.bot.send_message(
             chat_id=chat_id, text=text, business_connection_id=bc_id, reply_parameters=rp, reply_markup=markup,
-            parse_mode=parse_mode, link_preview_options=LinkPreviewOptions(is_disabled=not preview)))
+            parse_mode=parse_mode, link_preview_options=LinkPreviewOptions(is_disabled=not preview), protect_content=pc))
 
     async def edit_text(self, chat_id: int, message_id: int, text: str, *, bc_id: str | None = None,
                         markup: InlineKeyboardMarkup | None = None, parse_mode: str | None = "HTML") -> SendResult:
@@ -174,10 +187,10 @@ class BusinessSender:
     # ---- media ---------------------------------------------------------------------------
     async def send_media(self, chat_id: int, kind: str, media: Any, *, bc_id: str | None = None,
                          caption: str | None = None, reply_to: int | None = None,
-                         markup: InlineKeyboardMarkup | None = None, **extra: Any) -> SendResult:
+                         markup: InlineKeyboardMarkup | None = None, protect: bool | None = None, **extra: Any) -> SendResult:
         rp = ReplyParameters(message_id=reply_to, allow_sending_without_reply=True) if reply_to else None
         common: dict[str, Any] = dict(chat_id=chat_id, business_connection_id=bc_id, reply_parameters=rp,
-                                      reply_markup=markup)
+                                      reply_markup=markup, protect_content=await self._protect(protect, bc_id, chat_id))
         cap = {"caption": caption[:1024], "parse_mode": "HTML"} if caption else {}
         b = self.bot
         factories = {

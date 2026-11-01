@@ -23,7 +23,7 @@ log = logging.getLogger(__name__)
 def load_modules() -> None:
     """Importing modules registers their commands in the global registry (idempotent)."""
     from .games import games  # noqa: F401
-    from .modules import afk, ai_cmds, autoreply, media_cmds, profile, system_cmds, text_tools  # noqa: F401
+    from .modules import afk, ai_cmds, autoreply, controls, media_cmds, profile, system_cmds, text_tools  # noqa: F401
 
 
 class ActivityMiddleware(BaseMiddleware):
@@ -75,12 +75,16 @@ async def build_app(cfg: Settings, bot: Bot | None = None, *, with_bot: bool = T
     from .games.games import register_games
     from .games.games import router as games_router
     from .handlers.business import router as business_router
+    from .handlers.chatmgr import router as chatmgr_router
+    from .handlers.controls import router as controls_router
     from .handlers.onboarding import router as onboarding_router
     from .handlers.panel import router as panel_router
     from .media.service import MediaService
     from .modules.afk import AFKService
     from .modules.ai_cmds import router as ai_cmds_router
     from .modules.autoreply import AutoReplyService
+    from .modules.chat_filters import FilterEngine
+    from .services.chat_controls import ChatControlService
     from .modules.media_cmds import router as media_router
     from .modules.pipeline import Pipeline
     from .modules.profile import ProfileService
@@ -110,7 +114,7 @@ async def build_app(cfg: Settings, bot: Bot | None = None, *, with_bot: bool = T
     app.config = cfg
     app.db = Database(cfg.database_path)
     await app.db.connect()
-    await apply_migrations(app.db)
+    await apply_migrations(app.db, cfg.backups_dir)
     app.events = EventBus()
     app.runtime = Runtime(app.db)
     await app.runtime.load()
@@ -145,6 +149,8 @@ async def build_app(cfg: Settings, bot: Bot | None = None, *, with_bot: bool = T
     app.autoreply = AutoReplyService(app)
     app.automation = AutomationEngine(app)
     app.inbox = InboxService(app)
+    app.controls = ChatControlService(app.db)
+    app.filters = FilterEngine(app)
     app.pipeline = Pipeline(app)
     app.profile = ProfileService(app)
     app.payments = PaymentService(app)
@@ -159,6 +165,12 @@ async def build_app(cfg: Settings, bot: Bot | None = None, *, with_bot: bool = T
         bot = Bot(cfg.bot_token, default=DefaultBotProperties(parse_mode="HTML"))
     app.bot = bot
     app.sender = BusinessSender(bot, app.events, app.metrics) if bot is not None else None
+
+    async def protect_resolver(bc_id: str, chat_id: int) -> bool:
+        conn = await app.connections.get(bc_id)
+        return conn is not None and await app.controls.is_on(conn.user_id, chat_id, "protect")
+    if app.sender is not None:
+        app.sender.protect_resolver = protect_resolver
 
     async def push(uid: int, text: str) -> None:
         if app.sender is not None:
@@ -178,9 +190,10 @@ async def build_app(cfg: Settings, bot: Bot | None = None, *, with_bot: bool = T
 
     dp = Dispatcher(storage=MemoryStorage())
     dp["app"] = app
+    app.fsm_storage = dp.storage
     dp.update.outer_middleware(ActivityMiddleware(app))
-    for r in (payments_router, business_router, ai_drafts_router, ai_cmds_router, media_router, text_router, system_router, games_router,
-              onboarding_router, panel_router):
+    for r in (payments_router, business_router, controls_router, ai_drafts_router, ai_cmds_router, media_router, text_router,
+              system_router, games_router, onboarding_router, chatmgr_router, panel_router):
         if r.parent_router is not None:  # routers are module-level singletons; allow re-binding (tests, restarts)
             r._parent_router = None  # noqa: SLF001
         dp.include_router(r)
@@ -231,6 +244,13 @@ def _register_jobs(app: AppContext) -> None:
         await app.db.execute("DELETE FROM media_jobs WHERE created_at < ?", (now - 60 * 86400,))
         await app.db.execute("DELETE FROM ai_drafts WHERE created_at < ? AND status != 'pending'", (now - 14 * 86400,))
         await app.db.execute("UPDATE chat_settings SET last_preview=NULL WHERE last_incoming_at < ?", (now - 7 * 86400,))
+        # v3: stored chat history (for .sum / AI context) follows each user's retention setting
+        for r in await app.db.fetchall("SELECT DISTINCT owner_id FROM chat_messages"):
+            days = await app.settings.get(r["owner_id"], "history_retention_days")
+            await app.db.execute("DELETE FROM chat_messages WHERE owner_id=? AND created_at < ?", (r["owner_id"], now - int(days) * 86400))
+        await app.db.execute("DELETE FROM mute_events WHERE created_at < ?", (now - 90 * 86400,))
+        await app.db.execute("DELETE FROM permission_snapshots WHERE created_at < ?", (now - 180 * 86400,))
+        await app.controls.cleanup(30)
 
     async def tmp_cleanup() -> None:
         app.media.files.cleanup(3600)
@@ -264,6 +284,23 @@ def _register_jobs(app: AppContext) -> None:
             await app.notifications.notify(app.config.super_admin_id, "disk", "Low disk space", f"free {d['free_mb']} MB", level="error")
         app.media.queue.start()  # self-heal crashed workers
 
+    async def controls_expiry() -> None:
+        """Timed Mute / filters end automatically: state off → cards updated → owner informed."""
+        from .localization import tr
+        from .modules.controls import chat_title, refresh_cards
+        for row in await app.controls.due_for_expiry():
+            await app.controls.set(row["owner_id"], row["chat_id"], row["module"], False)
+            await refresh_cards(app, row["owner_id"], row["chat_id"], row["module"])
+            s = await app.settings.all(row["owner_id"])
+            from .security.sanitize import esc
+            name = esc(await chat_title(app, row["owner_id"], row["chat_id"]))
+            text = tr(s["lang"], "⏰ Время режима «{m}» в чате «{n}» истекло — режим выключен.",
+                      "⏰ «{n}» chatidagi «{m}» rejimi vaqti tugadi — rejim o'chirildi.", m=row["module"], n=name)
+            if row["module"] == "mute":
+                text += "\n" + tr(s["lang"], "📊 Удалено сообщений: {d}", "📊 O'chirilgan xabarlar: {d}", d=row["state"].get("deleted", 0))
+            await app.sender.send_text(row["owner_id"], text)
+
+    sch.every(20, "controls_expiry", controls_expiry, 10)
     sch.every(30, "afk_expiry", app.afk.expire_due, 5)
     sch.every(30, "games_expiry", app.games.expire_due, 15)
     sch.every(30, "automation_time", app.automation.tick_time, 20)

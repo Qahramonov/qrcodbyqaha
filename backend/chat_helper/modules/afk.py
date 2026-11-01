@@ -98,9 +98,18 @@ class AFKService:
         self._active_cache[user_id] = row
         return row
 
+    async def _sync_cards(self, user_id: int) -> None:
+        """Keep every AFK / auto-reply control card in sync, whatever changed the state (command, button, panel, API, timer)."""
+        try:
+            from .controls import refresh_owner_module
+            await refresh_owner_module(self.app, user_id, "afk")
+            await refresh_owner_module(self.app, user_id, "auto")
+        except Exception:  # pragma: no cover - cards are best-effort UI
+            pass
+
     async def enable(self, user_id: int, reason: str | None = None, duration: int | None = None,
                      kind: str = "afk", ends_at: int | None = None) -> dict[str, Any]:
-        await self.disable(user_id, notify=False, restore_mode=False)
+        await self.disable(user_id, notify=False, restore_mode=False, sync=False)
         now = int(time.time())
         if ends_at is None and duration:
             ends_at = now + duration
@@ -115,6 +124,7 @@ class AFKService:
         self._clear_cooldowns(user_id)
         self.app.events.emit("afk_on", user_id=user_id, reason=reason, ends_at=ends_at)
         await self.app.metrics.incr("afk_sessions", user_id)
+        await self._sync_cards(user_id)
         return await self.active(user_id)  # type: ignore[return-value]
 
     async def _store_prev_mode(self, user_id: int, mode: str) -> None:
@@ -129,7 +139,7 @@ class AFKService:
         return mode if mode != "afk" else "manual"
 
     async def disable(self, user_id: int, *, notify: bool = True, reason: str = "manual",
-                      restore_mode: bool = True) -> dict[str, Any] | None:
+                      restore_mode: bool = True, sync: bool = True) -> dict[str, Any] | None:
         sess = await self.active(user_id)
         now = int(time.time())
         summary = None
@@ -148,6 +158,8 @@ class AFKService:
             settings = await self.app.settings.all(user_id)
             if settings.get("afk_notify_summary", True):
                 await self.app.sender.send_text(user_id, await self.summary_text(user_id, summary, settings["lang"]))
+        if sync and sess:
+            await self._sync_cards(user_id)
         return summary
 
     async def summary_text(self, user_id: int, s: dict[str, Any], lang: str) -> str:
@@ -283,14 +295,13 @@ async def cmd_afk(ctx: CommandContext) -> None:
     reason = " ".join(args).strip() or None
     if reason and len(reason) > 300:
         raise UsageError(ctx.t("Причина слишком длинная (до 300 символов).", "Sabab juda uzun (300 belgigacha)."))
-    sess = await afk.enable(ctx.user_id, reason, duration)
-    text = ctx.t("💤 <b>AFK включён</b>", "💤 <b>AFK yoqildi</b>")
-    if reason:
-        text += "\n" + ctx.t("📝 {r}", "📝 {r}", r=esc(reason))
-    if sess.get("ends_at"):
-        tz_name = ctx.settings.get("timezone") or ctx.app.config.timezone
-        text += "\n" + ctx.t("⏳ До {t}", "⏳ {t} gacha", t=fmt_dt(sess["ends_at"], tz_name))
-    await ctx.answer(text)
+    await afk.enable(ctx.user_id, reason, duration)
+    from .controls import post_card
+    if ctx.source == "sandbox":
+        await ctx.answer(ctx.t("💤 <b>AFK включён</b>", "💤 <b>AFK yoqildi</b>"))
+        return
+    await post_card(ctx.app, ctx.user_id, ctx.chat_id if ctx.is_business else ctx.user_id, "afk",
+                    conn=ctx.conn if ctx.is_business else None, ctx=ctx if ctx.is_business else None)
 
 
 @registry.command("unafk", "afk", aliases=["анафк", "back", "вернулся"],

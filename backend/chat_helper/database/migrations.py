@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 import time
+from pathlib import Path
 
 from .db import Database
 
@@ -615,9 +616,194 @@ CREATE INDEX IF NOT EXISTS ix_users_created ON users(created_at);
 CREATE INDEX IF NOT EXISTS ix_payments_status ON payments(status, created_at)
 """
 
+M003_V3 = r"""
+CREATE TABLE IF NOT EXISTS chat_control_states (
+    owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    chat_id INTEGER NOT NULL,
+    module TEXT NOT NULL,
+    enabled INTEGER NOT NULL DEFAULT 0,
+    state_json TEXT NOT NULL DEFAULT '{}',
+    until_at INTEGER,
+    connection_id TEXT,
+    updated_at INTEGER NOT NULL,
+    PRIMARY KEY (owner_id, chat_id, module)
+);
+CREATE INDEX IF NOT EXISTS ix_ccs_until ON chat_control_states(until_at);
+CREATE INDEX IF NOT EXISTS ix_ccs_module ON chat_control_states(module, enabled);
+
+CREATE TABLE IF NOT EXISTS control_messages (
+    token TEXT PRIMARY KEY,
+    owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    connection_id TEXT,
+    chat_id INTEGER NOT NULL,
+    module TEXT NOT NULL,
+    location TEXT NOT NULL CHECK (location IN ('chat','dm')),
+    host_chat_id INTEGER NOT NULL,
+    message_id INTEGER,
+    version INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'active',
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ix_ctl_owner ON control_messages(owner_id, chat_id, module, status);
+
+CREATE TABLE IF NOT EXISTS control_actions (
+    callback_id TEXT PRIMARY KEY,
+    token TEXT NOT NULL,
+    actor_id INTEGER NOT NULL,
+    action TEXT NOT NULL,
+    result TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ix_ctlact_created ON control_actions(created_at);
+
+CREATE TABLE IF NOT EXISTS mute_rules (
+    owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    chat_id INTEGER NOT NULL DEFAULT 0,
+    types_json TEXT NOT NULL DEFAULT '["all"]',
+    keep_types_json TEXT NOT NULL DEFAULT '[]',
+    whitelist_json TEXT NOT NULL DEFAULT '[]',
+    report INTEGER NOT NULL DEFAULT 1,
+    updated_at INTEGER NOT NULL,
+    PRIMARY KEY (owner_id, chat_id)
+);
+
+CREATE TABLE IF NOT EXISTS mute_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    owner_id INTEGER NOT NULL,
+    chat_id INTEGER NOT NULL,
+    message_id INTEGER NOT NULL,
+    msg_type TEXT,
+    source TEXT NOT NULL,
+    result TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ix_mute_events ON mute_events(owner_id, chat_id, created_at);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_mute_events_msg ON mute_events(owner_id, chat_id, message_id, source);
+
+CREATE TABLE IF NOT EXISTS ai_twin_profiles (
+    user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    mode TEXT NOT NULL DEFAULT 'disabled',
+    name TEXT,
+    language TEXT NOT NULL DEFAULT 'auto',
+    manner TEXT,
+    style TEXT NOT NULL DEFAULT 'friendly',
+    formality INTEGER NOT NULL DEFAULT 50,
+    humor INTEGER NOT NULL DEFAULT 30,
+    length TEXT NOT NULL DEFAULT 'medium',
+    emoji INTEGER NOT NULL DEFAULT 30,
+    slang INTEGER NOT NULL DEFAULT 10,
+    profanity_filter INTEGER NOT NULL DEFAULT 1,
+    reply_delay_sec INTEGER NOT NULL DEFAULT 0,
+    active_from TEXT,
+    active_to TEXT,
+    model TEXT,
+    custom_prompt TEXT,
+    persona TEXT NOT NULL DEFAULT 'neutral',
+    examples_json TEXT NOT NULL DEFAULT '[]',
+    consent_at INTEGER,
+    updated_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS animation_jobs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    owner_id INTEGER NOT NULL,
+    connection_id TEXT,
+    chat_id INTEGER NOT NULL,
+    message_id INTEGER,
+    kind TEXT NOT NULL,
+    speed TEXT NOT NULL,
+    frames INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'running',
+    error TEXT,
+    created_at INTEGER NOT NULL,
+    finished_at INTEGER
+);
+CREATE INDEX IF NOT EXISTS ix_anim_owner ON animation_jobs(owner_id, created_at);
+
+CREATE TABLE IF NOT EXISTS repetition_jobs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    owner_id INTEGER NOT NULL,
+    connection_id TEXT NOT NULL,
+    chat_id INTEGER NOT NULL,
+    text TEXT NOT NULL,
+    interval_sec INTEGER NOT NULL,
+    ends_at INTEGER NOT NULL,
+    last_message_id INTEGER,
+    sends INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'running',
+    error TEXT,
+    created_at INTEGER NOT NULL,
+    finished_at INTEGER
+);
+CREATE INDEX IF NOT EXISTS ix_rep_owner ON repetition_jobs(owner_id, created_at);
+
+CREATE TABLE IF NOT EXISTS reminders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL CHECK (kind IN ('dm','chat')),
+    connection_id TEXT,
+    chat_id INTEGER,
+    text TEXT NOT NULL,
+    run_at INTEGER NOT NULL,
+    task_id INTEGER,
+    status TEXT NOT NULL DEFAULT 'pending',
+    error TEXT,
+    created_at INTEGER NOT NULL,
+    done_at INTEGER
+);
+CREATE INDEX IF NOT EXISTS ix_reminders_owner ON reminders(owner_id, status, run_at);
+
+CREATE TABLE IF NOT EXISTS permission_snapshots (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    connection_id TEXT NOT NULL,
+    owner_id INTEGER NOT NULL,
+    is_enabled INTEGER NOT NULL,
+    rights_json TEXT NOT NULL,
+    status TEXT NOT NULL,
+    change TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ix_permsnap_conn ON permission_snapshots(connection_id, created_at);
+
+CREATE TABLE IF NOT EXISTS delegated_permissions (
+    owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    scope TEXT NOT NULL,
+    granted_at INTEGER NOT NULL,
+    expires_at INTEGER,
+    revoked_at INTEGER,
+    PRIMARY KEY (owner_id, scope)
+);
+
+CREATE TABLE IF NOT EXISTS delegation_consents (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    owner_id INTEGER NOT NULL,
+    scope TEXT NOT NULL,
+    action TEXT NOT NULL,
+    actor_id INTEGER NOT NULL,
+    details_json TEXT NOT NULL DEFAULT '{}',
+    created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ix_delegcons_owner ON delegation_consents(owner_id, created_at);
+
+CREATE TABLE IF NOT EXISTS chat_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    chat_id INTEGER NOT NULL,
+    message_id INTEGER NOT NULL,
+    outgoing INTEGER NOT NULL,
+    msg_type TEXT,
+    text TEXT,
+    created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ix_chatmsg_chat ON chat_messages(owner_id, chat_id, id);
+CREATE INDEX IF NOT EXISTS ix_chatmsg_created ON chat_messages(created_at)
+"""
+
 MIGRATIONS: list[tuple[int, str, str]] = [
     (1, "core_schema", M001_CORE),
     (2, "user_activity_analytics", M002_ACTIVITY),
+    (3, "v3_chat_controls_mute_twin_reminders_delegation", M003_V3),
 ]
 
 
@@ -625,11 +811,17 @@ def _split(sql: str) -> list[str]:
     return [s.strip() for s in sql.split(";\n") if s.strip() and not s.strip().startswith("--")]
 
 
-async def apply_migrations(db: Database) -> list[int]:
+async def apply_migrations(db: Database, backup_dir: "Path | None" = None) -> list[int]:
+    """Apply pending migrations in order. An existing database is backed up first (``pre_migration_v{N}``)."""
     await db.execute("CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, "
                      "name TEXT NOT NULL, applied_at INTEGER NOT NULL)")
     done = {r["version"] for r in await db.fetchall("SELECT version FROM schema_migrations")}
     applied: list[int] = []
+    pending = [m for m in MIGRATIONS if m[0] not in done]
+    if pending and done and backup_dir is not None:
+        target = Path(backup_dir) / time.strftime(f"chat_helper_%Y%m%d_%H%M%S_pre_migration_v{pending[0][0]}.db")
+        await db.backup_to(target)
+        log.info("database backed up before migration to %s", target)
     for version, name, sql in MIGRATIONS:
         if version in done:
             continue

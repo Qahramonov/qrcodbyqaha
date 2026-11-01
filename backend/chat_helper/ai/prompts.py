@@ -70,6 +70,8 @@ TASK_PROMPTS = {
     "analyze": "Analyze the message in {lang}: intent, sentiment, urgency (low/medium/high) and a recommended action. Be brief, use 4 labelled lines.",
     "smart": "Write the best short reply the owner could send to this message, in the message's language, in the owner's voice. Output only the reply.",
     "vision": "Answer in {lang}. {question}",
-    "summary_chat": "Summarize this conversation in {lang} in 3-6 bullets: topics, open questions, what the owner should do.",
+    "summary_chat": "Summarize this conversation in {lang}. Use four short sections with bullets: Topics; Agreements; "
+                    "Open questions; Tasks for the owner (\"Me\" is the owner, \"Them\" is the other person). Skip empty sections. "
+                    "Never invent facts that are not in the messages.",
     "classify_priority": "Classify urgency of the message as one word: low, medium or high.",
 }

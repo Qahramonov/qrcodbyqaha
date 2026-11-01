@@ -11,8 +11,8 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.client.session.base import BaseSession
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.methods import TelegramMethod
-from aiogram.types import (BusinessBotRights, BusinessConnection, Chat, ChatFullInfo, Dice, File, Message, Update, User,
-                           Voice)
+from aiogram.types import (BusinessBotRights, BusinessConnection, Chat, ChatFullInfo, Dice, File, InlineKeyboardMarkup, Message,
+                           Update, User, Voice)
 
 BOT_ID = 777000111
 TOKEN = f"{BOT_ID}:AAAbbbCCCdddEEEfffGGGhhhIIIjjjKKKlll"
@@ -31,6 +31,7 @@ class FakeSession(BaseSession):
         self.files: dict[str, bytes] = {}
         self.connections: dict[str, BusinessConnection] = {}
         self.dice_value = 64
+        self.drop_markup = False   # simulate a server that silently drops inline keyboards on edits
 
     def calls(self, name: str) -> list[TelegramMethod]:
         return [r for r in self.requests if type(r).__name__ == name]
@@ -57,6 +58,9 @@ class FakeSession(BaseSession):
             if name == "SendDice":
                 kw["dice"] = Dice(emoji=method.emoji or "🎲", value=self.dice_value)
             text = getattr(method, "text", None)
+            markup = getattr(method, "reply_markup", None)
+            if isinstance(markup, InlineKeyboardMarkup) and not self.drop_markup:
+                kw["reply_markup"] = markup
             return Message(message_id=mid, date=now, chat=Chat(id=chat_id, type="private"), text=text,
                            business_connection_id=getattr(method, "business_connection_id", None),
                            from_user=User(id=BOT_ID, is_bot=True, first_name="Chat helper"), **kw)
@@ -110,12 +114,12 @@ def update_connection(bc: BusinessConnection) -> Update:
 
 def biz_message(conn_id: str, chat_id: int, sender_id: int, text: str | None = None, *, sender_is_bot: bool = False,
                 via_bot: bool = False, reply_to: Message | None = None, message_id: int | None = None, voice: Voice | None = None,
-                first_name: str = "Alice") -> Message:
+                first_name: str = "Alice", **extra: Any) -> Message:
     return Message(message_id=message_id or next(_ids), date=dt.datetime.now(dt.timezone.utc),
                    chat=Chat(id=chat_id, type="private", first_name=first_name if sender_id == chat_id else "Contact"),
                    from_user=User(id=sender_id, is_bot=sender_is_bot, first_name=first_name), text=text, voice=voice,
                    business_connection_id=conn_id, reply_to_message=reply_to,
-                   sender_business_bot=User(id=BOT_ID, is_bot=True, first_name="Chat helper") if via_bot else None)
+                   sender_business_bot=User(id=BOT_ID, is_bot=True, first_name="Chat helper") if via_bot else None, **extra)
 
 
 def update_business_message(msg: Message) -> Update:

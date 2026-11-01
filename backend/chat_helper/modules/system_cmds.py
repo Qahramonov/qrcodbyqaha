@@ -126,7 +126,7 @@ async def cmd_uptime(ctx: CommandContext) -> None:
                   sandbox_safe=True, **SYS)
 async def cmd_about(ctx: CommandContext) -> None:
     await ctx.answer(ctx.t("✨ <b>Chat helper</b> v{v}\nTelegram Business-автоматизация: AFK, AI, автоответы, Media Studio, игры.\n"
-                           "Работает через официальный Bot API («Чат-боты» Telegram для бизнеса). Управление: Chat helper Control (Android).",
+                           "Работает через официальный Bot API (Telegram «Автоматизация чатов», Secretary Mode). Управление: Chat helper Control (Android).",
                            "✨ <b>Chat helper</b> v{v}\nTelegram Business avtomatlashtirish: AFK, AI, avtojavoblar, Media Studio, o'yinlar.\n"
                            "Rasmiy Bot API orqali ishlaydi. Boshqaruv: Chat helper Control (Android).", v=__version__), private=ctx.is_business)
 

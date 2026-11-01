@@ -103,8 +103,20 @@ async def screen_inspector(app: AppContext, uid: int, s: dict[str, Any], idx: in
         from .onboarding import screen_connect
         return await screen_connect(app, uid, s)
     c = conns[idx]
+    from ..business.rights import RIGHT_TITLES, command_dependencies
     rep = inspect(c.rights, c.is_enabled, lang, c.paused)
-    lines = [tr(lang, "🔍 <b>Permission Inspector</b>", "🔍 <b>Huquqlar tekshiruvi</b>"), rep["status_title"], ""]
+    deps = command_dependencies(app.registry)
+    snap = await app.db.fetchone("SELECT created_at FROM permission_snapshots WHERE connection_id=? ORDER BY id DESC LIMIT 1", (c.id,))
+    lines = [tr(lang, "🔍 <b>Permission Inspector</b>", "🔍 <b>Huquqlar tekshiruvi</b>"), rep["status_title"],
+             tr(lang, "Последнее обновление прав: {t}", "Huquqlar oxirgi yangilangan: {t}",
+                t=fmt_dt((snap or {}).get("created_at") or c.connected_at, s["timezone"])), "",
+             tr(lang, "<b>Права</b>", "<b>Huquqlar</b>")]
+    for right in ("can_reply", "can_read_messages", "can_delete_sent_messages", "can_delete_all_messages", "can_edit_name",
+                  "can_edit_bio", "can_edit_profile_photo", "can_edit_username", "can_manage_stories"):
+        cmds = deps.get(right) or []
+        tail = (" · " + ", ".join(s["prefix"] + x for x in cmds[:6]) + ("…" if len(cmds) > 6 else "")) if cmds else ""
+        lines.append(("✅ " if c.rights.get(right) else "❌ ") + tr(lang, *RIGHT_TITLES[right]) + esc(tail))
+    lines += ["", tr(lang, "<b>Возможности</b>", "<b>Imkoniyatlar</b>")]
     for cap in rep["capabilities"]:
         mark = "✅" if cap["available"] else "❌"
         extra = "" if cap["available"] else " — " + ", ".join(cap["missing_titles"])
@@ -524,6 +536,10 @@ async def cmd_start(message: Message, command: CommandObject, state: FSMContext,
     if arg == "pair":
         await _send_pair_code(app, uid, message)
         return
+    if arg.startswith("bizChat"):
+        from .chatmgr import open_from_deeplink
+        await open_from_deeplink(app, uid, arg, message)
+        return
     await show(app, uid, "home", message, edit=False)
 
 
@@ -703,7 +719,8 @@ async def cb_afk(cb: CallbackQuery, state: FSMContext, app: AppContext) -> None:
 async def st_afk_reason(message: Message, state: FSMContext, app: AppContext) -> None:
     uid = await _ensure_user(app, message)
     await state.clear()
-    await app.afk.enable(uid, message.text[:300])
+    sess = await app.afk.active(uid)
+    await app.afk.enable(uid, message.text[:300], ends_at=(sess or {}).get("ends_at"))   # keeps an existing timer
     await show(app, uid, "afk", message, False)
 
 
@@ -1175,17 +1192,6 @@ async def cb_inbox(cb: CallbackQuery, app: AppContext) -> None:
     await cb.answer()
     text = await app.inbox.digest_text(uid, s["lang"], use_ai=False)
     await _render_custom(cb.message, text, kb([nav(s["lang"], "m:stats")]))
-
-
-@router.callback_query(F.data.startswith("cmute:"))
-async def cb_chat_mute(cb: CallbackQuery, app: AppContext) -> None:
-    uid = await _ensure_user(app, cb)
-    chat_id = cb.data.split(":")[1]
-    if not chat_id.lstrip("-").isdigit():
-        await cb.answer()
-        return
-    row = await app.chats.update(uid, int(chat_id), {"muted_until": int(time.time()) + 7200})
-    await cb.answer("🔕" if row else "—")
 
 
 # ---- fallback in private chat: commands → executor, otherwise AI assistant / hint -----------

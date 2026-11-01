@@ -16,6 +16,7 @@ CATEGORIES: dict[str, tuple[str, str, str]] = {
     "text": ("⌨️", "Текстовые инструменты", "Matn vositalari"),
     "profile": ("👤", "Профиль", "Profil"),
     "autoreply": ("💬", "Автоответчик", "Avtojavob"),
+    "chat": ("🎛", "Управление чатом", "Chatni boshqarish"),
     "system": ("⚙️", "Система", "Tizim"),
 }
 

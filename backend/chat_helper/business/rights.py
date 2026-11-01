@@ -16,11 +16,12 @@ RIGHT_FLAGS = (
     "can_transfer_and_upgrade_gifts", "can_transfer_stars", "can_manage_stories",
 )
 
+# Titles follow the Telegram «Chat automation» permissions screen (2026 clients).
 RIGHT_TITLES: dict[str, tuple[str, str]] = {
-    "can_reply": ("Отвечать на сообщения", "Xabarlarga javob berish"),
-    "can_read_messages": ("Отмечать сообщения прочитанными", "Xabarlarni o'qilgan deb belgilash"),
-    "can_delete_sent_messages": ("Удалять сообщения бота", "Bot xabarlarini o'chirish"),
-    "can_delete_all_messages": ("Удалять все сообщения", "Barcha xabarlarni o'chirish"),
+    "can_reply": ("Ответы на сообщения", "Xabarlarga javob berish"),
+    "can_read_messages": ("Отметки о прочтении", "O'qilganlik belgilari"),
+    "can_delete_sent_messages": ("Удаление исходящих (сообщения бота)", "Chiquvchilarni o'chirish (bot xabarlari)"),
+    "can_delete_all_messages": ("Удаление входящих (все сообщения)", "Kiruvchilarni o'chirish (barcha xabarlar)"),
     "can_edit_name": ("Менять имя", "Ismni o'zgartirish"),
     "can_edit_bio": ("Менять био", "Bio'ni o'zgartirish"),
     "can_edit_profile_photo": ("Менять фото профиля", "Profil rasmini o'zgartirish"),
@@ -51,7 +52,20 @@ CAPABILITIES: dict[str, dict[str, Any]] = {
                      "uz": ".name buyrug'i va familiyadagi soat"},
     "profile_bio": {"rights": ["can_edit_bio"], "ru": "Команда .bio и часы в био", "uz": ".bio buyrug'i va bio'dagi soat"},
     "profile_photo": {"rights": ["can_edit_profile_photo"], "ru": "Команда .avatar", "uz": ".avatar buyrug'i"},
+    "mute": {"rights": ["can_delete_all_messages"], "ru": "🔕 Mute, 🚫 фильтр GIF/стикеров и 🧹 фильтр слов",
+             "uz": "🔕 Mute, 🚫 GIF/stiker filtri va 🧹 so'z filtri"},
+    "protect": {"rights": ["can_reply"], "ru": "🛡 Protect и защищённые сообщения .g", "uz": "🛡 Protect va himoyalangan .g xabarlari"},
+    "controls": {"rights": ["can_reply"], "ru": "Кнопки управления под сообщениями в чате", "uz": "Chatdagi xabarlar ostidagi boshqaruv tugmalari"},
 }
+
+
+def command_dependencies(registry: Any) -> dict[str, list[str]]:
+    """right -> commands that need it in business chats (from the Command Registry)."""
+    out: dict[str, list[str]] = {r: [] for r in RIGHT_FLAGS}
+    for spec in registry.commands.values():
+        for r in spec.rights:
+            out.setdefault(r, []).append(spec.id)
+    return {k: sorted(v) for k, v in out.items()}
 
 # Dangerous rights that Chat helper never needs and recommends to keep OFF.
 DANGEROUS = ("can_transfer_stars", "can_transfer_and_upgrade_gifts", "can_convert_gifts_to_stars",
@@ -110,8 +124,8 @@ def status_title(status: str, lang: str) -> str:
 
 
 FIX_HINT = (
-    "Telegram → Настройки → Telegram для бизнеса → Чат-боты → Chat helper → включите нужные разрешения.",
-    "Telegram → Sozlamalar → Telegram Business → Chat-botlar → Chat helper → kerakli ruxsatlarni yoqing.",
+    "Telegram → Настройки → Изм. → Автоматизация чатов → Chat helper → включите нужные разрешения.",
+    "Telegram → Sozlamalar → Tahrirlash → Chat automation → Chat helper → kerakli ruxsatlarni yoqing.",
 )
 
 
@@ -130,8 +144,8 @@ def inspect(rights: dict[str, bool], is_enabled: bool, lang: str = "ru", paused:
     status = connection_status(is_enabled, rights, paused)
     advice = []
     if not is_enabled:
-        advice.append(tr(lang, "Подключение выключено. Откройте Telegram → Настройки → Telegram для бизнеса → Чат-боты и подключите Chat helper заново.",
-                         "Ulanish o'chirilgan. Telegram → Sozlamalar → Telegram Business → Chat-botlar orqali Chat helper'ni qayta ulang."))
+        advice.append(tr(lang, "Подключение выключено. Откройте Telegram → Настройки → Изм. → Автоматизация чатов и подключите Chat helper заново.",
+                         "Ulanish o'chirilgan. Telegram → Sozlamalar → Tahrirlash → Chat automation orqali Chat helper'ni qayta ulang."))
     if any(c["missing_rights"] for c in caps):
         advice.append(tr(lang, *FIX_HINT))
     if dangerous_on:

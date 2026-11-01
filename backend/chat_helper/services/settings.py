@@ -9,6 +9,8 @@ from ..database.db import Database, dumps, loads
 MODES = ("manual", "auto", "ai", "afk", "silent", "business", "hybrid")
 STYLES = ("friendly", "professional", "funny", "smart", "short", "creative", "custom")
 MSG_THEMES = ("classic", "minimal", "fancy", "emoji")
+ANIM_TYPES = ("typewriter", "fast", "reverse", "wave", "glitch", "matrix", "dots", "progress", "countdown", "pulse", "heart",
+              "slide", "rainbow", "counter", "reveal", "custom")
 
 # key -> (type, default, extra)   extra: choices / (min,max) / maxlen
 SCHEMA: dict[str, tuple[str, Any, Any]] = {
@@ -73,6 +75,15 @@ SCHEMA: dict[str, tuple[str, Any, Any]] = {
     # Media
     "media_enabled": ("bool", True, None),
     "disabled_commands": ("list", [], 400),
+    # v3: chat controls, mute, animations, activity
+    "controls_place": ("choice", "chat", ("chat", "dm")),
+    "mute_confirmed": ("bool", False, None),
+    "chat_activity": ("bool", False, None),
+    "anim_speed": ("choice", "fast", ("slow", "normal", "fast", "turbo")),
+    "anim_type": ("choice", "typewriter", ANIM_TYPES),
+    "anim_repeats": ("int", 1, (1, 3)),
+    "favorite_commands": ("list", [], 12),
+    "auto_prev_mode": ("choice", "auto", MODES),
 }
 
 USER_EDITABLE = set(SCHEMA)

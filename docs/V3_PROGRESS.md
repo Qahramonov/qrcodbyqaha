@@ -25,8 +25,9 @@
 
 ## План фаз
 - [x] 1. Аудит
-- [ ] 2–3. RBAC (только super admin), gating до подключения, онбординг + инфографика RU/UZ, `tg://settings/edit`
-- [ ] 4–6. Chat Context Manager (`bizChat`), Chat Control Framework, Mute Engine, Protect/.g, .nogif, .nomute
+- [x] 2–3. RBAC (только super admin), gating до подключения, онбординг + инфографика RU/UZ, `tg://settings/edit` — `handlers/ui.py`, `handlers/onboarding.py`, `media/infographic.py`, tests `test_v3_access.py`
+- [x] 4–6. Chat Context Manager (`bizChat`), Chat Control Framework, Mute Engine, Protect/.g, .nogif, .nomute, карточки AFK/auto/online, `.sum`, инспектор прав — `services/chat_controls.py`, `modules/controls.py`, `modules/chat_filters.py`, `handlers/controls.py`, `handlers/chatmgr.py`, миграция M003, tests `test_v3_controls.py`
+  - TODO позже: экспорт/удаление данных пользователя должны включать новые таблицы (Phase 12); `.re` (Phase 7) использует карточку `re`
 - [ ] 7–9. Animation Engine, .re, .r (RTL), .mad, .online, новые команды, AI Twin, `.ai`
 - [ ] 11–12. Локализация (JSON + codemod), новые панели (user/admin), делегирование, миграция M003, API
 - [ ] 13–14. Flutter-приложение + дизайн-система (Figma-ready)

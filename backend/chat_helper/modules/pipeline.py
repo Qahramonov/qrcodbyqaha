@@ -79,6 +79,7 @@ class Pipeline:
             return "command"
         chat = message.chat
         await app.chats.touch(user_id, chat.id, title=display_name(chat), username=chat.username, incoming=False)
+        await self.store_message(user_id, chat.id, message, outgoing=True, settings=settings)
         if settings.get("owner_pause_minutes", 15) > 0:
             await app.chats.set_owner_pause(user_id, chat.id, settings["owner_pause_minutes"])
         app.loop_guard.reset(user_id, chat.id)
@@ -97,6 +98,11 @@ class Pipeline:
         user_id = conn.user_id
         if await app.users.is_restricted(user_id):
             return "owner_restricted"
+        # v3 filters first (🔕 mute / 🚫 nogif / 🧹 words): a deleted message gets no further processing
+        if not app.runtime.emergency_stop and app.filters is not None:
+            deleted = await app.filters.handle_incoming(conn, message)
+            if deleted:
+                return f"filtered:{deleted}"
         settings = await app.settings.all(user_id)
         sender = message.from_user
         chat = message.chat
@@ -109,6 +115,7 @@ class Pipeline:
                                                  incoming=True, preview=preview)
         await app.connections.touch(conn.id, incoming=True)
         await app.metrics.incr("messages_in", user_id)
+        await self.store_message(user_id, chat.id, message, outgoing=False, settings=settings)
         app.loop_guard.note_incoming(user_id, chat.id, text)
         app.events.emit("message_in", user_id=user_id, chat_id=chat.id, media=mtype, new_chat=is_new)
 
@@ -126,6 +133,19 @@ class Pipeline:
         if settings.get("ai_auto_transcribe") and mtype in ("voice", "video_note") and app.ai_auto is not None:
             app.ai_auto.transcribe_for_owner(conn, message, settings)
         return await self.auto_reply(conn, message, settings, chat_row, is_new, mtype, text, is_bot)
+
+    async def store_message(self, owner: int, chat_id: int, message: Message, *, outgoing: bool, settings: dict[str, Any]) -> None:
+        """Keep a short, owner-scoped history for .sum and AI context (retention: history_retention_days)."""
+        if not settings.get("ai_store_history", True) or int(settings.get("history_retention_days", 7)) <= 0:
+            return
+        text = message.text or message.caption
+        try:
+            await self.app.db.execute(
+                "INSERT INTO chat_messages(owner_id, chat_id, message_id, outgoing, msg_type, text, created_at) VALUES (?,?,?,?,?,?,?)",
+                (owner, chat_id, message.message_id, 1 if outgoing else 0, media_type(message) or ("text" if text else None),
+                 clip(text, 2000) if text else None, int(time.time())))
+        except Exception:  # pragma: no cover - history is best-effort
+            log.exception("failed to store chat message")
 
     def gate(self, conn: Conn, settings: dict[str, Any], chat_row: dict[str, Any], is_bot: bool,
              check_limits: bool = True) -> str | None:
