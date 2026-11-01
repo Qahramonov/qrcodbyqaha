@@ -59,7 +59,7 @@ def api_md(api) -> str:
            "**Аутентификация:** одноразовый код из Telegram (`/app`) → `POST /auth/pair` → `access_token` (1 ч) + `refresh_token` (30 дн., ротация). "
            "Все запросы, кроме `/health`, `/auth/pair`, `/auth/refresh`: `Authorization: Bearer <access_token>`.", "",
            "**Ошибки:** `{\"error\": {\"code\": \"...\", \"message\": \"...\"}}` · 401 токен · 403 роль · 404 не найдено/чужое · 409 конфликт · 422 валидация · 429 лимит (`Retry-After`).", "",
-           "**Роли:** `user` — только свои данные; `moderator` — пользователи/аналитика/система (чтение); `super_admin` (ID из `SUPER_ADMIN_ID`) — всё. "
+           "**Роли:** `user` — только свои данные; `super_admin` (ID из `SUPER_ADMIN_ID`) — всё. "
            "Роль вычисляется на сервере; передача чужого Telegram ID в запросе ничего не даёт.", ""]
     by_tag: dict[str, list[str]] = {}
     for path, methods in sorted(spec.get("paths", {}).items()):

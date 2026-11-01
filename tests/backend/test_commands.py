@@ -82,6 +82,8 @@ async def test_rate_limit(env):
 
 
 async def test_admin_only_command_denied_for_regular_user(env):
+    await connect(env, "bc2", USER2)
+    env.session.clear()
     await env.feed(private_message(USER2, ".logs", "Bob"))
     assert any("Недостаточно прав" in t for t in env.session.sent_texts())
 
@@ -94,6 +96,8 @@ async def test_disabled_command(env):
 
 
 async def test_plan_gating(env):
+    await connect(env, "bc2", USER2)
+    env.session.clear()
     await env.app.executor.set_global("uuid", min_plan="pro")
     await env.feed(private_message(USER2, ".uuid", "Bob"))
     assert any("тарифе PRO" in t for t in env.session.sent_texts())
@@ -103,7 +107,7 @@ async def test_plan_gating(env):
 
 
 async def test_restricted_user(env):
-    await env.app.users.ensure(USER2)
+    await connect(env, "bc2", USER2)
     await env.app.users.restrict(USER2, "spam")
     await env.feed(private_message(USER2, ".calc 1+1", "Bob"))
     assert any("ограничен" in t for t in env.session.sent_texts())

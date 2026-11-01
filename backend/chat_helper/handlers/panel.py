@@ -23,11 +23,14 @@ from ..modules.afk import render_afk
 from ..modules.autoreply import mode_title
 from ..security.sanitize import clip, esc
 from ..services.settings import MODES, MSG_THEMES, STYLES
+from .ui import PanelGate, access, ensure_user, register_screen, render, show
 
 log = logging.getLogger(__name__)
 router = Router(name="panel")
 router.message.filter(F.chat.type == "private")
 router.callback_query.filter(F.message.chat.type == "private")
+router.message.middleware(PanelGate())
+router.callback_query.middleware(PanelGate())
 
 TIMEZONES = ["Asia/Tashkent", "Asia/Samarkand", "Europe/Moscow", "Asia/Almaty", "Europe/Kyiv", "Asia/Dubai", "Europe/Istanbul", "UTC"]
 PREFIXES = [".", "!", "-", ","]
@@ -88,37 +91,8 @@ async def screen_home(app: AppContext, uid: int, s: dict[str, Any]) -> tuple[str
         (tr(lang, "❓ Помощь", "❓ Yordam"), "m:help"),
     ]
     rows = grid(items, 2)
-    if role in ("super_admin", "moderator"):
+    if role == "super_admin":
         rows.append([(tr(lang, "🛡 Администрирование", "🛡 Boshqaruv"), "m:admin")])
-    return "\n".join(lines), kb(rows)
-
-
-async def screen_connect(app: AppContext, uid: int, s: dict[str, Any]) -> tuple[str, Any]:
-    lang = s["lang"]
-    conns = await app.connections.for_user(uid)
-    bot_un = getattr(app.bot_info, "username", None) or "ChatHelperBot"
-    lines = [tr(lang, "🔗 <b>Подключение аккаунта</b>", "🔗 <b>Akkauntni ulash</b>"), "",
-             tr(lang, "1. Нужен Telegram Premium (требование Telegram для бизнес-ботов).\n"
-                      "2. Откройте <b>Настройки → Telegram для бизнеса → Чат-боты</b>.\n"
-                      "3. Введите <code>@{b}</code> и выберите чаты.\n"
-                      "4. Включите право «Отвечать на сообщения» (и по желанию «Удалять сообщения», «Профиль»).\n"
-                      "5. Готово — пишите команды прямо в чатах, например <code>{p}help</code>.",
-                 "1. Telegram Premium kerak (Telegram talabi).\n"
-                 "2. <b>Sozlamalar → Telegram Business → Chat-botlar</b> ni oching.\n"
-                 "3. <code>@{b}</code> ni kiriting va chatlarni tanlang.\n"
-                 "4. «Xabarlarga javob berish» huquqini yoqing (xohishga ko'ra «Xabarlarni o'chirish», «Profil»).\n"
-                 "5. Tayyor — buyruqlarni chatlarda yozing, masalan <code>{p}help</code>.", b=bot_un, p=s["prefix"]), ""]
-    rows: list[list[tuple[str, str]]] = []
-    if not conns:
-        lines.append(tr(lang, "Подключений пока нет.", "Hozircha ulanishlar yo'q."))
-    for i, c in enumerate(conns[:5]):
-        lines.append(f"{status_title(c.status, lang)} · {fmt_dt(c.connected_at, s['timezone'])}"
-                     + (tr(lang, " · ⏸ пауза", " · ⏸ pauza") if c.paused else ""))
-        rows.append([(tr(lang, "🔍 Права #{i}", "🔍 Huquqlar #{i}", i=i + 1), f"conn:insp:{i}"),
-                     ((tr(lang, "▶️ Возобновить", "▶️ Davom") if c.paused else tr(lang, "⏸ Пауза", "⏸ Pauza")),
-                      f"conn:{'resume' if c.paused else 'pause'}:{i}")])
-    rows.append([(tr(lang, "🔄 Обновить статус", "🔄 Holatni yangilash"), "conn:refresh")])
-    rows.append(nav(lang))
     return "\n".join(lines), kb(rows)
 
 
@@ -126,6 +100,7 @@ async def screen_inspector(app: AppContext, uid: int, s: dict[str, Any], idx: in
     lang = s["lang"]
     conns = await app.connections.for_user(uid)
     if idx >= len(conns):
+        from .onboarding import screen_connect
         return await screen_connect(app, uid, s)
     c = conns[idx]
     rep = inspect(c.rights, c.is_enabled, lang, c.paused)
@@ -468,10 +443,12 @@ async def screen_help(app: AppContext, uid: int, s: dict[str, Any]) -> tuple[str
     lang = s["lang"]
     pre = s["prefix"]
     lines = [tr(lang, "❓ <b>Помощь</b>", "❓ <b>Yordam</b>"), "",
-             tr(lang, "<b>Как это работает.</b> Chat helper подключается к вашему аккаунту через официальную функцию Telegram «Чат-боты» "
-                      "(Telegram для бизнеса). Бот видит личные чаты, которые вы выбрали, и может отвечать от вашего имени.",
-                "<b>Qanday ishlaydi.</b> Chat helper akkauntingizga Telegram'ning rasmiy «Chat-botlar» funksiyasi (Telegram Business) orqali ulanadi. "
-                "Bot siz tanlagan shaxsiy chatlarni ko'radi va sizning nomingizdan javob bera oladi."), "",
+             tr(lang, "<b>Как это работает.</b> Chat helper подключается к вашему аккаунту через официальную функцию Telegram "
+                      "«Автоматизация чатов» (Secretary Mode, Bot API). Бот видит личные чаты, которые вы выбрали, и может отвечать от вашего имени. "
+                      "Пароли, коды входа и файлы сессии не нужны.",
+                "<b>Qanday ishlaydi.</b> Chat helper akkauntingizga Telegram'ning rasmiy «Chat automation» funksiyasi (Secretary Mode, Bot API) "
+                "orqali ulanadi. Bot siz tanlagan shaxsiy chatlarni ko'radi va sizning nomingizdan javob bera oladi. "
+                "Parol, kirish kodi va sessiya fayllari kerak emas."), "",
              tr(lang, "<b>Команды</b> пишите прямо в чате: <code>{p}afk</code>, <code>{p}gpt вопрос</code>, ответом на голосовое — <code>{p}reverse</code>.",
                 "<b>Buyruqlarni</b> to'g'ridan-to'g'ri chatda yozing: <code>{p}afk</code>, <code>{p}gpt savol</code>, ovozliga javoban — <code>{p}reverse</code>.", p=pre),
              tr(lang, "Команда заменяется результатом (или удаляется, если есть право удаления).", "Buyruq natija bilan almashtiriladi (yoki o'chirish huquqi bo'lsa o'chiriladi)."), "",
@@ -480,7 +457,8 @@ async def screen_help(app: AppContext, uid: int, s: dict[str, Any]) -> tuple[str
                 "<b>Telegram cheklovlari</b>: bot faqat suhbatdosh so'nggi 24 soatda yozgan chatlarda javob beradi; guruhlar qo'llab-quvvatlanmaydi; "
                 "«onlayn» holatini o'zgartirib bo'lmaydi."), "",
              tr(lang, "Полный список: <code>{p}help</code> или раздел «Команды».", "To'liq ro'yxat: <code>{p}help</code> yoki «Buyruqlar» bo'limi.", p=pre)]
-    rows = [[(tr(lang, "✉️ Написать в поддержку", "✉️ Qo'llab-quvvatlashga yozish"), "help:support")], nav(lang)]
+    rows = [[(tr(lang, "🔗 Подключение", "🔗 Ulanish"), "m:connect"), (tr(lang, "🖼 Инструкция", "🖼 Yo'riqnoma"), "ob:guide")],
+            [(tr(lang, "✉️ Написать в поддержку", "✉️ Qo'llab-quvvatlashga yozish"), "help:support")], nav(lang)]
     return "\n".join(lines), kb(rows)
 
 
@@ -503,12 +481,15 @@ async def screen_admin(app: AppContext, uid: int, s: dict[str, Any]) -> tuple[st
     return "\n".join(lines), kb(rows)
 
 
-SCREENS = {
-    "home": screen_home, "connect": screen_connect, "ai": screen_ai, "autoreply": screen_autoreply, "afk": screen_afk,
+for _name, _fn in {
+    "home": screen_home, "ai": screen_ai, "autoreply": screen_autoreply, "afk": screen_afk,
     "media": screen_media, "games": screen_games, "commands": screen_commands, "profile": screen_profile,
     "stats": screen_stats, "privacy": screen_privacy, "sub": screen_sub, "settings": screen_settings,
     "app": screen_app, "help": screen_help, "admin": screen_admin,
-}
+}.items():
+    register_screen(_name, _fn, public=_name in ("help", "app"), admin=_name == "admin")
+
+
 TOGGLE_SCREEN = {
     "ai_confirm": "ai", "ai_long_memory": "ai", "ai_store_history": "ai", "ai_auto_transcribe": "ai", "ai_daily_summary": "ai",
     "ai_priority_detection": "ai", "welcome_enabled": "autoreply", "automation_paused": "autoreply", "afk_auto_off": "afk",
@@ -522,37 +503,8 @@ TOGGLE_SCREEN = {
 # helpers
 # ======================================================================================
 
-async def _ensure_user(app: AppContext, msg_or_cb) -> int:
-    u = msg_or_cb.from_user
-    await app.users.upsert(u.id, u.username, u.first_name, u.last_name, u.language_code)
-    return u.id
-
-
-async def show(app: AppContext, uid: int, screen: str, target: Message, edit: bool, *args: Any) -> None:
-    s = await app.settings.all(uid)
-    if screen == "admin" and not await app.users.is_admin(uid):
-        screen = "home"
-    fn = SCREENS.get(screen, screen_home)
-    text, markup = await fn(app, uid, s, *args)
-    if edit:
-        try:
-            await target.edit_text(text, reply_markup=markup, disable_web_page_preview=True)
-            return
-        except TelegramBadRequest as e:
-            if "not modified" in str(e).lower():
-                return
-    await target.answer(text, reply_markup=markup, disable_web_page_preview=True)
-
-
-async def _render_custom(target: Message, text: str, markup: Any, edit: bool = True) -> None:
-    try:
-        if edit:
-            await target.edit_text(text, reply_markup=markup, disable_web_page_preview=True)
-            return
-    except TelegramBadRequest as e:
-        if "not modified" in str(e).lower():
-            return
-    await target.answer(text, reply_markup=markup, disable_web_page_preview=True)
+_ensure_user = ensure_user
+_render_custom = render
 
 
 # ======================================================================================
@@ -1144,7 +1096,7 @@ async def cb_admin(cb: CallbackQuery, state: FSMContext, app: AppContext) -> Non
     uid = await _ensure_user(app, cb)
     role = await app.users.role(uid)
     s = await app.settings.all(uid)
-    if role not in ("super_admin", "moderator"):
+    if role != "super_admin":
         await cb.answer(p(s["lang"], "not_allowed"), show_alert=True)
         return
     action = cb.data.split(":")[1]
@@ -1243,6 +1195,11 @@ async def private_fallback(message: Message, app: AppContext) -> None:
     uid = await _ensure_user(app, message)
     s = await app.settings.all(uid)
     if await app.executor.try_handle(message, user_id=uid, source="private", conn=await app.connections.primary_for_user(uid), settings=s):
+        return
+    if (await access(app, uid)).locked:
+        from ..commands.executor import locked_reply
+        text, markup = locked_reply(s["lang"])
+        await message.answer(text, reply_markup=markup)
         return
     text = message.text or ""
     if text and app.ai.available() and not text.startswith("/"):

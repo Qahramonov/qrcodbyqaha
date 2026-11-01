@@ -77,7 +77,7 @@ class CommandContext:
 
     @property
     def is_admin(self) -> bool:
-        return self.role in ("super_admin", "moderator")
+        return self.role == "super_admin"
 
     @property
     def is_super(self) -> bool:

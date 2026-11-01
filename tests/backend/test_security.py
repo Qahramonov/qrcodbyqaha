@@ -87,11 +87,15 @@ async def test_super_admin_role_is_fixed_and_new_device_alert(env, api):
         await users.set_role(OWNER, "user", granted_by=OWNER)
     assert await users.role(OWNER) == "super_admin"
     await users.ensure(USER2)
-    await users.set_role(USER2, "moderator", granted_by=OWNER)
-    assert await users.role(USER2) == "moderator"
+    # v3: no secondary admin roles — granting "moderator" is refused and legacy rows are ignored
+    with pytest.raises(ValueError):
+        await users.set_role(USER2, "moderator", granted_by=OWNER)
+    await env.app.db.execute("INSERT INTO admin_roles(user_id, role, granted_by, granted_at) VALUES (?,?,?,?)",
+                             (USER2, "moderator", OWNER, 1))
+    assert await users.role(USER2) == "user" and not await users.is_admin(USER2)
     # a username can never grant the role: only the configured ID is super admin
     await users.upsert(USER2, "libPM", "Fake", None, "ru", touch=True)
-    assert await users.role(USER2) == "moderator"
+    assert await users.role(USER2) == "user"
 
     code, _ = await env.app.auth.create_pairing_code(OWNER)
     r = await api.post("/api/v1/auth/pair", json={"code": code, "device_id": "dev-new", "device_name": "Pixel 8"})

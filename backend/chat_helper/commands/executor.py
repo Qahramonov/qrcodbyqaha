@@ -22,6 +22,18 @@ if TYPE_CHECKING:  # pragma: no cover
 log = logging.getLogger(__name__)
 
 HANDLER_TIMEOUT = 300
+# v3: before a Business connection exists only these commands work in the private chat with the bot
+PRE_CONNECT_COMMANDS = frozenset({"help", "lang", "support", "menu", "about", "privacy"})
+
+
+def locked_reply(lang: str) -> tuple[str, Any]:
+    from ..keyboards import kb
+    text = tr(lang, "🔒 Ваш Telegram-аккаунт ещё не подключён.\nПодключите Chat helper, чтобы использовать команды.",
+              "🔒 Telegram akkauntingiz hali ulanmagan.\nBuyruqlardan foydalanish uchun Chat helper'ni ulang.")
+    markup = kb([[(tr(lang, "🔗 Подключить", "🔗 Ulash"), "m:connect")],
+                 [(tr(lang, "📖 Инструкция", "📖 Yo'riqnoma"), "ob:guide")],
+                 [(tr(lang, "🔄 Проверить подключение", "🔄 Ulanishni tekshirish"), "ob:check")]])
+    return text, markup
 
 
 class CommandExecutor:
@@ -67,6 +79,14 @@ class CommandExecutor:
             return False  # in business chats only the configured prefix is a command
         spec = self.registry.resolve(parsed.name)
         lang = settings.get("lang", "ru")
+        if source == "private":
+            from ..handlers.ui import access
+            acc = await access(self.app, user_id)
+            if acc.locked and (spec is None or spec.id not in PRE_CONNECT_COMMANDS):
+                text, markup = locked_reply(lang)
+                await message.answer(text, reply_markup=markup)
+                await self.app.metrics.incr("locked_command", user_id)
+                return True
         if spec is None:
             custom = await self.app.custom_commands.find(user_id, parsed.name) if self.app.custom_commands else None
             if custom is not None:

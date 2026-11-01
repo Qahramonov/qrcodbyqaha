@@ -91,7 +91,7 @@ async def revoke_sub(uid: int, p: Principal = Depends(super_admin), app: Any = D
 
 
 class RoleIn(BaseModel):
-    role: str = Field(pattern="^(user|moderator)$")
+    role: str = Field(pattern="^user$")  # v3: only demotion of legacy moderators
 
 
 @router.put("/users/{uid}/role", tags=["users"])

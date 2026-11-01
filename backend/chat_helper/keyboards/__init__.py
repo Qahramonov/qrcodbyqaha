@@ -1,18 +1,22 @@
 """Inline keyboard helpers."""
 from __future__ import annotations
 
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import CopyTextButton, InlineKeyboardButton, InlineKeyboardMarkup
 
 from ..localization import p
 
 
 def kb(rows: list[list[tuple[str, str]]]) -> InlineKeyboardMarkup:
+    """Rows of (label, data). data prefixes: ``url:`` link (http/https/tg://), ``copy:`` copy-to-clipboard text,
+    anything else is callback data (≤ 64 bytes)."""
     out = []
     for row in rows:
         btns = []
         for text, data in row:
             if data.startswith("url:"):
                 btns.append(InlineKeyboardButton(text=text, url=data[4:]))
+            elif data.startswith("copy:"):
+                btns.append(InlineKeyboardButton(text=text, copy_text=CopyTextButton(text=data[5:256])))
             else:
                 btns.append(InlineKeyboardButton(text=text, callback_data=data[:64]))
         if btns:
@@ -51,3 +55,13 @@ def pager(prefix: str, page: int, pages: int) -> list[tuple[str, str]]:
     if page < pages - 1:
         row.append(("▶️", f"{prefix}:{page + 1}"))
     return row
+
+
+def without_tg_links(markup: InlineKeyboardMarkup) -> InlineKeyboardMarkup:
+    """Fallback when a client/server rejects tg:// buttons: drop them, keep everything else."""
+    rows = []
+    for row in markup.inline_keyboard:
+        kept = [b for b in row if not (b.url or "").startswith("tg://")]
+        if kept:
+            rows.append(kept)
+    return InlineKeyboardMarkup(inline_keyboard=rows)

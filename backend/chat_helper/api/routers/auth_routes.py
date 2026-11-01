@@ -38,10 +38,9 @@ async def _me(app: Any, uid: int, role: str) -> dict[str, Any]:
     conns = await app.connections.for_user(uid)
     caps = ["dashboard", "settings", "afk", "ai", "autoreply", "automation", "chats", "commands", "media", "games", "connections",
             "notifications", "analytics_self", "security_self", "subscription"]
-    if role in ("super_admin", "moderator"):
-        caps += ["users", "analytics_global", "system", "security_admin", "broadcast_view"]
-    if role == "super_admin":
-        caps += ["subscriptions_admin", "payments_admin", "broadcast", "ai_system", "flags", "emergency_stop", "backups"]
+    if role == "super_admin":  # v3: admin capabilities only for the configured super admin
+        caps += ["users", "analytics_global", "system", "security_admin", "broadcast_view",
+                 "subscriptions_admin", "payments_admin", "broadcast", "ai_system", "flags", "emergency_stop", "backups"]
     return {"user": {k: user.get(k) for k in ("id", "username", "first_name", "last_name", "language", "status", "created_at", "last_seen_at")},
             "role": role, "plan": plan, "limits": await app.subs.limits(uid), "capabilities": caps,
             "connections": [{"id": c.id, "status": c.status, "is_enabled": c.is_enabled} for c in conns],

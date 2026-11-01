@@ -23,7 +23,8 @@ class Principal:
 
     @property
     def is_admin(self) -> bool:
-        return self.role in ("super_admin", "moderator")
+        # v3: the only administrator is the configured super admin
+        return self.role == "super_admin"
 
     @property
     def is_super(self) -> bool:

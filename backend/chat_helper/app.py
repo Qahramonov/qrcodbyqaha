@@ -75,6 +75,7 @@ async def build_app(cfg: Settings, bot: Bot | None = None, *, with_bot: bool = T
     from .games.games import register_games
     from .games.games import router as games_router
     from .handlers.business import router as business_router
+    from .handlers.onboarding import router as onboarding_router
     from .handlers.panel import router as panel_router
     from .media.service import MediaService
     from .modules.afk import AFKService
@@ -179,7 +180,7 @@ async def build_app(cfg: Settings, bot: Bot | None = None, *, with_bot: bool = T
     dp["app"] = app
     dp.update.outer_middleware(ActivityMiddleware(app))
     for r in (payments_router, business_router, ai_drafts_router, ai_cmds_router, media_router, text_router, system_router, games_router,
-              panel_router):
+              onboarding_router, panel_router):
         if r.parent_router is not None:  # routers are module-level singletons; allow re-binding (tests, restarts)
             r._parent_router = None  # noqa: SLF001
         dp.include_router(r)

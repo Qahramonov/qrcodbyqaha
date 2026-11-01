@@ -116,6 +116,9 @@ async def test_privacy_export_and_delete(env):
 
 
 async def test_promo_trial_and_dm_commands(env):
+    bc = business_connection("bc2", USER2)
+    env.session.connections["bc2"] = bc
+    await env.feed(update_connection(bc))
     await env.feed(private_message(USER2, "/start", "Bob"))
     await env.feed(cb(USER2, "sub:trial"))
     assert await env.app.subs.plan_of(USER2) == "plus"

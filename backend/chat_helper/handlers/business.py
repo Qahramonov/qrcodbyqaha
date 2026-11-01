@@ -49,12 +49,14 @@ async def on_business_connection(bc: BusinessConnection, app: AppContext) -> Non
         lines.append("")
         lines += ["ℹ️ " + a for a in report["advice"]]
         lines.append("")
-        lines.append(tr(lang, "Пишите команды прямо в чатах, например <code>{p}afk</code> или <code>{p}help</code>. Меню: /menu",
-                        "Buyruqlarni to'g'ridan-to'g'ri chatlarda yozing, masalan <code>{p}afk</code> yoki <code>{p}help</code>. Menyu: /menu",
+        lines.append(tr(lang, "Пишите команды прямо в чатах, например <code>{p}afk</code> или <code>{p}help</code>.",
+                        "Buyruqlarni to'g'ridan-to'g'ri chatlarda yozing, masalan <code>{p}afk</code> yoki <code>{p}help</code>.",
                         p=settings["prefix"]))
         await app.notifications.notify(u.id, "connection", tr(lang, "Новое бизнес-подключение", "Yangi biznes ulanish"),
                                        report["status_title"])
-        await app.sender.send_text(u.id, "\n".join(lines))
+        from ..keyboards import kb
+        await app.sender.send_text(u.id, "\n".join(lines), markup=kb([
+            [(tr(lang, "🏠 Открыть меню", "🏠 Menyuni ochish"), "m:home"), (tr(lang, "🔍 Права", "🔍 Huquqlar"), "conn:insp:0")]]))
         if u.id != app.config.super_admin_id:
             await app.notifications.notify(app.config.super_admin_id, "connection_admin",
                                            "New business connection", f"user {u.id} (@{u.username or '-'}) → {conn.status}")
@@ -63,10 +65,12 @@ async def on_business_connection(bc: BusinessConnection, app: AppContext) -> Non
         await app.notifications.notify(u.id, "disconnect", tr(lang, "Бизнес-подключение отключено", "Biznes ulanish uzildi"),
                                        level="warning")
         if settings.get("notify_disconnect", True):
-            await app.sender.send_text(u.id, tr(lang, "🔌 Chat helper отключён от вашего аккаунта. Автоответы и команды в чатах остановлены. "
-                                                      "Переподключить: Настройки → Telegram для бизнеса → Чат-боты.",
-                                                "🔌 Chat helper akkauntingizdan uzildi. Chatlardagi avtojavob va buyruqlar to'xtatildi. "
-                                                "Qayta ulash: Sozlamalar → Telegram Business → Chat-botlar."))
+            from ..keyboards import kb
+            await app.sender.send_text(u.id, tr(lang, "🔌 Chat helper отключён от вашего аккаунта. Автоответы, команды и кнопки управления "
+                                                      "в чатах остановлены. Переподключить: Настройки → Изм. → Автоматизация чатов.",
+                                                "🔌 Chat helper akkauntingizdan uzildi. Chatlardagi avtojavob, buyruqlar va boshqaruv tugmalari "
+                                                "to'xtatildi. Qayta ulash: Sozlamalar → Tahrirlash → Chat automation."),
+                                       markup=kb([[(tr(lang, "🔗 Как подключить снова", "🔗 Qayta ulash"), "m:connect")]]))
     elif change.kind == "rights_changed":
         lines = [tr(lang, "🔐 <b>Права бизнес-бота изменены</b>", "🔐 <b>Biznes-bot huquqlari o'zgardi</b>"),
                  tr(lang, "Статус: {s}", "Holat: {s}", s=status_title(conn.status, lang))]

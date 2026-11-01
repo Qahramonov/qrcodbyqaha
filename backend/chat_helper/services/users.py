@@ -37,29 +37,30 @@ class UserService:
         return await self.db.fetchone("SELECT * FROM users WHERE id=?", (user_id,))
 
     async def role(self, user_id: int) -> str:
-        if int(user_id) == self.super_admin_id:
-            return ROLE_SUPER
-        r = await self.db.fetchval("SELECT role FROM admin_roles WHERE user_id=?", (user_id,))
-        if r == ROLE_MOD:
-            return ROLE_MOD
-        # Only the configured SUPER_ADMIN_ID can ever be super admin.
-        return ROLE_USER
+        """v3: exactly one administrator — the numeric SUPER_ADMIN_ID from configuration.
+
+        Usernames, legacy ``moderator`` rows in ``admin_roles`` and request parameters never grant admin rights.
+        Users can instead *delegate* specific settings to the super admin (see services/delegation.py).
+        """
+        return ROLE_SUPER if self.is_super_id(user_id) else ROLE_USER
+
+    def is_super_id(self, user_id: int | None) -> bool:
+        try:
+            return user_id is not None and int(user_id) == self.super_admin_id
+        except (TypeError, ValueError):
+            return False
 
     async def is_admin(self, user_id: int) -> bool:
-        return await self.role(user_id) in (ROLE_SUPER, ROLE_MOD)
+        return self.is_super_id(user_id)
 
     async def set_role(self, user_id: int, role: str | None, granted_by: int) -> None:
         if int(user_id) == self.super_admin_id:
             raise ValueError("super admin role is fixed by configuration")
         if role is None or role == ROLE_USER:
+            # removes a legacy v1/v2 moderator row; such rows are ignored by role() anyway
             await self.db.execute("DELETE FROM admin_roles WHERE user_id=?", (user_id,))
-        elif role == ROLE_MOD:
-            await self.db.execute(
-                "INSERT INTO admin_roles(user_id, role, granted_by, granted_at) VALUES (?,?,?,?) "
-                "ON CONFLICT(user_id) DO UPDATE SET role=excluded.role, granted_by=excluded.granted_by, "
-                "granted_at=excluded.granted_at", (user_id, ROLE_MOD, granted_by, int(time.time())))
-        else:
-            raise ValueError("invalid role")
+            return
+        raise ValueError("only the configured super admin has admin access in v3; use delegated management instead")
 
     async def is_restricted(self, user_id: int) -> bool:
         if int(user_id) == self.super_admin_id:
