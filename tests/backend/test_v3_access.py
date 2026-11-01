@@ -162,7 +162,7 @@ async def test_admin_menu_hidden_and_redirected(env):
     assert "m:admin" not in {b.callback_data for b in buttons(req)}
     env.session.clear()
     await env.feed(cb(USER2, "m:admin"))
-    assert "Администрирование" not in last_text(env)
+    assert "Super Admin" not in last_text(env) and "Dashboard" not in last_text(env)
 
 
 async def test_legacy_moderator_and_username_grant_nothing(env):
@@ -194,7 +194,79 @@ async def test_super_admin_panel_without_connection(env):
     assert "m:admin" in {b.callback_data for b in buttons(req)}
     env.session.clear()
     await env.feed(cb(OWNER, "m:admin"))
-    assert "Администрирование" in last_text(env)
+    assert "Super Admin" in last_text(env)
     env.session.clear()
     await env.feed(private_message(OWNER, ".calc 6*7"))
     assert any("42" in t for t in env.session.sent_texts())
+
+
+async def test_every_admin_section_renders_for_super_admin_only(env):
+    from chat_helper.handlers.admin import SECTIONS
+    await connect(env, USER2, "bc2")
+    await env.feed(private_message(OWNER, "/start"))
+    for key, _ in SECTIONS:
+        env.session.clear()
+        await env.feed(cb(OWNER, f"ax:{key}"))
+        assert env.session.calls("EditMessageText") or env.session.calls("SendMessage"), key
+        assert "⚠️ Внутренняя" not in last_text(env), key
+    # actions: block/unblock and plan grant from the user card
+    await env.feed(cb(OWNER, f"ax:uact:{USER2}:block"))
+    assert await env.app.users.is_restricted(USER2)
+    await env.feed(cb(OWNER, f"ax:uact:{USER2}:unblock"))
+    await env.feed(cb(OWNER, f"ax:uact:{USER2}:grant_pro"))
+    assert await env.app.subs.plan_of(USER2) == "pro"
+    await env.feed(cb(OWNER, f"ax:uact:{OWNER}:block"))                  # the super admin cannot be blocked
+    assert not await env.app.users.is_restricted(OWNER)
+    # a regular user gets nothing from any ax: callback
+    for key, _ in SECTIONS[:5]:
+        env.session.clear()
+        await env.feed(cb(USER2, f"ax:{key}"))
+        ans = env.session.calls("AnswerCallbackQuery")[-1]
+        assert ans.show_alert and "Недостаточно прав" in ans.text
+    env.session.clear()
+    await env.feed(cb(USER2, f"ax:uact:{USER2}:grant_vip"))
+    assert await env.app.subs.plan_of(USER2) == "pro"
+
+
+async def test_new_user_sections_render_after_connection(env):
+    await connect(env, USER2, "bc2")
+    await env.feed(private_message(USER2, "/start", "Bob"))
+    req = env.session.calls("SendMessage")[-1]
+    data = {b.callback_data for b in buttons(req)}
+    for screen in ("account", "chats", "quick", "ai", "twin", "autoreply", "afk", "mutes", "protects", "media", "games", "texttools",
+                   "reminders", "stats", "sub", "settings", "help", "delegation"):
+        if screen != "delegation":
+            assert f"m:{screen}" in data, screen
+        env.session.clear()
+        await env.feed(cb(USER2, f"m:{screen}"))
+        assert env.session.calls("EditMessageText") or env.session.calls("SendMessage"), screen
+    await env.feed(cb(USER2, "dg:ai"))
+    assert await env.app.delegation.is_granted(USER2, "ai")
+    await env.feed(cb(USER2, "dg:ai"))
+    assert not await env.app.delegation.is_granted(USER2, "ai")
+
+
+async def test_delegation_limits_admin_changes(env):
+    await connect(env, USER2, "bc2")
+    import pytest
+    with pytest.raises(PermissionError):
+        await env.app.delegation.admin_update_settings(OWNER, USER2, {"ai_style": "funny"})      # not granted yet
+    await env.app.delegation.grant(USER2, "ai")
+    s = await env.app.delegation.admin_update_settings(OWNER, USER2, {"ai_style": "funny"})
+    assert s["ai_style"] == "funny"
+    with pytest.raises(PermissionError):
+        await env.app.delegation.admin_update_settings(OWNER, USER2, {"prefix": "!"})           # «commands» not granted
+    with pytest.raises(PermissionError):
+        await env.app.delegation.admin_update_settings(USER2, USER2, {"ai_style": "short"})     # only the super admin
+    # profile: each change needs the user's confirmation
+    with pytest.raises(PermissionError):
+        await env.app.delegation.request_profile_change(OWNER, USER2, "bio", "Новое био")
+    await env.app.delegation.grant(USER2, "profile")
+    rid = await env.app.delegation.request_profile_change(OWNER, USER2, "bio", "Новое био")
+    assert any("Применить?" in t for t in env.session.sent_texts())
+    env.session.clear()
+    await env.feed(cb(USER2, f"dlg:ok:{rid}"))
+    assert env.session.calls("SetBusinessAccountBio")[-1].bio == "Новое био"
+    assert await env.app.delegation.decide_profile_change(USER2, rid, True) == "already_decided"
+    hist = await env.app.delegation.history(USER2)
+    assert {h["action"] for h in hist} >= {"grant", "use", "request"}

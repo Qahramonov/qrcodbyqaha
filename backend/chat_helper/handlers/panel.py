@@ -56,43 +56,56 @@ class PS(StatesGroup):
 
 async def screen_home(app: AppContext, uid: int, s: dict[str, Any]) -> tuple[str, Any]:
     lang = s["lang"]
-    conn = await app.connections.primary_for_user(uid)
+    acc = await access(app, uid)
+    if acc.locked:  # defensive: show() already routes locked users to onboarding
+        from .onboarding import screen_welcome
+        return await screen_welcome(app, uid, s)
     afk = await app.afk.active(uid)
     plan = await app.subs.plan_of(uid)
-    role = await app.users.role(uid)
     user = await app.users.get(uid) or {}
     name = esc(user.get("first_name") or "")
-    lines = [tr(lang, "✨ <b>Chat helper</b> — ваш помощник в Telegram", "✨ <b>Chat helper</b> — Telegram'dagi yordamchingiz"), ""]
-    lines.append(tr(lang, "👋 Привет, {n}!", "👋 Salom, {n}!", n=name or "👤"))
-    lines.append(tr(lang, "🔗 Бизнес-подключение: {s}", "🔗 Biznes ulanish: {s}",
-                    s=status_title(conn.status, lang) if conn else tr(lang, "⚪️ не подключено", "⚪️ ulanmagan")))
-    lines.append(tr(lang, "💬 Режим: {m}", "💬 Rejim: {m}", m=mode_title(s["mode"], lang)))
+    active = await app.controls.active(uid)
+    mutes = sum(1 for r in active if r["module"] in ("mute", "nogif", "nomute"))
+    protects = sum(1 for r in active if r["module"] == "protect")
+    reminders = len(await app.reminders.list(uid))
+    lines = [tr(lang, "✨ <b>Chat helper</b> — ваш помощник в Telegram", "✨ <b>Chat helper</b> — Telegram'dagi yordamchingiz"), "",
+             tr(lang, "👋 Привет, {n}!", "👋 Salom, {n}!", n=name or "👤"),
+             tr(lang, "🔗 Подключение: {s}", "🔗 Ulanish: {s}",
+                s=status_title(acc.conn.status, lang) if acc.conn else tr(lang, "⚪️ не подключено", "⚪️ ulanmagan")),
+             tr(lang, "💬 Режим: {m}", "💬 Rejim: {m}", m=mode_title(s["mode"], lang))]
     if afk:
         lines.append(tr(lang, "💤 AFK: {d}", "💤 AFK: {d}", d=human_duration(time.time() - afk["started_at"], lang)))
+    if mutes or protects or reminders:
+        lines.append(tr(lang, "🔕 Фильтров: {m} · 🛡 Защищено чатов: {p} · ⏰ Напоминаний: {r}",
+                        "🔕 Filtrlar: {m} · 🛡 Himoyalangan chatlar: {p} · ⏰ Eslatmalar: {r}", m=mutes, p=protects, r=reminders))
     if s.get("automation_paused"):
         lines.append(tr(lang, "⏸ Автоматизация на паузе", "⏸ Avtomatlashtirish to'xtatilgan"))
     lines.append(tr(lang, "💎 Тариф: {p}", "💎 Tarif: {p}", p=plan.upper()))
     if app.runtime.emergency_stop:
         lines.append(p(lang, "emergency"))
     items = [
-        (tr(lang, "🔗 Подключить аккаунт", "🔗 Akkauntni ulash"), "m:connect"),
+        (tr(lang, "👤 Мой аккаунт", "👤 Akkauntim"), "m:account"),
+        (tr(lang, "💬 Мои чаты", "💬 Chatlarim"), "m:chats"),
+        (tr(lang, "⚡ Быстрые команды", "⚡ Tezkor buyruqlar"), "m:quick"),
         (tr(lang, "🧠 AI Assistant", "🧠 AI yordamchi"), "m:ai"),
+        (tr(lang, "🤖 AI-двойник", "🤖 AI-egizak"), "m:twin"),
         (tr(lang, "💬 Автоответчик", "💬 Avtojavob"), "m:autoreply"),
         ("💤 AFK", "m:afk"),
+        ("🔕 Mute Manager", "m:mutes"),
+        ("🛡 Protect Manager", "m:protects"),
         ("🎬 Media Studio", "m:media"),
         (tr(lang, "🎮 Игры", "🎮 O'yinlar"), "m:games"),
-        (tr(lang, "⌨️ Команды", "⌨️ Buyruqlar"), "m:commands"),
-        (tr(lang, "👤 Профиль", "👤 Profil"), "m:profile"),
+        ("📝 Text Tools", "m:texttools"),
+        (tr(lang, "⏰ Напоминания", "⏰ Eslatmalar"), "m:reminders"),
         (tr(lang, "📊 Статистика", "📊 Statistika"), "m:stats"),
-        (tr(lang, "🔐 Приватность", "🔐 Maxfiylik"), "m:privacy"),
         (tr(lang, "💎 Подписка", "💎 Obuna"), "m:sub"),
         (tr(lang, "⚙️ Настройки", "⚙️ Sozlamalar"), "m:settings"),
-        (tr(lang, "📱 Приложение", "📱 Ilova"), "m:app"),
         (tr(lang, "❓ Помощь", "❓ Yordam"), "m:help"),
+        (tr(lang, "👤 Профиль", "👤 Profil"), "m:profile"),
     ]
     rows = grid(items, 2)
-    if role == "super_admin":
-        rows.append([(tr(lang, "🛡 Администрирование", "🛡 Boshqaruv"), "m:admin")])
+    if acc.is_super:
+        rows.append([(tr(lang, "👑 Super Admin", "👑 Super Admin"), "m:admin")])
     return "\n".join(lines), kb(rows)
 
 
@@ -474,32 +487,13 @@ async def screen_help(app: AppContext, uid: int, s: dict[str, Any]) -> tuple[str
     return "\n".join(lines), kb(rows)
 
 
-async def screen_admin(app: AppContext, uid: int, s: dict[str, Any]) -> tuple[str, Any]:
-    lang = s["lang"]
-    users = await app.users.count()
-    conns = await app.connections.counts()
-    subs = await app.subs.stats()
-    lines = [tr(lang, "🛡 <b>Администрирование</b>", "🛡 <b>Boshqaruv</b>"), "",
-             tr(lang, "Пользователей: {u}", "Foydalanuvchilar: {u}", u=users),
-             tr(lang, "Активных подключений: {c}", "Faol ulanishlar: {c}", c=conns.get("active", 0)),
-             tr(lang, "Подписки: {s}", "Obunalar: {s}", s=", ".join(f"{k}:{v}" for k, v in subs["active_by_plan"].items())),
-             tr(lang, "Выручка: {r} ⭐️", "Daromad: {r} ⭐️", r=subs["revenue_stars"]),
-             tr(lang, "Аптайм: {u}", "Ishlash vaqti: {u}", u=human_duration(app.uptime, lang)), "",
-             tr(lang, "Полное управление — в приложении Chat helper Control.", "To'liq boshqaruv — Chat helper Control ilovasida.")]
-    rows = [[toggle(tr(lang, "🛑 Аварийная остановка", "🛑 Favqulodda to'xtatish"), app.runtime.emergency_stop, "adm:es")],
-            [toggle(tr(lang, "🛠 Обслуживание", "🛠 Texnik xizmat"), app.runtime.maintenance, "adm:mt")],
-            [(tr(lang, "📣 Рассылка", "📣 Xabar tarqatish"), "adm:bc"), (tr(lang, "🩺 Диагностика", "🩺 Diagnostika"), "adm:health")],
-            nav(lang)]
-    return "\n".join(lines), kb(rows)
-
-
 for _name, _fn in {
     "home": screen_home, "ai": screen_ai, "autoreply": screen_autoreply, "afk": screen_afk,
     "media": screen_media, "games": screen_games, "commands": screen_commands, "profile": screen_profile,
     "stats": screen_stats, "privacy": screen_privacy, "sub": screen_sub, "settings": screen_settings,
-    "app": screen_app, "help": screen_help, "admin": screen_admin,
+    "app": screen_app, "help": screen_help,
 }.items():
-    register_screen(_name, _fn, public=_name in ("help", "app"), admin=_name == "admin")
+    register_screen(_name, _fn, public=_name in ("help", "app"))
 
 
 TOGGLE_SCREEN = {

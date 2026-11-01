@@ -80,6 +80,8 @@ async def build_app(cfg: Settings, bot: Bot | None = None, *, with_bot: bool = T
     from .modules.animations import router as animations_router
     from .handlers.onboarding import router as onboarding_router
     from .handlers.twin import router as twin_router
+    from .handlers.account import router as account_router
+    from .handlers.admin import router as admin_router
     from .handlers.panel import router as panel_router
     from .media.service import MediaService
     from .modules.afk import AFKService
@@ -144,6 +146,8 @@ async def build_app(cfg: Settings, bot: Bot | None = None, *, with_bot: bool = T
     app.ai_auto = AIAutoReply(app)
     from .ai.twin import TwinService
     app.twin = TwinService(app)
+    from .services.delegation import DelegationService
+    app.delegation = DelegationService(app)
     app.health = HealthService(app)
     await app.health.check_ffmpeg()
     app.media = MediaService(app)
@@ -202,7 +206,7 @@ async def build_app(cfg: Settings, bot: Bot | None = None, *, with_bot: bool = T
     app.fsm_storage = dp.storage
     dp.update.outer_middleware(ActivityMiddleware(app))
     for r in (payments_router, business_router, controls_router, animations_router, ai_drafts_router, ai_cmds_router, media_router, text_router,
-              system_router, games_router, onboarding_router, chatmgr_router, twin_router, panel_router):
+              system_router, games_router, onboarding_router, chatmgr_router, twin_router, account_router, admin_router, panel_router):
         if r.parent_router is not None:  # routers are module-level singletons; allow re-binding (tests, restarts)
             r._parent_router = None  # noqa: SLF001
         dp.include_router(r)

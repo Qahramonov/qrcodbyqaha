@@ -156,6 +156,15 @@ class ProfileService:
         self._cache.pop(uid, None)
         await self.app.audit.log(f"profile.{field}", actor_id=uid, target_type="user", target_id=uid, source=source)
 
+    async def apply_change(self, uid: int, field: str, value: str, source: str) -> bool:
+        """Apply an already-confirmed name/bio change (delegation flow). False if rights or connection are missing."""
+        conn = await self.app.connections.primary_for_user(uid)
+        if conn is None or not conn.is_enabled or field not in ("name", "bio") or not conn.can(FIELD_RIGHT[field]):
+            return False
+        values = {"first_name": value[:64]} if field == "name" else {"bio": value[:140]}
+        await self.apply(uid, {"field": field, "values": values, "conn": conn.id, "old": await self.current(uid)}, source)
+        return True
+
     async def restore_flow(self, uid: int, target: Message) -> None:
         snap = await self._settings_blob(uid, "profile_backup")
         lang = (await self.app.settings.all(uid))["lang"]

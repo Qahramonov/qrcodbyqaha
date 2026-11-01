@@ -441,3 +441,28 @@ async def cmd_tpl(ctx: CommandContext) -> None:
     if not row:
         raise CommandError(ctx.t("Шаблон не найден.", "Shablon topilmadi."))
     await ctx.answer(esc(row["text"]))
+
+
+@registry.command("fav", "system", aliases=["избранное", "sevimli"], ru="Избранные команды для меню «⚡ Быстрые команды»: .fav команда1 команда2 … (без аргументов — показать)",
+                  uz="«⚡ Tezkor buyruqlar» menyusi uchun sevimli buyruqlar: .fav buyruq1 buyruq2 … (argumentsiz — ko'rsatish)",
+                  syntax=".fav [команды…] | .fav reset", examples=[".fav afk mute ai sum", ".fav reset"], sandbox_safe=True, rate=(10, 60))
+async def cmd_fav(ctx: CommandContext) -> None:
+    from ..handlers.account import QUICK_DEFAULT
+    if ctx.parsed.first == "reset":
+        await ctx.app.settings.set(ctx.user_id, "favorite_commands", [])
+        await ctx.answer(ctx.t("⭐ Избранное сброшено.", "⭐ Sevimlilar tiklandi."), private=ctx.is_business)
+        return
+    if not ctx.args:
+        fav = ctx.settings.get("favorite_commands") or QUICK_DEFAULT
+        await ctx.answer("⭐ " + " ".join(f"<code>{ctx.prefix}{c}</code>" for c in fav), private=ctx.is_business)
+        return
+    ids, unknown = [], []
+    for a in ctx.args[:12]:
+        spec = ctx.app.registry.resolve(a.lstrip(ctx.prefix).lstrip("."))
+        (ids if spec else unknown).append(spec.id if spec else a)
+    ids = list(dict.fromkeys(ids))
+    await ctx.app.settings.set(ctx.user_id, "favorite_commands", ids)
+    msg = "⭐ " + " ".join(f"<code>{ctx.prefix}{c}</code>" for c in ids)
+    if unknown:
+        msg += "\n" + ctx.t("Не найдены: {u}", "Topilmadi: {u}", u=esc(", ".join(unknown)))
+    await ctx.answer(msg, private=ctx.is_business)
