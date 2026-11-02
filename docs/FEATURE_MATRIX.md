@@ -14,6 +14,32 @@
 
 > **Общее для всего, что общается с Telegram:** логика проверена тестами на поддельной Bot API-сессии, но поведение настоящих серверов Telegram — `NOT_VERIFIED_ON_DEVICE`. Первым делом после установки выполните чек-лист из [OWNER_SETUP.md](OWNER_SETUP.md#7-контрольный-список).
 
+## 0. Новое в v3
+
+| Функция | Статус | Где проверено / примечание |
+|---|---|---|
+| Блокировка до подключения (меню, команды, callback, FSM, API) + сообщение 🔒 с кнопками | `TESTED` | `test_v3_access.py` |
+| Мастер подключения, `tg://settings/edit` с запасным вариантом, инфографика RU/UZ | `TESTED` · `NOT_VERIFIED_ON_DEVICE` | открытие `tg://` в реальном клиенте не проверялось |
+| Chat Context Manager `/start bizChat<id>` с проверкой владельца | `TESTED` | `test_v3_controls.py` |
+| Chat Control Framework: карточки, только владелец, версии, идемпотентность, отзыв, таймеры | `TESTED` · `NOT_VERIFIED_ON_DEVICE` | inline-кнопки в живом бизнес-чате не проверялись |
+| `.mute` (deleteBusinessMessages, подтверждение, таймеры, типы, белый список, отчёт), `.unmute`, `.quiet` | `TESTED` · `REQUIRES_PERMISSION` · `NOT_VERIFIED_ON_DEVICE` | `test_v3_controls.py`, `test_v3_extra.py`; реальное удаление у собеседника не проверялось |
+| `.protect`/`.unprotect`, `.g`, `.nogif`, `.nomute` | `TESTED` · `REQUIRES_PERMISSION` | |
+| `.online` — честный `NOT_SUPPORTED_BY_OFFICIAL_API` + Chat Activity | `TESTED` · `NOT_SUPPORTED` (подделка онлайна) | |
+| `.a` Animation Engine: 16 типов, 4 скорости, студия, отмена, без FloodWait | `TESTED` | |
+| `.re` (5 с × до 2 мин, стоп, лимит Free 3/день), `.r` RTL, `.mad` | `TESTED` | |
+| AI-двойник: режимы Auto/Manual/Draft/Disabled, обучение только на своих примерах, подпись AI | `TESTED` (тестовый AI-провайдер) · `REQUIRES_API_KEY` | `test_v3_features.py` |
+| `.sum`, `.hint`, `.ai` (алиас `.gpt`) | `IMPLEMENTED` · `REQUIRES_API_KEY` | алиас `.gpt` → `.ai` проверен; без ключа — честный ответ «AI не настроен» |
+| `.ball`, `.morse`, `.geo`, `.info`, `.finfo`, `.gif` (≤15 с), `.wtm` (фото и видео/кружок), `.qr` создать/распознать | `TESTED` | `test_v3_features.py`, `test_v3_extra.py`; `.qr`: zxing-cpp/zbarimg/AI |
+| `.ptext` OCR ru/uz/en | `TESTED` (с заглушкой tesseract) · `NOT_VERIFIED_ON_DEVICE` | реальный tesseract в среде разработки не установлен; без него — AI или понятное сообщение |
+| `.remind`, `.remindf`, список/отмена, переживают перезапуск | `TESTED` | |
+| Делегирование (добровольное, отзывное, профиль — только с подтверждения) | `TESTED` | |
+| Super Admin — единственный админ; админ-раздел невидим (бот, приложение, 43 API-маршрута → 404) | `TESTED` | `test_v3_admin_hidden.py`, `router_test.dart` |
+| Локализация RU/UZ из JSON (≈1700 ключей), все экраны и команды на узбекском без кириллицы | `TESTED` | `test_v3_localization.py` |
+| Миграция M003 с бэкапом перед ней (данные сохраняются, новая установка — без бэкапа) | `TESTED` | `test_v3_extra.py` |
+| Приложение Flutter v3: 40 экранов на реальном API, RU/UZ | `TESTED` (widget-тесты на записанных ответах backend) · `NOT_VERIFIED_ON_DEVICE` | |
+| Сборка Flutter APK в GitHub Actions | `TESTED` | run 41418763510: analyze + test + build — success |
+| Дизайн-система (токены, компоненты, скриншоты), Figma-ready | `IMPLEMENTED` | файла `.fig` нет — интеграции Figma нет |
+
 ## 1. Telegram Business
 
 | Функция | Статус | Примечание |
@@ -40,14 +66,14 @@
 
 | Функция | Статус | Примечание |
 |---|---|---|
-| Парсер (`.`/`!`/`-`/`,`, пробел после префикса, регистр, RU/UZ-алиасы) | `TESTED` | 141 команда, [COMMANDS.md](COMMANDS.md) |
+| Парсер (`.`/`!`/`-`/`,`, пробел после префикса, регистр, RU/UZ-алиасы) | `TESTED` | 160 команд, [COMMANDS.md](COMMANDS.md) |
 | Ошибки синтаксиса → подсказка приватно; неизвестная команда — тихо в чате, помощь в личке | `TESTED` | |
 | Лимиты частоты, отключение команд, тарифные ограничения, бан | `TESTED` | |
 | Песочница для теста команд из приложения | `TESTED` | |
 | AFK: причина, таймер, ночной режим, кулдаун, авто-выкл., сводка | `TESTED` | |
 | Режимы Manual / Auto / AI / AFK / Silent / Business / Hybrid | `TESTED` | AI и Hybrid — `REQUIRES_API_KEY` для AI-части |
 | Правила автоответа, белый/чёрный список, рабочие часы, приветствие | `TESTED` | |
-| Шаблоны `.tpl`, mute, анимация `.a`, «печатает» `.r` | `IMPLEMENTED` | |
+| Шаблоны `.tpl` | `IMPLEMENTED` | `.mute`, `.a`, `.r` в v3 — см. раздел 0 |
 | Планировщик задач: выполнение и восстановление после перезапуска | `TESTED` | |
 | Напоминания и таймеры `.remind`, `.timer` | `IMPLEMENTED` | работают через планировщик |
 
@@ -107,7 +133,7 @@
 |---|---|---|
 | Панель `/start` (RU/UZ), все экраны, FSM-мастера, переключатели | `TESTED` | |
 | Привязка приложения по коду `/app` | `TESTED` | |
-| Роли, скрытие админ-разделов, защита от подстановки ID | `TESTED` | |
+| Один Super Admin, невидимый админ-раздел, защита от подстановки ID | `TESTED` | роль moderator из v1 упразднена |
 | Подписки, триалы, промокоды, лимиты | `TESTED` | |
 | Оплата Telegram Stars (идемпотентность, проверка суммы/валюты), выключено по умолчанию | `TESTED` · `NOT_VERIFIED_ON_DEVICE` | реальная оплата не проводилась |
 | Рассылки (только админ, только личка бота) | `TESTED` | |
@@ -115,17 +141,17 @@
 | Бэкап/восстановление БД, экспорт и удаление данных пользователя | `TESTED` | |
 | Миграции, транзакции, параллельная запись | `TESTED` | |
 | Режим обслуживания, аварийная остановка | `TESTED` | |
-| Локальный REST API (135 эндпоинтов): auth, RBAC, лимиты, ошибки | `TESTED` | |
+| Локальный REST API (159 эндпоинтов): auth, RBAC, лимиты, ошибки | `TESTED` | |
 | Скрипты start/stop/status/backup | `TESTED` (вручную, Linux) · `NOT_VERIFIED_ON_DEVICE` | tmux/nohup, Termux-специфика не проверена |
 | `install_termux.sh` | `IMPLEMENTED` · `NOT_VERIFIED_ON_DEVICE` | |
 
-## 8. Chat helper Control (Android)
+## 8. Chat helper Control v1 (нативное Android-приложение, для совместимости)
 
 | Функция | Статус | Примечание |
 |---|---|---|
 | Сборка APK (aapt2 → javac → dx → zipalign → подпись v2/v3) | `TESTED` | подпись и выравнивание проверены |
 | Экран привязки, форматирование кода, отказ от HTTP для не-локальных адресов, ошибка «backend недоступен» | `TESTED` | Robolectric, Android 14 framework |
-| Полный сценарий против живого backend: вход → дашборд → все вкладки → вложенные экраны → поворот → выход → повторный вход | `TESTED` | Robolectric + реальный API |
+| Полный сценарий против живого backend: вход → дашборд → все вкладки → вложенные экраны → поворот → выход → повторный вход | `TESTED` | Robolectric + реальный API; перепроверено против backend v3 (10/10) |
 | Смена темы (Dark/Light/AMOLED) и языка (RU/UZ/EN) | `TESTED` | |
 | Остальные экраны (чаты, подключения, правила, AI, медиа, игры, админ, Backup Center, Theme Studio…) | `IMPLEMENTED` | компилируются, открываются из тестового сценария выборочно |
 | Хранение токенов в Android Keystore | `IMPLEMENTED` · `NOT_VERIFIED_ON_DEVICE` | Robolectric не эмулирует аппаратный Keystore полностью |

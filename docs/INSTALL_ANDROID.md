@@ -1,5 +1,7 @@
 # Установка на Android (Termux) и APK / Android'ga o'rnatish
 
+> **v3:** установка и обновление бота — [INSTALL_TERMUX.md](INSTALL_TERMUX.md); новое приложение Chat helper Control v3 (Flutter) — [BUILD_FLUTTER.md](BUILD_FLUTTER.md). Этот файл описывает нативное приложение v1 (`dist/Chat_helper_Control.apk`), которое остаётся совместимым с сервером v3.
+
 Целевая платформа: **Android 14, ARM64, Termux, Python 3.13**. Root, ПК, VPS и Docker не нужны.
 
 ---

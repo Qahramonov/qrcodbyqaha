@@ -67,6 +67,7 @@ def wizard_text(app: Any, lang: str) -> str:
         tr(lang, "onboarding.5_vyberite_chaty_vse_lichnye"),
         tr(lang, "onboarding.6_prava_otvety_soobscheniya_obyazatelno"),
         tr(lang, "onboarding.7_vernites_syuda_nazhmite_proverit"), "",
+        tr(lang, "onboarding.premium_not_needed"),
         tr(lang, "onboarding.bot_rabotaet_cherez_ofitsialnyy_telegram"),
     ])
 

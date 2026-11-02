@@ -1,97 +1,77 @@
-# Chat helper — qo'llanma (UZ)
+# Chat helper v3 — qo'llanma (UZ)
 
-**Chat helper** — **Telegram Business** rejimi uchun bot (rasmiy Bot API, «Chat-botlar» / Business Mode) va uni boshqarish uchun **Chat helper Control** Android ilovasi. Hammasi **bitta Android telefonda, Termux ichida** ishlaydi: kompyuter, VPS, root va Docker kerak emas. Yangilanishlar long polling orqali olinadi — webhook va oq IP kerak emas.
+**Chat helper** — **Telegram Business** («Chatlarni avtomatlashtirish», rasmiy Bot API) uchun bot va uni boshqarish uchun
+**Chat helper Control** ilovasi. Bot va API **bitta Android telefonda, Termux ichida** ishlaydi (Android 14, ARM64, Python 3.13):
+kompyuter, VPS, root va Docker kerak emas; yangilanishlar — long polling.
 
-> Ruscha versiya: [README_RU.md](README_RU.md) · Buyruqlar: [COMMANDS.md](COMMANDS.md) · API: [API.md](API.md) · Funksiyalar holati: [FEATURE_MATRIX.md](FEATURE_MATRIX.md)
+> Ruscha versiya: [README_RU.md](README_RU.md) · Buyruqlar: [COMMANDS.md](COMMANDS.md) · API: [API.md](API.md) ·
+> Funksiyalar holati: [FEATURE_MATRIX.md](FEATURE_MATRIX.md) · Test natijalari: [TEST_REPORT.md](TEST_REPORT.md)
 
----
+## 1. v3 da asosiy yangiliklar
 
-## 1. Imkoniyatlar
+* **Ulanmaguncha — funksiyalar yopiq.** Bot «Chatlarni avtomatlashtirish»ga ulanmaguncha faqat `/start`, `/help`, `/connect`,
+  ulanishni tekshirish, yo'riqnoma, til va qo'llab-quvvatlash ishlaydi. RU/UZ infografikali yangi ulash ustasi.
+  **Telegram Premium shart emas.**
+* **Chatdagi boshqaruv kartalari** — `.mute`, `.protect`, `.nogif`, `.nomute`, `.afk`, `.re`… tugmali xabar bilan javob beradi;
+  tugmalarni faqat egasi bosa oladi ([CHAT_CONTROLS.md](CHAT_CONTROLS.md), ruscha).
+* **Haqiqiy Mute:** yangi kiruvchi xabarlarni `deleteBusinessMessages` orqali o'chirish («Kiruvchilarni o'chirish» huquqi),
+  tasdiq, 10 daq / 1 soat / 1 kun taymerlari, turlar, oq ro'yxat, hisobot.
+* **Animatsiyalar** (`.a`, 16 tur, 4 tezlik), **`.re`** (har 5 soniyada takrorlash, 2 daqiqagacha), **`.r`** (o'ngdan chapga matn),
+  `.sum`, `.ball`, `.morse`, `.ptext` (rasmdagi matn: ru/uz/en), `.remind`/`.remindf`, `.qr`, `.info`, `.gif`, `.wtm`, `.geo`, `.g`…
+* **AI**: `.ai` (`.gpt` taxallusi), **AI egizak** — sizning uslubingizda javob beradi, faqat o'zingiz qo'shgan misollardan
+  o'rganadi, javoblar «🤖 AI» deb belgilanadi; Auto / Manual / Draft / Disabled rejimlari.
+* **Yagona administrator** — Super Admin (`SUPER_ADMIN_ID`). Boshqalar uchun admin bo'limi **umuman yo'q**: tugma ham, buyruq ham
+  ko'rinmaydi, API esa mavjud bo'lmagan manzil kabi javob beradi.
+* **To'liq RU/UZ tarjima** — bot va ilova o'zbek tilida ruscha qo'shimchalarsiz ishlaydi.
+* **Yangi Chat helper Control v3 ilovasi** (Flutter): 40 ta ekran, «liquid glass» dizayn.
+
+## 2. Imkoniyatlar
 
 | Modul | Qisqacha |
 |---|---|
-| **Business dvigateli** | `business_connection`, `business_message`, tahrirlar va o'chirishlarni qabul qiladi; ulanish huquqlarini hisobga oladi, sikl va dublikatlardan himoya, sizning nomingizdan javob, buyruq xabarini natijaga aylantirish (tahrirlash), zaxira kanal — bot bilan shaxsiy chat. |
-| **Egasining buyruqlari** | `.` prefiksli 141 ta buyruq (`!` `-` `,` ga o'zgartirish mumkin), RU/UZ taxalluslar, `. afk` (bo'sh joy bilan) ham ishlaydi, registr muhim emas. Istalgan ulangan chatda va bot bilan shaxsiy chatda ishlaydi. To'liq ro'yxat — [COMMANDS.md](COMMANDS.md). |
-| **AFK** | `.afk [vaqt] [sabab]`, tungi rejim `.sleep`, `.unafk` da o'tkazib yuborilganlar xulosasi, anti-spam (har bir chatga interval ichida 1 marta), istisnolar. |
-| **Avtojavob** | **Manual / Auto / AI / AFK / Silent / Business / Hybrid** rejimlari, kalit so'z qoidalari, ish vaqti va undan tashqari matn, yangi suhbatdoshlarga salom, siz o'zingiz yozganingizda avtojavob pauzasi, kalit so'z bo'yicha insonga uzatish, oq/qora ro'yxat, kunlik limitlar. |
-| **AI yordamchi** | OpenAI, Gemini, Anthropic va istalgan OpenAI-mos API (OpenRouter, Groq, DeepSeek, Ollama…). Fallback zanjiri, navbat, $ dagi byudjet, roziligingiz bilan fakt xotirasi, profillar, «Yuborish» tugmali qoralamalar, «AI javobi» belgisi. Kalitsiz — AI buyruqlari kalit sozlanmaganini ochiq aytadi. |
-| **Media Studio** | FFmpeg + Pillow: videodan dumaloq video, ovozli xabar, konvertatsiya, siqish, kesish, tezlik, teskari, ovoz balandligi (`.ld`), shovqinni tozalash, GIF, filtrlar, ramkalar (gold/luxury/diamond/neon/cyber/glass/minimal), memlar, stikerlar, QR. Navbat, taymautlar, `.cancel`. |
-| **Voice Studio** | STT (Whisper), TTS (OpenAI yoki oflayn espeak-ng), ovozli xabar tarjimasi, ovozli xabarga AI javobi. |
-| **O'yinlar** | Dice/slot/coin/ruletka, duel, «Revo», krestik-nolik, tosh-qaychi-qog'oz, viktorina, son topish, matematika, so'zlar, reaksiya; taklif, revansh, Elo reytingi. |
-| **Matn vositalari** | Xavfsiz kalkulyator (`eval`siz), `.fix` — RU↔EN klaviatura, Caps Lock, cho'zilgan harflar, imlo xatolari, hisoblash, xeshlar, base64/hex/url, JSON, parollar, UUID, vaqt, QR. |
-| **Profil** | Biznes akkauntning ismi, bio, rasmi, username'i (faqat huquq berilgan bo'lsa), bio/familiyada soat. |
-| **Avtomatlashtirish** | Kodsiz qoidalar «trigger → shartlar → amallar», shablonlar, dry-run, bajarilish jurnali, o'z buyruqlaringiz konstruktori. |
-| **Rejalashtiruvchi** | Kechiktirilgan xabarlar/vazifalar, qayta ishga tushirishdan keyin ham saqlanadi. |
-| **Analitika** | DAU/WAU/MAU, retention, churn, grafiklar; CSV/JSON/PDF eksport. Faqat bazadagi haqiqiy ma'lumotlar. |
-| **Ko'p foydalanuvchi** | Rollar user / moderator / super_admin (super_admin — faqat `SUPER_ADMIN_ID` dagi ID), tarif limitlari, ban, audit. |
-| **Obunalar** | Free / Plus / Pro / VIP, sinov muddati, promokodlar, **Telegram Stars** (XTR) orqali to'lov, idempotent to'lov ishlovi, qaytarish. Standart holatda to'lovlar o'chirilgan. |
-| **Telegram panel** | `/start` → RU/UZ menyu: rejimlar, AFK, avtojavoblar, AI, media, o'yinlar, profil, tarif, sozlamalar, ilovani ulash. |
-| **Admin panel** | Foydalanuvchilar, tariflar, xabarnomalar (faqat bot shaxsiy chatiga, 20/s), loglar, funksiya bayroqlari, texnik xizmat, favqulodda to'xtatish, zaxira nusxalar. |
-| **Lokal API** | FastAPI `127.0.0.1:8787`, 135 endpoint, tokenlar, serverda rol tekshiruvi. Tavsif — [API.md](API.md). |
-| **Chat helper Control (APK)** | Nativ Android ilova: «shisha» uslubidagi qorong'i dizayn, Telegram'dan bir martalik kod bilan kirish, dashboard, chatlar, ulanishlar va huquqlar, avtomatlashtirish, AI, media, o'yinlar, admin bo'limlari, Theme Studio, RU/UZ/EN. |
+| Business dvigateli | `business_connection`, `business_message`, tahrirlar, o'chirishlar, `BusinessBotRights` huquqlari, sikl va dublikatlardan himoya |
+| Buyruqlar | `.` prefiksli 160 ta buyruq (`!` `-` `,` ga o'zgartirish mumkin); sintaksis inglizcha, tavsif va natijalar — sizning tilingizda |
+| Boshqaruv kartalari | faqat egasi uchun tugmalar, eskirgan bosishlardan himoya, bir martalik bajarilish |
+| Mute / Protect / NoGIF / NoMute | qoidalar bo'yicha kiruvchilarni o'chirish, uzatishdan himoya, so'z filtri |
+| AFK va avtojavob | `.afk`, tungi rejim, Manual/Auto/AI/AFK/Silent/Business/Hybrid rejimlari, ish vaqti, qoidalar |
+| AI | OpenAI / Gemini / Anthropic / OpenAI-mos, byudjetlar, roziligingiz bilan xotira, qoralamalar, `.sum`, `.hint`, AI egizak |
+| Media / Voice Studio | dumaloq video, ovozli, GIF (15 soniyagacha), suv belgisi, teskari, tezlik, memlar, stikerlar, STT/TTS |
+| O'yinlar va matn vositalari | duel, viktorina, tosh-qaychi-qog'oz…; `eval`siz kalkulyator, `.fix`, Morze, QR, parollar |
+| Avtomatlashtirish | kodsiz «trigger → shartlar → amallar», shablonlar (egasining tilida), tekshiruv, jurnal |
+| Eslatmalar | `.remind` (sizga shaxsiy chatda), `.remindf` (chatga); qayta ishga tushirishdan keyin ham saqlanadi |
+| Obunalar | Free / Plus / Pro / VIP, promokodlar, sinov, Telegram Stars (standart holatda o'chiq) |
+| Delegatsiya | administrator yordamiga ixtiyoriy ruxsat, istalgan vaqtda bekor qilinadi |
+| API | FastAPI `127.0.0.1:8787`, 159 ta endpoint, serverda huquq tekshiruvi |
 
-## 2. Nima yo'q va nima uchun (ochiq aytamiz)
+## 3. Nima yo'q va nima uchun
 
-* **Bot butun yozishmalar tarixini o'qimaydi** — Telegram faqat ulangandan keyingi yangi xabarlarni yuboradi.
-* **Suhbatdosh 24 soatdan beri yozmagan chatga bot javob bera olmaydi** — Telegram cheklovi (`BUSINESS_PEER_USAGE_MISSING`); bunda natija sizga bot bilan shaxsiy chatda keladi.
-* **Guruhlar va kanallar** — Business Mode faqat shaxsiy chatlarda ishlaydi.
-* **«Onlayn» holatini** soxtalashtirib yoki yashirib bo'lmaydi — Bot API ruxsat bermaydi.
-* **Stars / sovg'alarni o'tkazish** ataylab qilinmagan. Bunday huquqlar berilgan bo'lsa, huquq inspektori ogohlantiradi.
-* Soxta statistika, soxta muvaffaqiyatli to'lov va soxta «onlayn» yo'q.
+* «Tarmoqda» holatini Bot API orqali soxtalashtirib ham, yashirib ham bo'lmaydi — `.online` buni ochiq aytadi.
+* Ulanishdan oldingi tarix, guruhlar va kanallar biznes botga mavjud emas.
+* Suhbatdosh oxirgi 24 soatda yozgan bo'lsagina chatga javob berish mumkin — aks holda natija sizga shaxsiy chatda keladi.
+* Stars/sovg'alarni o'tkazish ataylab qilinmagan. Soxta statistika, «onlayn» va «muvaffaqiyatli» to'lovlar yo'q.
 
-## 3. Tez boshlash (Android 14, Termux)
-
-Batafsil — [INSTALL_ANDROID.md](INSTALL_ANDROID.md). Qisqacha:
+## 4. Tez boshlash
 
 ```bash
-# 1. Termux'ni F-Droid yoki GitHub'dan o'rnating (Google Play'dan emas)
-pkg update -y && pkg install -y git
-# 2. Chat_helper_FULL_PROJECT.zip arxivini ~/Chat_helper ga oching (yoki git clone)
-cd ~/Chat_helper
-bash scripts/install_termux.sh        # paketlar, Python kutubxonalari, .env, baza, testlar
-nano backend/.env                     # BOT_TOKEN=... (@BotFather'dan)
-./scripts/start.sh                    # bot + API fon rejimida (tmux)
-./scripts/status.sh                   # tekshirish
+cd ~ && unzip /sdcard/Download/Chat_helper_v3_FULL_PROJECT.zip && cd ~/Chat_helper
+bash scripts/install_termux.sh
+nano backend/.env            # BOT_TOKEN=..., SUPER_ADMIN_ID=raqamli_id
+./scripts/start.sh && ./scripts/status.sh
 ```
 
-Keyin — [OWNER_SETUP.md](OWNER_SETUP.md): botda Business Mode'ni yoqish, Telegram'da botni ulash (Sozlamalar → Telegram Business → Chat-botlar), `/start`, `/app` orqali kod olish, ilovaga kirish.
+Keyin Telegram'da: botni ulang (Sozlamalar → profilni Tahrirlash → «Chatlarni avtomatlashtirish»), `/start` → ulanishni tekshiring,
+`/app` → ilova uchun kod. v1 dan yangilash: `./scripts/backup.sh && ./scripts/stop.sh`, arxivni ustidan oching, `./scripts/start.sh` —
+baza o'zi yangilanadi (oldin zaxira nusxa olinadi). Botni to'xtatish: `./scripts/stop.sh`.
 
-## 4. Boshqarish skriptlari
+## 5. Ilova (Chat helper Control v3)
 
-| Skript | Vazifasi |
-|---|---|
-| `scripts/install_termux.sh` | Noldan o'rnatish (qayta ishga tushirish xavfsiz) |
-| `scripts/start.sh` | tmux (yoki nohup) da ishga tushirish, `termux-wake-lock` |
-| `scripts/stop.sh` | To'g'ri to'xtatish |
-| `scripts/restart.sh` | Qayta ishga tushirish |
-| `scripts/status.sh` | Jarayon, `/api/v1/health`, xotira, disk, oxirgi loglar |
-| `scripts/run_tests.sh` | Barcha backend testlari (pytest) |
-| `scripts/backup.sh [--shared]` | Bazaning onlayn zaxira nusxasi |
-| `scripts/restore.sh [fayl]` | Nusxalar ro'yxati / tiklash (to'xtatish → joriy baza nusxasi → tiklash → ishga tushirish) |
-| `scripts/run_android_tests.sh` | APK yig'ish + Robolectric testlari (kompyuter/CI uchun) |
+1. `Chat_helper_Control_v3.apk` ni GitHub Actions'dan yuklab oling (Actions → «Flutter APK (v3)» → Artifacts).
+2. Eski v1 ilova o'rnatilgan bo'lsa va Android «ilova o'rnatilmadi» desa — uni o'chiring (unda faqat sessiya bor).
+3. Ilovada «Ilovani ulash» → botga `/app` yuboring → kodni kiriting. Server: `http://127.0.0.1:8787`.
 
-## 5. Sozlamalar
+## 6. Hujjatlar (ruscha)
 
-Barcha sozlamalar `backend/.env` faylida (shablon: `backend/.env.example`):
-
-* `BOT_TOKEN` — faqat shu yerda. Token APK, loglar, hujjatlar va testlarga tushmaydi.
-* `SUPER_ADMIN_ID=8053614984` — bosh administrator. Identifikatsiya faqat Telegram ID bo'yicha; `@libPM` username — ma'lumot uchun.
-* `API_HOST=127.0.0.1`, `API_PORT=8787` — API faqat telefonning o'zida tinglaydi. Masofaviy kirish faqat aniq yoqilganda (`API_REMOTE_ENABLED=true` + HTTPS), qarang [SECURITY.md](SECURITY.md).
-* `OPENAI_API_KEY` / `GEMINI_API_KEY` / `ANTHROPIC_API_KEY` / `COMPAT_*` — ixtiyoriy.
-* `PAYMENTS_ENABLED=false` — tariflarni sozlamaguningizcha Stars to'lovi o'chiq.
-
-## 6. Hujjatlar
-
-| Fayl | Mazmuni |
-|---|---|
-| [OWNER_SETUP.md](OWNER_SETUP.md) | Egasini sozlash (RU + UZ) |
-| [INSTALL_ANDROID.md](INSTALL_ANDROID.md) | Termux, avtoishga tushirish, batareya; APK o'rnatish va yig'ish |
-| [COMMANDS.md](COMMANDS.md) | Barcha buyruqlar (RU + UZ tavsif) |
-| [API.md](API.md) | Barcha endpointlar |
-| [ARCHITECTURE.md](ARCHITECTURE.md) | Arxitektura |
-| [SECURITY.md](SECURITY.md) | Xavfsizlik hisoboti |
-| [FEATURE_MATRIX.md](FEATURE_MATRIX.md) | Har bir funksiya holati |
-| [TEST_REPORT.md](TEST_REPORT.md) | Haqiqiy test natijalari |
-| [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Muammolar va yechimlar |
-
-Hujjatlarning bir qismi (arxitektura, xavfsizlik, testlar) rus tilida; asosiy foydalanuvchi qismi — buyruqlar, panel va ilova — to'liq o'zbek tilida mavjud.
+[INSTALL_TERMUX.md](INSTALL_TERMUX.md) · [TELEGRAM_BUSINESS.md](TELEGRAM_BUSINESS.md) · [CHAT_CONTROLS.md](CHAT_CONTROLS.md) ·
+[PERMISSIONS.md](PERMISSIONS.md) · [LOCALIZATION.md](LOCALIZATION.md) · [ADMIN_SECURITY.md](ADMIN_SECURITY.md) ·
+[MIGRATION_V1_TO_V3.md](MIGRATION_V1_TO_V3.md) · [BUILD_FLUTTER.md](BUILD_FLUTTER.md) · [FIGMA_DESIGN.md](FIGMA_DESIGN.md) ·
+[FEATURE_MATRIX.md](FEATURE_MATRIX.md) · [TEST_REPORT.md](TEST_REPORT.md)

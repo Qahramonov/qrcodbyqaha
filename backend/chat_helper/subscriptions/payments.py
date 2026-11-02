@@ -81,7 +81,8 @@ class PaymentService:
         await self.app.metrics.incr("payments", row["user_id"])
         await self.app.audit.log("payment.paid", actor_id=row["user_id"], actor_type="telegram", target_type="payment", target_id=row["id"],
                                  amount=row["amount"], plan=row["plan_id"])
-        await self.app.notifications.notify(self.app.config.super_admin_id, "payment", "⭐️ Payment", f"user {row['user_id']}: {row['amount']} XTR ({row['plan_id']})")
+        await self.app.notifications.notify_t(self.app.config.super_admin_id, "payment", "notify.payment_title", "notify.payment_body",
+                                              uid=row["user_id"], amount=row["amount"], plan=row["plan_id"])
         return sub
 
     async def refund(self, payment_id: int, by: int) -> bool:

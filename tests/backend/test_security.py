@@ -64,7 +64,8 @@ async def test_global_pairing_lockout_and_admin_alert(env):
         await auth.pair(code, device_id="dev-lock", device_name="X", platform="android", app_version="1", ip="10.9.9.9")
     assert e.value.code == "locked" and e.value.status == 429
     notes = await env.app.notifications.list(OWNER)
-    assert any(n["title"] == "Pairing lockout" for n in notes)
+    from chat_helper.localization import tr
+    assert any(n["title"] == tr("ru", "notify.pair_lockout_title") and "50" in n["body"] for n in notes)
 
 
 async def test_session_cap_revokes_oldest(env):

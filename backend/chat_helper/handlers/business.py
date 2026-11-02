@@ -63,8 +63,8 @@ async def on_business_connection(bc: BusinessConnection, app: AppContext) -> Non
         await app.sender.send_text(u.id, "\n".join(lines), markup=kb([
             [(tr(lang, "business.otkryt_menyu"), "m:home"), (tr(lang, "business.prava"), "conn:insp:0")]]))
         if u.id != app.config.super_admin_id:
-            await app.notifications.notify(app.config.super_admin_id, "connection_admin",
-                                           "New business connection", f"user {u.id} (@{u.username or '-'}) → {conn.status}")
+            await app.notifications.notify_t(app.config.super_admin_id, "connection_admin", "notify.new_connection_title",
+                                             "notify.new_connection_body", uid=u.id, username=u.username or "-", status=conn.status)
     elif change.kind == "disabled":
         await app.metrics.incr("connections_lost", u.id)
         await app.controls.revoke_connection(bc.id)   # old control buttons stop working

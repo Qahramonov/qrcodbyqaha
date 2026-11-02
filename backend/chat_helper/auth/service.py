@@ -89,9 +89,8 @@ class AuthService:
             self._lockout_until = time.time() + 900
             log.warning("pairing locked for 15 min after %s failures", fails)
             if self.notifications:
-                await self.notifications.notify(self.users.super_admin_id, "security", "Pairing lockout",
-                                                f"{fails} failed APK pairing attempts in 10 minutes. Pairing disabled for 15 minutes.",
-                                                level="error", push=True)
+                await self.notifications.notify_t(self.users.super_admin_id, "security", "notify.pair_lockout_title",
+                                                  "notify.pair_lockout_body", level="error", push=True, n=fails)
 
     async def pair(self, code: str, *, device_id: str, device_name: str | None, platform: str | None,
                    app_version: str | None, ip: str) -> dict[str, Any]:

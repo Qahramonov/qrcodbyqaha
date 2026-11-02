@@ -345,7 +345,8 @@ async def emergency(body: EmergencyIn, p: Principal = Depends(super_admin), app:
     app.runtime.emergency_stop = body.enabled
     await app.runtime.save()
     await app.audit.log("system.emergency_stop", actor_id=p.user_id, actor_type="app", enabled=body.enabled)
-    await app.notifications.notify(p.user_id, "security", "Emergency stop " + ("ON" if body.enabled else "OFF"), level="error" if body.enabled else "info")
+    await app.notifications.notify_t(p.user_id, "security", "notify.emergency_on" if body.enabled else "notify.emergency_off",
+                                     level="error" if body.enabled else "info")
     return {"emergency_stop": app.runtime.emergency_stop}
 
 

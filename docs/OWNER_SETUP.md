@@ -28,11 +28,11 @@ nano backend/.env
 ./scripts/start.sh      # запускает бот + API в tmux и включает termux-wake-lock
 ./scripts/status.sh     # должно быть: process running, API {"status":"ok",...}
 ```
-Откройте бота в Telegram → **/start**. Появится меню на русском (язык меняется в «Настройки»). Для ID 8053614984 в меню будет раздел **«🛡 Администрирование»**.
+Откройте бота в Telegram → **/start**. Появится меню на русском (язык меняется в «Настройки»). До подключения аккаунта бот покажет мастер подключения (функции откроются после него). Для ID 8053614984 в меню будет кнопка **«👑 Super Admin»** — другие пользователи её не видят.
 
 ### 4. Подключить бота к своему аккаунту (Telegram Business)
-Нужен **Telegram Premium** (требование Telegram для чат-ботов Business).
-1. Telegram → **Настройки → Telegram для бизнеса → Чат-боты**.
+**Telegram Premium не нужен** — бизнес-бота может подключить любой аккаунт.
+1. Telegram → **Настройки → Изм. (Edit) профиля → «Автоматизация чатов»** (в старых версиях: Настройки → Telegram для бизнеса → Чат-боты).
 2. Введите username вашего бота → выберите, в каких чатах он работает (все личные / выбранные / исключения).
 3. Права (рекомендация):
    * ✅ **Читать сообщения** и ✅ **Отвечать на сообщения** — основа всех функций.
@@ -61,7 +61,7 @@ nano backend/.env
 
 ### 7. Контрольный список
 - [ ] `./scripts/status.sh` — процесс работает, API отвечает.
-- [ ] `/start` показывает раздел «🛡 Администрирование».
+- [ ] `/start` показывает кнопку «👑 Super Admin» (только у вас).
 - [ ] Меню → «🔗 Подключить аккаунт»: статус **connected**, права «читать» и «отвечать» включены, опасных прав нет.
 - [ ] `.ping` в подключённом чате работает.
 - [ ] Приложение: вход по коду, дашборд показывает «Chat helper is running».
@@ -86,11 +86,11 @@ Majburiy: `BOT_TOKEN=<BotFather tokeni>`. Tayyor: `SUPER_ADMIN_ID=8053614984`, `
 ```bash
 ./scripts/start.sh && ./scripts/status.sh
 ```
-Telegram'da botga **/start** yuboring. Tilni «Sozlamalar» bo'limida o'zbekchaga almashtiring. ID 8053614984 uchun menyuda **«🛡 Boshqaruv»** bo'limi bo'ladi.
+Telegram'da botga **/start** yuboring. Tilni «Sozlamalar» bo'limida o'zbekchaga almashtiring. ID 8053614984 uchun menyuda **«👑 Super Admin»** tugmasi bo'ladi (boshqalarga ko'rinmaydi).
 
 ### 4. Botni akkauntga ulash (Telegram Business)
-**Telegram Premium** kerak.
-1. **Sozlamalar → Telegram Business → Chat-botlar** → botning username'ini kiriting.
+**Telegram Premium shart emas** — biznes botni istalgan akkaunt ulashi mumkin.
+1. **Sozlamalar → profilni Tahrirlash → «Chatlarni avtomatlashtirish»** (eski versiyalarda: Telegram Business → Chat-botlar) → botning username'ini kiriting.
 2. Huquqlar: ✅ xabarlarni o'qish, ✅ javob berish, ✅ yuborilgan xabarlarni o'chirish. ⚪ ism/bio/rasm — kerak bo'lsa. ⛔ **Stars va sovg'alarni o'tkazish** — bermang.
 3. Bot shaxsiy chatga «🔗 Akkaunt Chat helper'ga ulandi!» xabarini yuboradi. Tekshirish: `.status`.
 

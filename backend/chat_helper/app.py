@@ -194,7 +194,7 @@ async def build_app(cfg: Settings, bot: Bot | None = None, *, with_bot: bool = T
 
     async def support_message(uid: int, text: str) -> None:
         u = await app.users.get(uid) or {}
-        await app.notifications.notify(cfg.super_admin_id, "support", f"Support: {uid}", text[:1500])
+        await app.notifications.notify_t(cfg.super_admin_id, "support", "notify.support_title", body=text[:1500], uid=uid)
         if app.sender is not None:
             from .security.sanitize import esc
             from .localization import tr
@@ -290,13 +290,15 @@ def _register_jobs(app: AppContext) -> None:
         if spent >= app.config.ai_global_daily_budget_usd * 0.9:
             key = f"budget:{time.strftime('%Y-%m-%d')}"
             if not await app.dedup.seen(key):
-                await app.notifications.notify(app.config.super_admin_id, "ai_budget", "AI budget 90%",
-                                               f"Spent ${spent:.3f} of ${app.config.ai_global_daily_budget_usd:.2f}", level="warning", push=True)
+                await app.notifications.notify_t(app.config.super_admin_id, "ai_budget", "notify.ai_budget_title", "notify.ai_budget_body",
+                                                 level="warning", push=True, spent=f"{spent:.3f}",
+                                                 budget=f"{app.config.ai_global_daily_budget_usd:.2f}")
 
     async def health_watch() -> None:
         d = app.health.disk()
         if not d["ok"]:
-            await app.notifications.notify(app.config.super_admin_id, "disk", "Low disk space", f"free {d['free_mb']} MB", level="error")
+            await app.notifications.notify_t(app.config.super_admin_id, "disk", "notify.disk_title", "notify.disk_body", level="error",
+                                             mb=d["free_mb"])
         app.media.queue.start()  # self-heal crashed workers
 
     async def controls_expiry() -> None:
