@@ -55,6 +55,8 @@ def command_dependencies(registry: Any) -> dict[str, list[str]]:
     """right -> commands that need it in business chats (from the Command Registry)."""
     out: dict[str, list[str]] = {r: [] for r in RIGHT_FLAGS}
     for spec in registry.commands.values():
+        if spec.admin_only:
+            continue
         for r in spec.rights:
             out.setdefault(r, []).append(spec.id)
     return {k: sorted(v) for k, v in out.items()}

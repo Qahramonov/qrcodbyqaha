@@ -86,7 +86,9 @@ async def test_admin_only_command_denied_for_regular_user(env):
     await connect(env, "bc2", USER2)
     env.session.clear()
     await env.feed(private_message(USER2, ".logs", "Bob"))
-    assert any("Недостаточно прав" in t for t in env.session.sent_texts())
+    texts = env.session.sent_texts()
+    # admin-only commands do not exist for others: the reply is the regular "unknown command" one
+    assert any("Неизвестная команда" in t for t in texts) and not any("Недостаточно прав" in t for t in texts)
 
 
 async def test_disabled_command(env):

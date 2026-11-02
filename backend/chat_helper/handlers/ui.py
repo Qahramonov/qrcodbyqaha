@@ -122,7 +122,12 @@ def _is_public_callback(data: str) -> bool:
 
 
 class PanelGate(BaseMiddleware):
-    """Blocks admin actions for everyone except the super admin and feature actions before connection."""
+    """Blocks admin actions for everyone except the super admin and feature actions before connection.
+
+    For anyone but the super admin the admin section does not exist: its buttons are never shown, and a forged admin
+    callback or FSM state gets exactly the reaction of a dead button (silent answer) — no "access denied" text that
+    would reveal it. Every attempt is written to the audit log.
+    """
 
     async def __call__(self, handler: Callable[[TelegramObject, dict[str, Any]], Awaitable[Any]], event: TelegramObject,
                       data: dict[str, Any]) -> Any:
@@ -134,9 +139,9 @@ class PanelGate(BaseMiddleware):
             uid = event.from_user.id
             if cb_data.startswith(ADMIN_CALLBACKS):
                 if not app.users.is_super_id(uid):
+                    # The admin section does not exist for anyone else: answer like a dead button (no text, no alert)
                     await app.audit.log("security.admin_callback_denied", actor_id=uid, actor_type="telegram", data=cb_data[:64])
-                    s = await app.settings.all(uid)
-                    await event.answer(tr(s["lang"], "ui.nedostatochno_prav"), show_alert=True)
+                    await event.answer()
                     return None
                 return await handler(event, data)
             if _is_public_callback(cb_data):
@@ -156,8 +161,6 @@ class PanelGate(BaseMiddleware):
             if cur and cur.startswith(ADMIN_STATES) and not app.users.is_super_id(uid):
                 await state.clear()
                 await app.audit.log("security.admin_state_denied", actor_id=uid, actor_type="telegram", state=cur)
-                s = await app.settings.all(uid)
-                await event.answer(tr(s["lang"], "ui.nedostatochno_prav"))
                 return None
             text = (event.text or "").strip()
             if text.startswith("/") and text.split()[0].split("@")[0].lower() in PUBLIC_COMMANDS:

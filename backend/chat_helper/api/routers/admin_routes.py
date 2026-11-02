@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 from ...core.context import MODULES
 from ...core.logging import ring_handler
 from ...subscriptions.service import LIMIT_KEYS, plan_description
-from ..deps import APIError, Page, Principal, admin, get_app, principal, super_admin
+from ..deps import APIError, Page, Principal, admin, get_app, not_found, principal, super_admin
 
 router = APIRouter()
 
@@ -29,7 +29,7 @@ async def users(q: str | None = None, plan: str | None = None, active_days: int 
 @router.get("/users/{uid}", tags=["users"])
 async def user_detail(uid: int, p: Principal = Depends(principal), app: Any = Depends(get_app)) -> dict[str, Any]:
     if uid != p.user_id and not p.is_admin:
-        raise APIError(403, "forbidden", "You can only access your own data")
+        raise not_found()
     u = await app.users.get(uid)
     if u is None:
         raise APIError(404, "not_found", "User not found")

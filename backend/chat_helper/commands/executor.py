@@ -76,7 +76,8 @@ class CommandExecutor:
             return False
         if parsed.prefix == "/" and source == "business":
             return False  # in business chats only the configured prefix is a command
-        spec = self.registry.resolve(parsed.name)
+        is_super = self.app.users.is_super_id(user_id)
+        spec = self.registry.resolve(parsed.name, admin=is_super)   # admin-only commands do not exist for others
         lang = settings.get("lang", "ru")
         if source == "private":
             from ..handlers.ui import access
@@ -93,7 +94,7 @@ class CommandExecutor:
                                                    conn=conn, settings=settings, parsed=parsed)
                 return True
             if source == "private":
-                sugg = self.registry.suggestions(parsed.name)
+                sugg = self.registry.suggestions(parsed.name, admin=is_super)
                 hint = p(lang, "unknown_cmd", cmd=esc(parsed.prefix + parsed.name), prefix=settings.get("prefix", "."))
                 if sugg:
                     hint += "\n" + tr(lang, "executor.vozmozhno") + ", ".join(settings.get("prefix", ".") + s for s in sugg)
@@ -161,8 +162,10 @@ class CommandExecutor:
             return tr(lang, "executor.dostup_chat_helper_ogranichen_administratorom")
         if app.runtime.emergency_stop and ctx.is_business and spec.id not in ("status", "ping"):
             return p(lang, "emergency")
-        if spec.admin_only and not ctx.is_admin:
-            return p(lang, "not_allowed")
+        if spec.admin_only and not ctx.is_super:
+            # defence in depth (resolve() already hides these): answer exactly like an unknown command
+            await app.audit.log("security.admin_command_denied", actor_id=ctx.user_id, actor_type="telegram", command=spec.id)
+            return p(lang, "unknown_cmd", cmd=esc(ctx.prefix + ctx.parsed.name), prefix=ctx.prefix)
         if spec.where == "business" and ctx.source == "private":
             return tr(lang, "executor.eta_komanda_rabotaet_chatah_podklyuchyonnogo")
         if spec.where == "private" and ctx.is_business:
@@ -230,9 +233,11 @@ class CommandExecutor:
         parsed = parse(text, settings.get("prefix", "."))
         if parsed is None:
             return {"ok": False, "error": "not_a_command", "outputs": []}
-        spec = self.registry.resolve(parsed.name)
+        is_super = self.app.users.is_super_id(user_id)
+        spec = self.registry.resolve(parsed.name, admin=is_super)
         if spec is None:
-            return {"ok": False, "error": "unknown_command", "outputs": [], "suggestions": self.registry.suggestions(parsed.name)}
+            return {"ok": False, "error": "unknown_command", "outputs": [],
+                    "suggestions": self.registry.suggestions(parsed.name, admin=is_super)}
         if not spec.sandbox_safe:
             return {"ok": False, "error": "not_sandbox_safe", "outputs": [],
                     "message": "This command interacts with chats/media and cannot be simulated safely."}

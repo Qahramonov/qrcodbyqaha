@@ -277,8 +277,9 @@ async def screen_games(app: AppContext, uid: int, s: dict[str, Any]) -> tuple[st
 
 async def screen_commands(app: AppContext, uid: int, s: dict[str, Any]) -> tuple[str, Any]:
     lang = s["lang"]
-    cats = app.registry.by_category()
-    lines = [tr(lang, "panel.komandy", n=len(app.registry)),
+    is_super = app.users.is_super_id(uid)
+    cats = app.registry.by_category(admin=is_super)
+    lines = [tr(lang, "panel.komandy", n=len(app.registry.visible(admin=is_super))),
              tr(lang, "panel.prefiks_pishite_lyubom_chate_biznes", p=s["prefix"])]
     items = [(f"{CATEGORIES[c][0]} {tr(lang, CATEGORIES[c][1])} ({len(v)})", f"cmd:cat:{c}:0")
              for c, v in cats.items() if v and c in CATEGORIES]
@@ -289,7 +290,7 @@ async def screen_commands(app: AppContext, uid: int, s: dict[str, Any]) -> tuple
 
 async def screen_cmd_cat(app: AppContext, uid: int, s: dict[str, Any], cat: str, page: int) -> tuple[str, Any]:
     lang = s["lang"]
-    specs = sorted(app.registry.by_category().get(cat, []), key=lambda x: x.id)
+    specs = sorted(app.registry.by_category(admin=app.users.is_super_id(uid)).get(cat, []), key=lambda x: x.id)
     part, page, pages = paginate(specs, page, 8)
     disabled = set(s.get("disabled_commands") or [])
     emoji, key = CATEGORIES.get(cat, ("•", None))
@@ -308,7 +309,7 @@ async def screen_cmd_cat(app: AppContext, uid: int, s: dict[str, Any], cat: str,
 
 async def screen_cmd_info(app: AppContext, uid: int, s: dict[str, Any], cid: str) -> tuple[str, Any]:
     lang = s["lang"]
-    sp = app.registry.resolve(cid)
+    sp = app.registry.resolve(cid, admin=app.users.is_super_id(uid))
     if sp is None:
         return await screen_commands(app, uid, s)
     d = sp.to_dict(lang, s["prefix"])
@@ -769,7 +770,7 @@ async def cb_commands(cb: CallbackQuery, app: AppContext) -> None:
     elif parts[1] == "info" and len(parts) >= 3:
         text, markup = await screen_cmd_info(app, uid, s, parts[2])
     elif parts[1] == "tog" and len(parts) >= 3:
-        spec = app.registry.resolve(parts[2])
+        spec = app.registry.resolve(parts[2], admin=app.users.is_super_id(uid))
         if spec is None:
             return
         disabled = list(s.get("disabled_commands") or [])
@@ -1069,13 +1070,10 @@ async def cb_admin(cb: CallbackQuery, state: FSMContext, app: AppContext) -> Non
     role = await app.users.role(uid)
     s = await app.settings.all(uid)
     if role != "super_admin":
-        await cb.answer(p(s["lang"], "not_allowed"), show_alert=True)
+        await cb.answer()
         return
     action = cb.data.split(":")[1]
     if action == "es":
-        if role != "super_admin":
-            await cb.answer(p(s["lang"], "not_allowed"), show_alert=True)
-            return
         app.runtime.emergency_stop = not app.runtime.emergency_stop
         await app.runtime.save()
         await app.audit.log("system.emergency_stop", actor_id=uid, enabled=app.runtime.emergency_stop)
@@ -1086,9 +1084,6 @@ async def cb_admin(cb: CallbackQuery, state: FSMContext, app: AppContext) -> Non
         await app.audit.log("system.maintenance", actor_id=uid, enabled=app.runtime.maintenance)
         await cb.answer("🛠")
     elif action == "bc":
-        if role != "super_admin":
-            await cb.answer(p(s["lang"], "not_allowed"), show_alert=True)
-            return
         await cb.answer()
         await state.set_state(PS.broadcast_text)
         await cb.message.answer(tr(s["lang"], "panel.tekst_rassylki_html_budet_sozdan"))
@@ -1124,7 +1119,7 @@ async def st_broadcast(message: Message, state: FSMContext, app: AppContext) -> 
 async def cb_broadcast(cb: CallbackQuery, app: AppContext) -> None:
     uid = await _ensure_user(app, cb)
     if await app.users.role(uid) != "super_admin":
-        await cb.answer("⛔", show_alert=True)
+        await cb.answer()
         return
     _, action, bid = cb.data.split(":")
     if action == "start":

@@ -29,7 +29,7 @@ SYS = dict(rate=(20, 60))
 async def cmd_help(ctx: CommandContext) -> None:
     pre = ctx.prefix
     if ctx.args:
-        spec = ctx.app.registry.resolve(ctx.args[0].lstrip(pre).lstrip("./"))
+        spec = ctx.app.registry.resolve(ctx.args[0].lstrip(pre).lstrip("./"), admin=ctx.is_super)
         if spec is None:
             raise CommandError(ctx.t("system_cmds.komanda_naydena"))
         d = spec.to_dict(ctx.lang, pre)
@@ -42,7 +42,7 @@ async def cmd_help(ctx: CommandContext) -> None:
         await ctx.answer("\n".join(lines), private=ctx.is_business)
         return
     lines = [ctx.t("system_cmds.chat_helper_komandy_prefiks", p=pre)]
-    for cat, specs in ctx.app.registry.by_category().items():
+    for cat, specs in ctx.app.registry.by_category(admin=ctx.is_super).items():
         if not specs:
             continue
         emoji, key = CATEGORIES.get(cat, ("•", None))
@@ -54,7 +54,7 @@ async def cmd_help(ctx: CommandContext) -> None:
 
 @registry.command("commands", "system", aliases=["команды", "buyruqlar", "cmds"], sandbox_safe=True, **SYS)
 async def cmd_commands(ctx: CommandContext) -> None:
-    names = sorted(ctx.app.registry.commands)
+    names = sorted(s.id for s in ctx.app.registry.visible(admin=ctx.is_super))
     await ctx.answer(ctx.t("system_cmds.komand", n=len(names)) + "<code>" + esc(" ".join(ctx.prefix + n for n in names)) + "</code>",
                      private=ctx.is_business)
 
@@ -413,7 +413,7 @@ async def cmd_fav(ctx: CommandContext) -> None:
         return
     ids, unknown = [], []
     for a in ctx.args[:12]:
-        spec = ctx.app.registry.resolve(a.lstrip(ctx.prefix).lstrip("."))
+        spec = ctx.app.registry.resolve(a.lstrip(ctx.prefix).lstrip("."), admin=ctx.is_super)
         (ids if spec else unknown).append(spec.id if spec else a)
     ids = list(dict.fromkeys(ids))
     await ctx.app.settings.set(ctx.user_id, "favorite_commands", ids)

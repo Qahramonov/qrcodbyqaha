@@ -169,7 +169,7 @@ async def inspector(conn_id: str, p: Principal = Depends(principal), app: Any = 
     s = await app.settings.all(p.user_id)
     rep = inspect(conn.rights, conn.is_enabled, s["lang"], conn.paused)
     cmd_issues = []
-    for spec in app.registry.commands.values():
+    for spec in app.registry.visible(admin=p.is_super):
         missing = [r for r in spec.rights if not conn.rights.get(r)]
         if missing:
             cmd_issues.append({"command": spec.id, "missing_rights": missing})

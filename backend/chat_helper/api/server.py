@@ -5,7 +5,7 @@ import logging
 import time
 from typing import Any
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -24,8 +24,10 @@ def error(status: int, code: str, message: str, extra: dict[str, Any] | None = N
 
 
 def create_api(ctx: Any) -> FastAPI:
-    api = FastAPI(title="Chat helper Control API", version=__version__, docs_url="/api/docs", redoc_url=None,
-                  openapi_url="/api/openapi.json",
+    # Interactive docs list every route (admin ones included), so they are off unless API_DOCS_ENABLED=true.
+    docs = bool(getattr(getattr(ctx, "config", None), "api_docs_enabled", False))
+    api = FastAPI(title="Chat helper Control API", version=__version__, docs_url="/api/docs" if docs else None, redoc_url=None,
+                  openapi_url="/api/openapi.json" if docs else None,
                   description="Local REST API used by the Chat helper Control Android app. All endpoints except /api/v1/health and "
                               "/api/v1/auth/* require `Authorization: Bearer <access_token>` obtained via Telegram pairing.")
     api.state.ctx = ctx
@@ -69,7 +71,14 @@ def create_api(ctx: Any) -> FastAPI:
     async def value_exc(_: Request, exc: ValueError):
         return error(400, "bad_request", str(exc)[:300])
 
+    from .deps import Principal, not_found, principal
     from .routers import admin_routes, ai_routes, auth_routes, ops_routes, user_routes, v3_routes
     for r in (auth_routes.router, user_routes.router, ai_routes.router, ops_routes.router, admin_routes.router, v3_routes.router):
         api.include_router(r, prefix="/api/v1")
+
+    # Catch-all (registered last): unknown /api/v1 routes need a valid session like every protected route and then
+    # answer the same 404 as an admin route called by a non-admin — neither reveals which admin routes exist.
+    @api.api_route("/api/v1/{rest:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"], include_in_schema=False)
+    async def unknown_route(rest: str, p: Principal = Depends(principal)) -> None:
+        raise not_found()
     return api

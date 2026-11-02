@@ -107,11 +107,11 @@ async def test_regular_user_cannot_access_admin(env, api):
     tok = await pair(env, api, USER2)
     for path in ("/api/v1/users", "/api/v1/system/status", "/api/v1/security/suspicious", "/api/v1/broadcasts"):
         r = await api.get(path, headers=h(tok))
-        assert r.status_code == 403, path
+        assert r.status_code == 404, path          # admin routes look like routes that do not exist
     r = await api.post("/api/v1/security/emergency-stop", json={"enabled": True, "confirm": "STOP"}, headers=h(tok))
-    assert r.status_code == 403
+    assert r.status_code == 404
     r = await api.get(f"/api/v1/users/{OWNER}", headers=h(tok))
-    assert r.status_code == 403
+    assert r.status_code == 404
 
 
 async def test_super_admin_access_and_confirmations(env, api):

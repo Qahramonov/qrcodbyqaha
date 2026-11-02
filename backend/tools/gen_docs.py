@@ -61,13 +61,18 @@ def api_md(api) -> str:
     from fastapi.openapi.utils import get_openapi
     spec = get_openapi(title=api.title, version=api.version, routes=api.routes)
     out = ["# Chat helper Control API (v1)", "",
-           "> Сгенерировано из OpenAPI (`backend/tools/gen_docs.py`). Живая документация: `http://127.0.0.1:8787/api/docs`.", "",
+           "> Сгенерировано из OpenAPI (`backend/tools/gen_docs.py`). Swagger UI (`/api/docs`) выключен по умолчанию, "
+           "потому что показывает все маршруты; для разработки включается `API_DOCS_ENABLED=true`.", "",
            "**Базовый адрес:** `http://127.0.0.1:8787/api/v1` (по умолчанию слушает только localhost).", "",
            "**Аутентификация:** одноразовый код из Telegram (`/app`) → `POST /auth/pair` → `access_token` (1 ч) + `refresh_token` (30 дн., ротация). "
            "Все запросы, кроме `/health`, `/auth/pair`, `/auth/refresh`: `Authorization: Bearer <access_token>`.", "",
-           "**Ошибки:** `{\"error\": {\"code\": \"...\", \"message\": \"...\"}}` · 401 токен · 403 роль · 404 не найдено/чужое · 409 конфликт · 422 валидация · 429 лимит (`Retry-After`).", "",
+           "**Ошибки:** `{\"error\": {\"code\": \"...\", \"message\": \"...\"}}` · 401 токен · 403 действие не разрешено "
+           "(например, не делегировано) · 404 не найдено/чужое · 409 конфликт · 422 валидация · 429 лимит (`Retry-After`).", "",
            "**Роли:** `user` — только свои данные; `super_admin` (ID из `SUPER_ADMIN_ID`) — всё. "
-           "Роль вычисляется на сервере; передача чужого Telegram ID в запросе ничего не даёт.", ""]
+           "Роль вычисляется на сервере; передача чужого Telegram ID в запросе ничего не даёт.", "",
+           "**Админ-маршруты невидимы.** Для всех, кроме Super Admin, любой админ-маршрут отвечает тем же `404 not_found`, "
+           "что и несуществующий адрес; без токена и админ-, и несуществующие маршруты отвечают одинаковым `401`. "
+           "Каждая такая попытка пишется в журнал аудита (`security.admin_api_denied`).", ""]
     by_tag: dict[str, list[str]] = {}
     for path, methods in sorted(spec.get("paths", {}).items()):
         for method, op in methods.items():

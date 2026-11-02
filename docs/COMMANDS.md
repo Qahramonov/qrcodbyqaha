@@ -189,7 +189,7 @@
 |---|---|---|---|---|---|---|
 | `.a`<br><sub>.анимация, .anim, .animatsiya</sub> | Анимация текста: 16 типов (typewriter, fast, reverse, wave, glitch, matrix, dots, progress, countdown, pulse, heart, slide, rainbow, counter, reveal, custom) и скорости slow/normal/turbo; stop — отменить; без текста — студия анимаций | Matn animatsiyasi: 16 tur va slow/normal/turbo tezliklari; stop — bekor qilish; matnsiz — animatsiya studiyasi | `.a [тип] [скорость] текст | .a custom кадр1 | кадр2 | итог | .a stop` | `.a Привет!` | ✅ реализовано | free; can_reply |
 | `.about`<br><sub>.оботе, .haqida</sub> | О Chat helper | Chat helper haqida | `.about` | `.about` | ✅ реализовано | free; — |
-| `.backup`<br><sub>.бэкап, .zaxira</sub> | Резервная копия базы (супер-админ, с подтверждением); для остальных — экспорт данных | Bazaning zaxira nusxasi (super-admin, tasdiq bilan) | `.backup` | `.backup` | ✅ реализовано | free; — |
+| `.backup`<br><sub>.бэкап, .zaxira</sub> | Резервная копия: экспорт ваших данных в файл | Zaxira nusxa: ma'lumotlaringizni faylga eksport qilish | `.backup` | `.backup` | ✅ реализовано | free; — |
 | `.clear`<br><sub>.очистить, .tozala</sub> | Очистить сохранённый AI-контекст и превью этого чата (all — всех чатов) | Ushbu chatning AI konteksti va ko'rinishlarini tozalash (all — barchasi) | `.clear [all]` | `.clear` | ✅ реализовано | free; — |
 | `.commands`<br><sub>.команды, .buyruqlar, .cmds</sub> | Компактный список всех команд | Barcha buyruqlarning qisqa ro'yxati | `.commands` | `.commands` | ✅ реализовано | free; — |
 | `.export`<br><sub>.экспорт, .eksport</sub> | Экспорт ваших данных (JSON в личку) | Ma'lumotlaringizni eksport (JSON shaxsiy chatga) | `.export` | `.export` | ✅ реализовано | free; — |
@@ -219,7 +219,7 @@
 
 | Команда | Описание (RU) | Tavsif (UZ) | Синтаксис | Пример | Статус | Тариф / права |
 |---|---|---|---|---|---|---|
-| `.logs`<br><sub>.логи</sub> | Последние предупреждения и ошибки (только администратор) | So'nggi xatolar (faqat admin) | `.logs [N]` | `.logs` | ✅ реализовано | free; — |
+| `.logs`<br><sub>.логи</sub> | Последние предупреждения и ошибки бота | Botning so'nggi ogohlantirish va xatolari | `.logs [N]` | `.logs` | ✅ реализовано | free; — |
 
 ## Примечания
 

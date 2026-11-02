@@ -84,7 +84,7 @@ async def screen_quick(app: Any, uid: int, s: dict[str, Any]) -> tuple[str, Any]
              t("account.nazhmite_chtoby_skopirovat_komandu_vstavte"), ""]
     rows = []
     for cid in fav[:12]:
-        spec = app.registry.commands.get(cid)
+        spec = app.registry.get(cid, admin=app.users.is_super_id(uid))
         if spec is None:
             continue
         lines.append(f"<code>{s['prefix']}{cid}</code> — {esc(clip(spec.describe(lang), 70))}")
@@ -154,7 +154,7 @@ async def screen_texttools(app: Any, uid: int, s: dict[str, Any]) -> tuple[str, 
              t("account.rabotayut_lyubom_chate_zdes_nazhmite"), ""]
     btns = []
     for cid in TEXT_TOOLS:
-        spec = app.registry.commands.get(cid)
+        spec = app.registry.get(cid, admin=app.users.is_super_id(uid))
         if spec is None:
             continue
         example = next(iter(spec.examples_for(lang)), "")    # localized catalog example, e.g. ".r Salom 👋🏽"

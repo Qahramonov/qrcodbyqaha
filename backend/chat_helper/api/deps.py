@@ -55,15 +55,28 @@ async def principal(request: Request) -> Principal:
     return Principal(user_id=s.user_id, role=s.role, session_id=s.id, device_name=s.device_name)
 
 
-async def admin(p: Principal = Depends(principal)) -> Principal:
+def not_found() -> APIError:
+    """The single 404 used for unknown routes *and* for admin routes called by anyone but the super admin, so the
+    admin API is indistinguishable from a route that does not exist."""
+    return APIError(404, "not_found", "Not found")
+
+
+async def _hide_admin_route(request: Request, p: Principal) -> None:
+    app = request.app.state.ctx
+    await app.audit.log("security.admin_api_denied", actor_id=p.user_id, actor_type="app",
+                        method=request.method, path=request.url.path[:120])
+    raise not_found()
+
+
+async def admin(request: Request, p: Principal = Depends(principal)) -> Principal:
     if not p.is_admin:
-        raise APIError(403, "forbidden", "Administrator role required")
+        await _hide_admin_route(request, p)
     return p
 
 
-async def super_admin(p: Principal = Depends(principal)) -> Principal:
+async def super_admin(request: Request, p: Principal = Depends(principal)) -> Principal:
     if not p.is_super:
-        raise APIError(403, "forbidden", "Super admin role required")
+        await _hide_admin_route(request, p)
     return p
 
 
@@ -78,5 +91,5 @@ def scope_user(p: Principal, requested: int | None) -> int:
     if requested is None or requested == p.user_id:
         return p.user_id
     if not p.is_admin:
-        raise APIError(403, "forbidden", "You can only access your own data")
+        raise not_found()
     return requested

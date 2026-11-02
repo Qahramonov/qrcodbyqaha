@@ -61,9 +61,8 @@ async def ai_system(body: AISystemPatch, p: Principal = Depends(super_admin), ap
 
 @router.get("/ai/usage", tags=["ai"])
 async def usage(scope: str = "self", p: Principal = Depends(principal), app: Any = Depends(get_app)) -> dict[str, Any]:
-    if scope == "global" and not p.is_admin:
-        raise APIError(403, "forbidden", "Admin only")
-    return await app.ai.usage_summary(None if scope == "global" else p.user_id)
+    # the global scope exists only for the super admin; everyone else always gets their own usage
+    return await app.ai.usage_summary(None if scope == "global" and p.is_super else p.user_id)
 
 
 # ---- profiles ---------------------------------------------------------------------------------
@@ -337,7 +336,7 @@ async def commands(p: Principal = Depends(principal), app: Any = Depends(get_app
         "SELECT command_id, COUNT(*) AS calls, SUM(1-ok) AS errors FROM command_history WHERE user_id=? GROUP BY command_id", (p.user_id,))}
     disabled = set(s.get("disabled_commands") or [])
     items = []
-    for spec in sorted(app.registry.commands.values(), key=lambda x: (x.category, x.id)):
+    for spec in sorted(app.registry.visible(admin=p.is_super), key=lambda x: (x.category, x.id)):
         d = spec.to_dict(s["lang"], s["prefix"])
         g = stats.get(spec.id, {})
         d.update({"enabled_for_me": spec.id not in disabled, "enabled_global": bool(g.get("enabled_global", 1)),
@@ -353,7 +352,7 @@ class CmdToggle(BaseModel):
 
 @router.patch("/commands/{cid}", tags=["commands"])
 async def toggle_cmd(cid: str, body: CmdToggle, p: Principal = Depends(principal), app: Any = Depends(get_app)) -> dict[str, Any]:
-    spec = app.registry.resolve(cid)
+    spec = app.registry.resolve(cid, admin=p.is_super)
     if spec is None:
         raise APIError(404, "not_found", "Command not found")
     disabled = set(await app.settings.get(p.user_id, "disabled_commands") or [])
@@ -369,7 +368,7 @@ class CmdGlobal(BaseModel):
 
 @router.patch("/commands/{cid}/global", tags=["commands"])
 async def global_cmd(cid: str, body: CmdGlobal, p: Principal = Depends(super_admin), app: Any = Depends(get_app)) -> dict[str, Any]:
-    spec = app.registry.resolve(cid)
+    spec = app.registry.resolve(cid, admin=True)
     if spec is None:
         raise APIError(404, "not_found", "Command not found")
     await app.executor.set_global(spec.id, body.enabled, body.min_plan)

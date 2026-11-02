@@ -66,6 +66,7 @@ class Settings(BaseModel):
     api_host: str = "127.0.0.1"
     api_port: int = 8787
     api_remote_enabled: bool = False
+    api_docs_enabled: bool = False       # Swagger UI / OpenAPI schema (lists every route) — development only
     api_ssl_certfile: str = ""
     api_ssl_keyfile: str = ""
     access_token_ttl: int = 3600
@@ -221,6 +222,7 @@ _ENV_MAP: dict[str, tuple[str, Any]] = {
     "API_HOST": ("api_host", str),
     "API_PORT": ("api_port", int),
     "API_REMOTE_ENABLED": ("api_remote_enabled", bool),
+    "API_DOCS_ENABLED": ("api_docs_enabled", bool),
     "API_SSL_CERTFILE": ("api_ssl_certfile", str),
     "API_SSL_KEYFILE": ("api_ssl_keyfile", str),
     "ACCESS_TOKEN_TTL": ("access_token_ttl", int),

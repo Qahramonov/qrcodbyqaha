@@ -140,7 +140,7 @@ async def test_admin_callbacks_denied_for_connected_regular_user(env):
         env.session.clear()
         await env.feed(cb(USER2, data))
         alert = env.session.calls("AnswerCallbackQuery")[-1]
-        assert alert.show_alert and "Недостаточно прав" in alert.text, data
+        assert not alert.show_alert and not alert.text, data     # silent: the admin section does not exist for them
     assert not env.app.runtime.emergency_stop and not env.app.runtime.maintenance
     assert await env.app.db.fetchval("SELECT COUNT(*) FROM audit_logs WHERE action='security.admin_callback_denied'") >= 4
 
@@ -172,7 +172,7 @@ async def test_legacy_moderator_and_username_grant_nothing(env):
     assert await env.app.users.role(USER2) == "user"
     env.session.clear()
     await env.feed(private_message(USER2, ".logs", "Bob"))
-    assert any("Недостаточно прав" in t for t in env.session.sent_texts())
+    assert any("Неизвестная команда" in t for t in env.session.sent_texts())
     # REST API: a moderator row or a forged user id gives no admin access
     api_app = create_api(env.app)
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=api_app), base_url="http://127.0.0.1") as api:
@@ -183,9 +183,9 @@ async def test_legacy_moderator_and_username_grant_nothing(env):
         assert me["role"] == "user" and "users" not in me["capabilities"]
         for path in ("/api/v1/users", f"/api/v1/users/{OWNER}", "/api/v1/system/backups"):
             r = await api.get(path, headers=h)
-            assert r.status_code == 403, (path, r.status_code)
+            assert r.status_code == 404, (path, r.status_code)
         r = await api.get("/api/v1/users", headers={**h, "X-User-Id": str(OWNER)}, params={"user_id": OWNER})
-        assert r.status_code == 403
+        assert r.status_code == 404
 
 
 async def test_super_admin_panel_without_connection(env):
@@ -222,7 +222,7 @@ async def test_every_admin_section_renders_for_super_admin_only(env):
         env.session.clear()
         await env.feed(cb(USER2, f"ax:{key}"))
         ans = env.session.calls("AnswerCallbackQuery")[-1]
-        assert ans.show_alert and "Недостаточно прав" in ans.text
+        assert not ans.show_alert and not ans.text
     env.session.clear()
     await env.feed(cb(USER2, f"ax:uact:{USER2}:grant_vip"))
     assert await env.app.subs.plan_of(USER2) == "pro"
@@ -301,7 +301,7 @@ async def test_v3_api_endpoints(env):
         assert any(x["right"] == "can_delete_all_messages" and "mute" in x["commands"] for x in perms["rights"])
         await api.put("/api/v1/delegation/ai", headers=h, json={"granted": True})
         # user cannot use admin delegation endpoints
-        assert (await api.get(f"/api/v1/admin/delegated/{USER2}", headers=h)).status_code == 403
+        assert (await api.get(f"/api/v1/admin/delegated/{USER2}", headers=h)).status_code == 404
         export = (await api.get("/api/v1/export", headers=h)).json()
         assert {"chat_controls", "mute_events", "ai_twin", "reminders", "delegation", "chat_history"} <= set(export)
         assert export["chat_history"][0]["text"] == "привет"

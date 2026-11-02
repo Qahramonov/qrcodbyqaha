@@ -129,19 +129,32 @@ class Registry:
             return fn
         return deco
 
-    def resolve(self, name: str) -> CommandSpec | None:
+    # Admin-only commands are invisible to everyone except the super admin: lookups, lists and suggestions
+    # behave as if they did not exist unless the caller passes ``admin=True`` (secure by default).
+    def resolve(self, name: str, *, admin: bool = False) -> CommandSpec | None:
         cid = self._lookup.get(name.lower())
-        return self.commands.get(cid) if cid else None
+        spec = self.commands.get(cid) if cid else None
+        if spec is not None and spec.admin_only and not admin:
+            return None
+        return spec
 
-    def by_category(self) -> dict[str, list[CommandSpec]]:
+    def get(self, cid: str, *, admin: bool = False) -> CommandSpec | None:
+        spec = self.commands.get(cid)
+        return None if spec is None or (spec.admin_only and not admin) else spec
+
+    def visible(self, admin: bool = False) -> list[CommandSpec]:
+        return [s for s in self.commands.values() if admin or not s.admin_only]
+
+    def by_category(self, admin: bool = False) -> dict[str, list[CommandSpec]]:
         out: dict[str, list[CommandSpec]] = {c: [] for c in CATEGORIES}
-        for spec in self.commands.values():
+        for spec in self.visible(admin):
             out.setdefault(spec.category, []).append(spec)
         return out
 
-    def suggestions(self, name: str, n: int = 3) -> list[str]:
+    def suggestions(self, name: str, n: int = 3, *, admin: bool = False) -> list[str]:
         import difflib
-        return difflib.get_close_matches(name.lower(), list(self._lookup), n=n, cutoff=0.6)
+        names = [k for k, cid in self._lookup.items() if admin or not self.commands[cid].admin_only]
+        return difflib.get_close_matches(name.lower(), names, n=n, cutoff=0.6)
 
     def __len__(self) -> int:
         return len(self.commands)
