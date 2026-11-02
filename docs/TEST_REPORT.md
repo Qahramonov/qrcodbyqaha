@@ -63,6 +63,8 @@ $ flutter test
 `flutter test` ✅, `flutter build apk --release` ✅, артефакт `Chat_helper_Control_v3` (APK + SHA-256, 26.75 МБ в zip,
 хранится до 2026-12-02). Подпись — debug-ключ (секреты подписи в репозитории не заданы).
 
+**Релиз `control-v3`** — run 41422499383 (коммит 9eba912): analyze ✅, test ✅, build ✅, публикация ✅. APK скачан с прямой ссылки релиза и проверен локально: SHA-256 совпадает с опубликованным (`a8cc1d9e1fff5ca5439caf800d3d51cc4b16378bf9206018fa89afcef8ec4abe`), `aapt2 dump badging` — `com.chathelper.control`, versionCode 30, versionName 3.0.0, compileSdk 36, разрешение `INTERNET` (+ служебное AndroidX `DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION`), ABI arm64-v8a / armeabi-v7a / x86_64; `uber-apk-signer --onlyVerify` — zipalign ✅, подпись v2 ✅ (debug-сертификат); секретов в APK нет. Размер 55 МиБ.
+
 ## 4. Нативное приложение v1 против сервера v3 — Robolectric: **10 из 10**
 
 ```
