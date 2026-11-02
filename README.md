@@ -28,7 +28,7 @@ nano backend/.env                # BOT_TOKEN=... из @BotFather (Business Mode 
 ```
 
 Затем в Telegram: Настройки → Изм. профиля → «Автоматизация чатов» → добавьте бота; в боте `/start` → «Проверить подключение»;
-`/app` — код для входа в приложение **Chat helper Control v3** (APK — артефакт GitHub Actions «Flutter APK (v3)»).
+`/app` — код для входа в приложение **Chat helper Control v3**: [скачать APK](https://github.com/Qahramonov/qrcodbyqaha/releases/download/control-v3/Chat_helper_Control_v3.apk) ([релиз](https://github.com/Qahramonov/qrcodbyqaha/releases/tag/control-v3)).
 
 ## Структура
 

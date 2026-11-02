@@ -65,7 +65,7 @@ baza o'zi yangilanadi (oldin zaxira nusxa olinadi). Botni to'xtatish: `./scripts
 
 ## 5. Ilova (Chat helper Control v3)
 
-1. `Chat_helper_Control_v3.apk` ni GitHub Actions'dan yuklab oling (Actions → «Flutter APK (v3)» → Artifacts).
+1. `Chat_helper_Control_v3.apk` ni to'g'ridan-to'g'ri havola orqali yuklab oling (GitHub'ga kirish shart emas): https://github.com/Qahramonov/qrcodbyqaha/releases/download/control-v3/Chat_helper_Control_v3.apk
 2. Eski v1 ilova o'rnatilgan bo'lsa va Android «ilova o'rnatilmadi» desa — uni o'chiring (unda faqat sessiya bor).
 3. Ilovada «Ilovani ulash» → botga `/app` yuboring → kodni kiriting. Server: `http://127.0.0.1:8787`.
 

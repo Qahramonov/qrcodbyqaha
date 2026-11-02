@@ -6,8 +6,9 @@ minSdk — по умолчанию Flutter 3.47, единственное раз
 ## 1. Установить на телефон
 
 1. Скачайте `Chat_helper_Control_v3.apk`:
-   * **GitHub → Actions → «Flutter APK (v3)» → последний успешный запуск → Artifacts → `Chat_helper_Control_v3`** (zip с APK и
-     SHA-256; на телефоне откройте zip файловым менеджером);
+   * **прямая ссылка (без входа в GitHub):** https://github.com/Qahramonov/qrcodbyqaha/releases/download/control-v3/Chat_helper_Control_v3.apk
+   * страница релиза: https://github.com/Qahramonov/qrcodbyqaha/releases/tag/control-v3 (там же SHA-256);
+   * запасной вариант — GitHub → Actions → «Flutter APK (v3)» → запуск → Artifacts (zip, нужен вход в GitHub);
    * или соберите сами (раздел 3).
 2. Если стоит старое приложение Chat helper Control (v1) и Android пишет «Приложение не установлено» — подписи разные:
    удалите старое (в нём только сессия входа) и установите v3.
@@ -30,7 +31,8 @@ minSdk — по умолчанию Flutter 3.47, единственное раз
 
 Workflow `.github/workflows/flutter.yml` запускается при push в `flutter_app/**` (или вручную: Actions → Flutter APK (v3) → Run workflow):
 `flutter pub get` → `flutter analyze` → `flutter test` → `flutter build apk --release` → артефакт `Chat_helper_Control_v3`
-(APK + `.sha256`, хранится 30 дней).
+(APK + `.sha256`, хранится 30 дней) → **GitHub Release `control-v3`** (pre-release; APK и `.sha256` как прямые ссылки,
+пересоздаётся при каждой сборке).
 
 Подпись своим ключом: секреты репозитория `CH_KEYSTORE_B64` (`base64 -w0 my.keystore`), `CH_KS_PASS`, `CH_KEY_ALIAS`.
 Без них APK подписан debug-ключом (ставится на свой телефон, но обновлять поверх можно только APK с той же подписью).

@@ -37,8 +37,8 @@ flutter test --update-goldens --tags screenshots --run-skipped test/screenshots_
 
 ## Сборка APK
 
-* **GitHub Actions:** workflow `.github/workflows/flutter.yml` (analyze → test → `flutter build apk --release`), APK — в артефакте
-  `Chat_helper_Control_v3` запуска. Подпись: секреты `CH_KEYSTORE_B64`, `CH_KS_PASS`, `CH_KEY_ALIAS`; без них APK подписан debug-ключом.
+* **GitHub Actions:** workflow `.github/workflows/flutter.yml` (analyze → test → `flutter build apk --release`), APK публикуется
+  в релиз `control-v3` — прямая ссылка: https://github.com/Qahramonov/qrcodbyqaha/releases/download/control-v3/Chat_helper_Control_v3.apk (а также артефакт `Chat_helper_Control_v3` запуска). Подпись: секреты `CH_KEYSTORE_B64`, `CH_KS_PASS`, `CH_KEY_ALIAS`; без них APK подписан debug-ключом.
 * **Локально:** `flutter build apk --release` → `build/app/outputs/flutter-apk/app-release.apk` (нужен Android SDK).
 
 Если на телефоне стоит старое нативное приложение v1 с другой подписью, Android не даст установить поверх —
