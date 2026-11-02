@@ -1,5 +1,6 @@
-# Builds Chat helper Control v3 (Flutter): analyze → tests → release APK.
-# Download Chat_helper_Control_v3.apk from the run's "Artifacts" section (GitHub app or browser on the phone).
+# Builds Chat helper Control v3 (Flutter): analyze → tests → release APK → GitHub Release.
+# Download on the phone: https://github.com/<owner>/<repo>/releases/tag/control-v3 → Chat_helper_Control_v3.apk
+# (a plain .apk link — no zip, no GitHub login needed for a public repository). The APK is also kept as a run artifact.
 # Optional release signing (same secrets as the native app's workflow):
 #   CH_KEYSTORE_B64 — base64 of your .keystore/.jks   (base64 -w0 my.keystore)
 #   CH_KS_PASS      — keystore + key password
@@ -13,7 +14,10 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write   # publish the APK to the GitHub Release below
+
+env:
+  RELEASE_TAG: control-v3
 
 jobs:
   apk:
@@ -61,3 +65,21 @@ jobs:
             flutter_app/Chat_helper_Control_v3.apk
             flutter_app/Chat_helper_Control_v3.apk.sha256
           retention-days: 30
+      - name: Publish to GitHub Release (pre-release, direct .apk link)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cat > notes.md <<EOF
+          Chat helper Control v3 (Flutter) — APK built by GitHub Actions from commit ${GITHUB_SHA::7} (branch ${GITHUB_REF_NAME}).
+
+          **Install:** download \`Chat_helper_Control_v3.apk\` below → open it → allow installing from this source.
+          If an older Chat helper Control (v1) is installed and Android says "App not installed", uninstall the old app first
+          (it only keeps a login session) and pair again with \`/app\` in the bot.
+
+          SHA-256: \`$(cut -d' ' -f1 Chat_helper_Control_v3.apk.sha256)\`
+
+          Pre-release: tested by automated tests (flutter analyze, 34 widget/unit tests); NOT VERIFIED ON REAL DEVICE yet.
+          EOF
+          gh release delete "$RELEASE_TAG" --yes --cleanup-tag 2>/dev/null || true
+          gh release create "$RELEASE_TAG" Chat_helper_Control_v3.apk Chat_helper_Control_v3.apk.sha256 \
+            --target "$GITHUB_SHA" --title "Chat helper Control v3.0.0 (APK)" --notes-file notes.md --prerelease
