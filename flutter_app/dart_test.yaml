@@ -1,0 +1,4 @@
+# `flutter test` skips the on-demand screenshot renderer (see test/screenshots_test.dart)
+tags:
+  screenshots:
+    skip: "on demand: flutter test --update-goldens --tags screenshots test/screenshots_test.dart --run-skipped"

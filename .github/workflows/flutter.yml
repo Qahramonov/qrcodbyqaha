@@ -1,0 +1,63 @@
+# Builds Chat helper Control v3 (Flutter): analyze → tests → release APK.
+# Download Chat_helper_Control_v3.apk from the run's "Artifacts" section (GitHub app or browser on the phone).
+# Optional release signing (same secrets as the native app's workflow):
+#   CH_KEYSTORE_B64 — base64 of your .keystore/.jks   (base64 -w0 my.keystore)
+#   CH_KS_PASS      — keystore + key password
+#   CH_KEY_ALIAS    — key alias
+# Without them the APK is signed with the debug key (installable on your own phone).
+name: Flutter APK (v3)
+
+on:
+  push:
+    paths: ["flutter_app/**", ".github/workflows/flutter.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: flutter_app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.9
+          cache: true
+      - run: flutter --version
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
+      - name: Restore signing key (if configured)
+        env:
+          CH_KEYSTORE_B64: ${{ secrets.CH_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$CH_KEYSTORE_B64" ]; then
+            echo "$CH_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+            echo "CH_KEYSTORE=$RUNNER_TEMP/release.keystore" >> "$GITHUB_ENV"
+          fi
+      - name: Build release APK
+        env:
+          CH_KS_PASS: ${{ secrets.CH_KS_PASS }}
+          CH_KEY_ALIAS: ${{ secrets.CH_KEY_ALIAS }}
+        run: |
+          flutter build apk --release
+          cp build/app/outputs/flutter-apk/app-release.apk Chat_helper_Control_v3.apk
+          sha256sum Chat_helper_Control_v3.apk | tee Chat_helper_Control_v3.apk.sha256
+          ls -l Chat_helper_Control_v3.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Chat_helper_Control_v3
+          path: |
+            flutter_app/Chat_helper_Control_v3.apk
+            flutter_app/Chat_helper_Control_v3.apk.sha256
+          retention-days: 30

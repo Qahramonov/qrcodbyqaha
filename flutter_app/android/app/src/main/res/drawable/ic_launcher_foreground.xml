@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Chat helper mark: speech bubble with a check-spark, drawn on the 108dp adaptive icon grid -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M38,34 L70,34 Q78,34 78,42 L78,62 Q78,70 70,70 L50,70 L40,78 L42,70 L38,70 Q30,70 30,62 L30,42 Q30,34 38,34 Z" />
+    <path android:strokeColor="#FF5B3FE0" android:strokeWidth="5" android:strokeLineCap="round" android:strokeLineJoin="round"
+        android:fillColor="#00000000"
+        android:pathData="M44,52 L51,59 L65,45" />
+    <path android:fillColor="#FF2EC5FF" android:pathData="M80,28 m-3,0 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0" />
+</vector>

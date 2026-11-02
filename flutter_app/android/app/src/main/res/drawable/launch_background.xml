@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Dark launch screen (design token color.bg.top) so there is no white flash before the first frame. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item><color android:color="#FF090C1C" /></item>
+</layer-list>

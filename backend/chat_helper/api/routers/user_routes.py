@@ -17,6 +17,13 @@ from ..deps import APIError, Page, Principal, get_app, principal
 router = APIRouter()
 
 CHANGELOG = [
+    {"version": "3.0.0", "date": "2026-11-02", "items": [
+        "Features stay locked until the account is connected via Telegram «Chat automation»; new onboarding wizard",
+        "Chat Control Framework: inline control cards (.mute, .protect, .nogif, .nomute, .afk, .re) for the owner only",
+        "Mute engine (deleteBusinessMessages), Animation engine (16 types), .re, RTL .r, reminders, .sum, .info, .geo, .qr",
+        "AI Twin (voluntary examples only, AI disclosure), .ai with .gpt alias, delegated management with consent",
+        "Super Admin is the only administrator; the admin section is invisible to everyone else",
+        "Full RU/UZ localization from JSON catalogs; Flutter app «Chat helper Control» v3"]},
     {"version": "1.0.0", "date": "2026-11-01", "items": [
         "Telegram Business engine (connections, rights, multi-account isolation)",
         "Command engine with 150+ commands, AFK, Smart Auto Reply, No-code automation",

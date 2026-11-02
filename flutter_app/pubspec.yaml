@@ -1,0 +1,36 @@
+name: chat_helper_control
+description: "Chat helper Control — the companion app for the Chat helper Telegram Business bot (v3)."
+publish_to: 'none'
+
+# versionName 3.0.0, versionCode 30 (the native v1 app used versionCode 1)
+version: 3.0.0+30
+
+environment:
+  sdk: ^3.13.7
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  flutter_riverpod: ^3.4.3
+  go_router: ^18.1.2
+  dio: ^5.11.1
+  flutter_secure_storage: ^11.2.0
+  url_launcher: ^6.3.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  fonts:
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-Regular.otf
+        - asset: assets/fonts/Inter-SemiBold.otf
+          weight: 600
+        - asset: assets/fonts/Inter-Bold.otf
+          weight: 700
