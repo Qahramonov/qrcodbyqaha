@@ -7,7 +7,7 @@ import time
 from aiogram import Router
 from aiogram.types import BusinessConnection, BusinessMessagesDeleted, Message
 
-from ..business.rights import RIGHT_TITLES, inspect, status_title
+from ..business.rights import inspect, right_title, status_title
 from ..core.context import AppContext
 from ..localization import tr
 from ..security.sanitize import esc
@@ -17,7 +17,7 @@ router = Router(name="business")
 
 
 def _rights_lines(rights: list[str], lang: str) -> str:
-    return "\n".join("• " + tr(lang, *RIGHT_TITLES.get(r, (r, r))) for r in rights)
+    return "\n".join("• " + right_title(r, lang) for r in rights)
 
 
 @router.business_connection()
@@ -41,51 +41,47 @@ async def on_business_connection(bc: BusinessConnection, app: AppContext) -> Non
     if change.kind == "new" or change.kind == "enabled":
         await app.metrics.incr("connections_new", u.id)
         report = inspect(conn.rights, conn.is_enabled, lang)
-        lines = [tr(lang, "🔗 <b>Аккаунт подключён к Chat helper!</b>", "🔗 <b>Akkaunt Chat helper'ga ulandi!</b>"),
-                 tr(lang, "Статус: {s}", "Holat: {s}", s=report["status_title"]), ""]
+        lines = [tr(lang, "business.akkaunt_podklyuchyon_chat_helper"),
+                 tr(lang, "business.status", s=report["status_title"]), ""]
         avail = [c for c in report["capabilities"] if c["available"]]
         missing = [c for c in report["capabilities"] if not c["available"]]
         if avail:
-            lines.append(tr(lang, "✅ Доступно:", "✅ Mavjud:"))
+            lines.append(tr(lang, "business.dostupno"))
             lines += ["• " + c["description"] for c in avail]
         if missing:
             lines.append("")
-            lines.append(tr(lang, "⚠️ Недоступно без прав:", "⚠️ Huquqsiz mavjud emas:"))
+            lines.append(tr(lang, "business.nedostupno_bez_prav"))
             lines += ["• " + c["description"] for c in missing]
         lines.append("")
         lines += ["ℹ️ " + a for a in report["advice"]]
         lines.append("")
-        lines.append(tr(lang, "Пишите команды прямо в чатах, например <code>{p}afk</code> или <code>{p}help</code>.",
-                        "Buyruqlarni to'g'ridan-to'g'ri chatlarda yozing, masalan <code>{p}afk</code> yoki <code>{p}help</code>.",
+        lines.append(tr(lang, "business.pishite_komandy_pryamo_chatah_naprimer",
                         p=settings["prefix"]))
-        await app.notifications.notify(u.id, "connection", tr(lang, "Новое бизнес-подключение", "Yangi biznes ulanish"),
+        await app.notifications.notify(u.id, "connection", tr(lang, "business.novoe_biznes_podklyuchenie"),
                                        report["status_title"])
         from ..keyboards import kb
         await app.sender.send_text(u.id, "\n".join(lines), markup=kb([
-            [(tr(lang, "🏠 Открыть меню", "🏠 Menyuni ochish"), "m:home"), (tr(lang, "🔍 Права", "🔍 Huquqlar"), "conn:insp:0")]]))
+            [(tr(lang, "business.otkryt_menyu"), "m:home"), (tr(lang, "business.prava"), "conn:insp:0")]]))
         if u.id != app.config.super_admin_id:
             await app.notifications.notify(app.config.super_admin_id, "connection_admin",
                                            "New business connection", f"user {u.id} (@{u.username or '-'}) → {conn.status}")
     elif change.kind == "disabled":
         await app.metrics.incr("connections_lost", u.id)
         await app.controls.revoke_connection(bc.id)   # old control buttons stop working
-        await app.notifications.notify(u.id, "disconnect", tr(lang, "Бизнес-подключение отключено", "Biznes ulanish uzildi"),
+        await app.notifications.notify(u.id, "disconnect", tr(lang, "business.biznes_podklyuchenie_otklyucheno"),
                                        level="warning")
         if settings.get("notify_disconnect", True):
             from ..keyboards import kb
-            await app.sender.send_text(u.id, tr(lang, "🔌 Chat helper отключён от вашего аккаунта. Автоответы, команды и кнопки управления "
-                                                      "в чатах остановлены. Переподключить: Настройки → Изм. → Автоматизация чатов.",
-                                                "🔌 Chat helper akkauntingizdan uzildi. Chatlardagi avtojavob, buyruqlar va boshqaruv tugmalari "
-                                                "to'xtatildi. Qayta ulash: Sozlamalar → Tahrirlash → Chat automation."),
-                                       markup=kb([[(tr(lang, "🔗 Как подключить снова", "🔗 Qayta ulash"), "m:connect")]]))
+            await app.sender.send_text(u.id, tr(lang, "business.chat_helper_otklyuchyon_vashego_akkaunta"),
+                                       markup=kb([[(tr(lang, "business.kak_podklyuchit_snova"), "m:connect")]]))
     elif change.kind == "rights_changed":
-        lines = [tr(lang, "🔐 <b>Права бизнес-бота изменены</b>", "🔐 <b>Biznes-bot huquqlari o'zgardi</b>"),
-                 tr(lang, "Статус: {s}", "Holat: {s}", s=status_title(conn.status, lang))]
+        lines = [tr(lang, "business.prava_biznes_bota_izmeneny"),
+                 tr(lang, "business.status", s=status_title(conn.status, lang))]
         if change.added_rights:
-            lines += ["", tr(lang, "➕ Добавлено:", "➕ Qo'shildi:"), _rights_lines(change.added_rights, lang)]
+            lines += ["", tr(lang, "business.dobavleno"), _rights_lines(change.added_rights, lang)]
         if change.removed_rights:
-            lines += ["", tr(lang, "➖ Отозвано:", "➖ Olib tashlandi:"), _rights_lines(change.removed_rights, lang)]
-        await app.notifications.notify(u.id, "rights", tr(lang, "Права изменены", "Huquqlar o'zgardi"), conn.status)
+            lines += ["", tr(lang, "business.otozvano"), _rights_lines(change.removed_rights, lang)]
+        await app.notifications.notify(u.id, "rights", tr(lang, "business.prava_izmeneny"), conn.status)
         await app.sender.send_text(u.id, "\n".join(lines))
 
 

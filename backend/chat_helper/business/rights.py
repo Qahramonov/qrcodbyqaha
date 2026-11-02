@@ -17,45 +17,37 @@ RIGHT_FLAGS = (
 )
 
 # Titles follow the Telegram «Chat automation» permissions screen (2026 clients).
-RIGHT_TITLES: dict[str, tuple[str, str]] = {
-    "can_reply": ("Ответы на сообщения", "Xabarlarga javob berish"),
-    "can_read_messages": ("Отметки о прочтении", "O'qilganlik belgilari"),
-    "can_delete_sent_messages": ("Удаление исходящих (сообщения бота)", "Chiquvchilarni o'chirish (bot xabarlari)"),
-    "can_delete_all_messages": ("Удаление входящих (все сообщения)", "Kiruvchilarni o'chirish (barcha xabarlar)"),
-    "can_edit_name": ("Менять имя", "Ismni o'zgartirish"),
-    "can_edit_bio": ("Менять био", "Bio'ni o'zgartirish"),
-    "can_edit_profile_photo": ("Менять фото профиля", "Profil rasmini o'zgartirish"),
-    "can_edit_username": ("Менять username", "Username'ni o'zgartirish"),
-    "can_change_gift_settings": ("Настройки подарков", "Sovg'a sozlamalari"),
-    "can_view_gifts_and_stars": ("Просмотр подарков и Stars", "Sovg'alar va Stars'ni ko'rish"),
-    "can_convert_gifts_to_stars": ("Конвертация подарков", "Sovg'alarni konvertatsiya qilish"),
-    "can_transfer_and_upgrade_gifts": ("Передача подарков", "Sovg'alarni o'tkazish"),
-    "can_transfer_stars": ("Передача Stars", "Stars o'tkazish"),
-    "can_manage_stories": ("Управление историями", "Hikoyalarni boshqarish"),
+RIGHT_TITLES: dict[str, str] = {
+    "can_reply": "rights.right_titles.otvety_soobscheniya",
+    "can_read_messages": "rights.right_titles.otmetki_prochtenii",
+    "can_delete_sent_messages": "rights.right_titles.udalenie_ishodyaschih_soobscheniya_bota",
+    "can_delete_all_messages": "rights.right_titles.udalenie_vhodyaschih_vse_soobscheniya",
+    "can_edit_name": "rights.right_titles.menyat_imya",
+    "can_edit_bio": "rights.right_titles.menyat_bio",
+    "can_edit_profile_photo": "rights.right_titles.menyat_foto_profilya",
+    "can_edit_username": "rights.right_titles.menyat_username",
+    "can_change_gift_settings": "rights.right_titles.nastroyki_podarkov",
+    "can_view_gifts_and_stars": "rights.right_titles.prosmotr_podarkov_stars",
+    "can_convert_gifts_to_stars": "rights.right_titles.konvertatsiya_podarkov",
+    "can_transfer_and_upgrade_gifts": "rights.right_titles.peredacha_podarkov",
+    "can_transfer_stars": "rights.right_titles.peredacha_stars",
+    "can_manage_stories": "rights.right_titles.upravlenie_istoriyami",
 }
 
 # Capabilities used by Chat helper -> required rights (all must be present).
 CAPABILITIES: dict[str, dict[str, Any]] = {
-    "reply": {"rights": ["can_reply"], "ru": "Автоответы, AFK, AI-ответы, результаты команд в чате",
-              "uz": "Avtojavoblar, AFK, AI-javoblar, chatdagi buyruq natijalari"},
-    "edit_own": {"rights": ["can_reply"], "ru": "Редактирование ваших сообщений-команд (результат на месте)",
-                 "uz": "Buyruq xabarlaringizni tahrirlash (natija joyida)"},
-    "typing": {"rights": ["can_reply"], "ru": "Статусы «печатает…», «записывает…»",
-               "uz": "«yozmoqda…», «yozib olmoqda…» holatlari"},
-    "read": {"rights": ["can_read_messages"], "ru": "Отметка входящих как прочитанных",
-             "uz": "Kiruvchi xabarlarni o'qilgan deb belgilash"},
-    "delete_bot": {"rights": ["can_delete_sent_messages"], "ru": "Удаление сообщений, отправленных ботом (.timer)",
-                   "uz": "Bot yuborgan xabarlarni o'chirish (.timer)"},
-    "delete_any": {"rights": ["can_delete_all_messages"], "ru": "Удаление ваших команд из чата после выполнения",
-                   "uz": "Bajarilgandan keyin buyruqlaringizni chatdan o'chirish"},
-    "profile_name": {"rights": ["can_edit_name"], "ru": "Команда .name и часы в фамилии",
-                     "uz": ".name buyrug'i va familiyadagi soat"},
-    "profile_bio": {"rights": ["can_edit_bio"], "ru": "Команда .bio и часы в био", "uz": ".bio buyrug'i va bio'dagi soat"},
-    "profile_photo": {"rights": ["can_edit_profile_photo"], "ru": "Команда .avatar", "uz": ".avatar buyrug'i"},
-    "mute": {"rights": ["can_delete_all_messages"], "ru": "🔕 Mute, 🚫 фильтр GIF/стикеров и 🧹 фильтр слов",
-             "uz": "🔕 Mute, 🚫 GIF/stiker filtri va 🧹 so'z filtri"},
-    "protect": {"rights": ["can_reply"], "ru": "🛡 Protect и защищённые сообщения .g", "uz": "🛡 Protect va himoyalangan .g xabarlari"},
-    "controls": {"rights": ["can_reply"], "ru": "Кнопки управления под сообщениями в чате", "uz": "Chatdagi xabarlar ostidagi boshqaruv tugmalari"},
+    "reply": {"rights": ["can_reply"], "title": "rights.cap.reply"},
+    "edit_own": {"rights": ["can_reply"], "title": "rights.cap.edit_own"},
+    "typing": {"rights": ["can_reply"], "title": "rights.cap.typing"},
+    "read": {"rights": ["can_read_messages"], "title": "rights.cap.read"},
+    "delete_bot": {"rights": ["can_delete_sent_messages"], "title": "rights.cap.delete_bot"},
+    "delete_any": {"rights": ["can_delete_all_messages"], "title": "rights.cap.delete_any"},
+    "profile_name": {"rights": ["can_edit_name"], "title": "rights.cap.profile_name"},
+    "profile_bio": {"rights": ["can_edit_bio"], "title": "rights.cap.profile_bio"},
+    "profile_photo": {"rights": ["can_edit_profile_photo"], "title": "rights.cap.profile_photo"},
+    "mute": {"rights": ["can_delete_all_messages"], "title": "rights.cap.mute"},
+    "protect": {"rights": ["can_reply"], "title": "rights.cap.protect"},
+    "controls": {"rights": ["can_reply"], "title": "rights.cap.controls"},
 }
 
 
@@ -110,23 +102,25 @@ def connection_status(is_enabled: bool, rights: dict[str, bool], paused: bool = 
 
 
 STATUS_TITLES = {
-    "connected": ("🟢 Подключено", "🟢 Ulangan"),
-    "disabled": ("⚫️ Отключено", "⚫️ Uzilgan"),
-    "limited": ("🟡 Ограничено", "🟡 Cheklangan"),
-    "missing_permission": ("🟠 Не хватает прав", "🟠 Huquqlar yetarli emas"),
-    "reconnection_required": ("🔴 Требуется переподключение", "🔴 Qayta ulanish kerak"),
+    "connected": ("rights.status_titles.podklyucheno"),
+    "disabled": ("rights.status_titles.otklyucheno"),
+    "limited": ("rights.status_titles.ogranicheno"),
+    "missing_permission": ("rights.status_titles.hvataet_prav"),
+    "reconnection_required": ("rights.status_titles.trebuetsya_perepodklyuchenie"),
 }
 
 
 def status_title(status: str, lang: str) -> str:
-    ru, uz = STATUS_TITLES.get(status, (status, status))
-    return tr(lang, ru, uz)
+    key = STATUS_TITLES.get(status)
+    return tr(lang, key) if key else status
 
 
-FIX_HINT = (
-    "Telegram → Настройки → Изм. → Автоматизация чатов → Chat helper → включите нужные разрешения.",
-    "Telegram → Sozlamalar → Tahrirlash → Chat automation → Chat helper → kerakli ruxsatlarni yoqing.",
-)
+def right_title(right: str, lang: str) -> str:
+    key = RIGHT_TITLES.get(right)
+    return tr(lang, key) if key else right
+
+
+FIX_HINT = "rights.fix_hint.telegram_nastroyki_izm_avtomatizatsiya_chatov"
 
 
 def inspect(rights: dict[str, bool], is_enabled: bool, lang: str = "ru", paused: bool = False) -> dict[str, Any]:
@@ -136,29 +130,26 @@ def inspect(rights: dict[str, bool], is_enabled: bool, lang: str = "ru", paused:
         caps.append({
             "capability": name,
             "available": is_enabled and not missing,
-            "description": cap["uz" if lang == "uz" else "ru"],
+            "description": tr(lang, cap["title"]),
             "missing_rights": missing,
-            "missing_titles": [tr(lang, *RIGHT_TITLES[r]) for r in missing],
+            "missing_titles": [right_title(r, lang) for r in missing],
         })
     dangerous_on = [r for r in DANGEROUS if rights.get(r)]
     status = connection_status(is_enabled, rights, paused)
     advice = []
     if not is_enabled:
-        advice.append(tr(lang, "Подключение выключено. Откройте Telegram → Настройки → Изм. → Автоматизация чатов и подключите Chat helper заново.",
-                         "Ulanish o'chirilgan. Telegram → Sozlamalar → Tahrirlash → Chat automation orqali Chat helper'ni qayta ulang."))
+        advice.append(tr(lang, "rights.podklyuchenie_vyklyucheno_otkroyte_telegram_nast"))
     if any(c["missing_rights"] for c in caps):
-        advice.append(tr(lang, *FIX_HINT))
+        advice.append(tr(lang, FIX_HINT))
     if dangerous_on:
-        advice.append(tr(lang, "Chat helper не использует финансовые права (Stars, подарки). Рекомендуем их выключить: ",
-                         "Chat helper moliyaviy huquqlardan (Stars, sovg'alar) foydalanmaydi. Ularni o'chirib qo'yish tavsiya etiladi: ")
-                      + ", ".join(tr(lang, *RIGHT_TITLES[r]) for r in dangerous_on))
-    advice.append(tr(lang, "Бот может отвечать только в чатах, где собеседник писал за последние 24 часа (правило Telegram).",
-                     "Bot faqat suhbatdosh so'nggi 24 soat ichida yozgan chatlarda javob bera oladi (Telegram qoidasi)."))
+        advice.append(tr(lang, "rights.chat_helper_ispolzuet_finansovye_prava")
+                      + ", ".join(right_title(r, lang) for r in dangerous_on))
+    advice.append(tr(lang, "rights.bot_mozhet_otvechat_tolko_chatah"))
     return {
         "status": status,
         "status_title": status_title(status, lang),
         "rights": {r: rights.get(r, False) for r in RIGHT_FLAGS},
-        "rights_titles": {r: tr(lang, *RIGHT_TITLES[r]) for r in RIGHT_FLAGS},
+        "rights_titles": {r: right_title(r, lang) for r in RIGHT_FLAGS},
         "capabilities": caps,
         "dangerous_enabled": dangerous_on,
         "advice": advice,
@@ -169,6 +160,6 @@ def explain_command_failure(required: list[str], rights: dict[str, bool], lang: 
     missing = [r for r in required if not rights.get(r)]
     if not missing:
         return None
-    names = ", ".join(tr(lang, *RIGHT_TITLES.get(r, (r, r))) for r in missing)
-    return tr(lang, "🔐 Не хватает прав бизнес-бота: {names}.\n{hint}", "🔐 Biznes-bot huquqlari yetarli emas: {names}.\n{hint}",
-              names=names, hint=tr(lang, *FIX_HINT))
+    names = ", ".join(right_title(r, lang) for r in missing)
+    return tr(lang, "rights.hvataet_prav_biznes_bota",
+              names=names, hint=tr(lang, FIX_HINT))

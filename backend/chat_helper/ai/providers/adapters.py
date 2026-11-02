@@ -5,7 +5,7 @@ import base64
 import time
 from typing import Any
 
-from .base import AIResult, ImageInput, Provider, ProviderError
+from .base import AIResult, Provider, ProviderError
 
 REASONING_PREFIXES = ("o1", "o3", "o4", "gpt-5")
 

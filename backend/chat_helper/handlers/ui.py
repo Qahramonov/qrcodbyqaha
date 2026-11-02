@@ -136,7 +136,7 @@ class PanelGate(BaseMiddleware):
                 if not app.users.is_super_id(uid):
                     await app.audit.log("security.admin_callback_denied", actor_id=uid, actor_type="telegram", data=cb_data[:64])
                     s = await app.settings.all(uid)
-                    await event.answer(tr(s["lang"], "⛔ Недостаточно прав.", "⛔ Huquq yetarli emas."), show_alert=True)
+                    await event.answer(tr(s["lang"], "ui.nedostatochno_prav"), show_alert=True)
                     return None
                 return await handler(event, data)
             if _is_public_callback(cb_data):
@@ -144,8 +144,7 @@ class PanelGate(BaseMiddleware):
             acc = await access(app, uid)
             if acc.locked:
                 s = await app.settings.all(uid)
-                await event.answer(tr(s["lang"], "🔒 Сначала подключите Telegram-аккаунт к Chat helper.",
-                                      "🔒 Avval Telegram akkauntingizni Chat helper'ga ulang."), show_alert=True)
+                await event.answer(tr(s["lang"], "ui.snachala_podklyuchite_telegram_akkaunt_chat"), show_alert=True)
                 if event.message is not None:
                     await show(app, uid, "locked", event.message, True)
                 return None
@@ -158,7 +157,7 @@ class PanelGate(BaseMiddleware):
                 await state.clear()
                 await app.audit.log("security.admin_state_denied", actor_id=uid, actor_type="telegram", state=cur)
                 s = await app.settings.all(uid)
-                await event.answer(tr(s["lang"], "⛔ Недостаточно прав.", "⛔ Huquq yetarli emas."))
+                await event.answer(tr(s["lang"], "ui.nedostatochno_prav"))
                 return None
             text = (event.text or "").strip()
             if text.startswith("/") and text.split()[0].split("@")[0].lower() in PUBLIC_COMMANDS:
@@ -170,7 +169,6 @@ class PanelGate(BaseMiddleware):
                 if acc.locked:
                     await state.clear()
                     s = await app.settings.all(uid)
-                    await event.answer(tr(s["lang"], "🔒 Сначала подключите Telegram-аккаунт: /connect",
-                                          "🔒 Avval Telegram akkauntingizni ulang: /connect"))
+                    await event.answer(tr(s["lang"], "ui.snachala_podklyuchite_telegram_akkaunt_connect"))
                     return None
         return await handler(event, data)

@@ -29,9 +29,7 @@ OCR_LANGS = ("rus", "uzb", "uzb_cyrl", "eng")
 
 # ---- .info ---------------------------------------------------------------------------------------------------------------
 @registry.command("info", "system", aliases=["инфо", "whois", "kim"],
-                  ru="Сведения о пользователе (ответом на сообщение или о собеседнике): имя, username, ID, bio и фото, если доступны боту",
-                  uz="Foydalanuvchi haqida ma'lumot (xabarga javob yoki suhbatdosh): ism, username, ID, bio va rasm, agar botga ochiq bo'lsa",
-                  syntax=".info (ответом на сообщение)", examples=[".info"], rate=(15, 60))
+                  rate=(15, 60))
 async def cmd_info(ctx: CommandContext) -> None:
     app = ctx.app
     user = None
@@ -49,28 +47,27 @@ async def cmd_info(ctx: CommandContext) -> None:
     if user is None:
         raise UsageError()
     name = " ".join(x for x in (getattr(user, "first_name", None), getattr(user, "last_name", None)) if x) or "—"
-    lines = [ctx.t("👤 <b>{n}</b>", "👤 <b>{n}</b>", n=esc(name)),
+    lines = [ctx.t("extra_cmds.text", n=esc(name)),
              f"🆔 <code>{user.id}</code>"]
     if getattr(user, "username", None):
         lines.append(f"🔗 @{esc(user.username)}")
     if getattr(user, "is_bot", False):
-        lines.append(ctx.t("🤖 Это бот", "🤖 Bu bot"))
+        lines.append(ctx.t("extra_cmds.bot"))
     if getattr(user, "is_premium", None):
         lines.append("⭐️ Telegram Premium")
     if getattr(user, "language_code", None):
-        lines.append(ctx.t("🌐 Язык клиента: {l}", "🌐 Mijoz tili: {l}", l=esc(user.language_code)))
+        lines.append(ctx.t("extra_cmds.yazyk_klienta", l=esc(user.language_code)))
     photo_id = None
     if ctx.source != "sandbox":
         try:
             full = await app.bot.get_chat(user.id)
             if getattr(full, "bio", None):
-                lines.append(ctx.t("📝 Bio: {b}", "📝 Bio: {b}", b=esc(clip(full.bio, 300))))
+                lines.append(ctx.t("extra_cmds.bio", b=esc(clip(full.bio, 300))))
             if getattr(full, "photo", None):
                 photo_id = full.photo.big_file_id
         except (TelegramAPIError, ValueError):
-            lines.append(ctx.t("ℹ️ Bio и фото недоступны боту (настройки приватности Telegram).",
-                               "ℹ️ Bio va rasm botga ochiq emas (Telegram maxfiylik sozlamalari)."))
-    lines.append(ctx.t("ℹ️ Дата регистрации аккаунта через Bot API недоступна.", "ℹ️ Akkaunt ro'yxatdan o'tgan sana Bot API orqali mavjud emas."))
+            lines.append(ctx.t("extra_cmds.bio_foto_nedostupny_botu_nastroyki"))
+    lines.append(ctx.t("extra_cmds.data_registratsii_akkaunta_cherez_bot"))
     text = "\n".join(lines)
     if photo_id and ctx.source != "sandbox":
         res = await app.sender.send_media(ctx.user_id, "photo", photo_id, caption=text)
@@ -108,22 +105,18 @@ def map_links(lat: float, lon: float) -> str:
 
 
 @registry.command("geo", "text", aliases=["гео", "карта", "xarita"],
-                  ru="Координаты и карты: точка → геометка и ссылки; две точки → расстояние; ответом на геопозицию → ссылки",
-                  uz="Koordinatalar va xaritalar: nuqta → geobelgi va havolalar; ikki nuqta → masofa; geojoylashuvga javob → havolalar",
-                  syntax=".geo широта, долгота [; широта2, долгота2]", examples=[".geo 41.3111, 69.2797", ".geo 41.31 69.24; 39.65 66.96"],
                   sandbox_safe=True, rate=(15, 60))
 async def cmd_geo(ctx: CommandContext) -> None:
     points = parse_coords(ctx.raw)
     if not points and ctx.reply is not None and ctx.reply.location is not None:
         points = [(ctx.reply.location.latitude, ctx.reply.location.longitude)]
     if not points:
-        raise UsageError(ctx.t("Укажите координаты, например 41.3111, 69.2797, или ответьте на геопозицию.",
-                               "Koordinatalarni kiriting, masalan 41.3111, 69.2797, yoki geojoylashuvga javob bering."))
+        raise UsageError(ctx.t("extra_cmds.ukazhite_koordinaty_naprimer_41_3111"))
     lat, lon = points[0]
     lines = [f"📍 <code>{lat:.6f}, {lon:.6f}</code>", map_links(lat, lon)]
     if len(points) > 1:
         km = haversine_km(points[0], points[1])
-        lines.append(ctx.t("📏 Расстояние по прямой: {d}", "📏 To'g'ri chiziq bo'yicha masofa: {d}",
+        lines.append(ctx.t("extra_cmds.rasstoyanie_pryamoy",
                            d=f"{km:.2f} km" if km >= 1 else f"{km * 1000:.0f} m"))
         lines.append(map_links(*points[1]))
     if ctx.source != "sandbox" and len(points) == 1 and ctx.parsed.first not in ("links", "ссылки"):
@@ -156,9 +149,7 @@ async def tesseract_ocr(path: Path) -> tuple[str, str] | None:
 
 
 @registry.command("ptext", "media", aliases=["ocr", "текстсфото", "matnrasm"],
-                  ru="Распознать текст на фото (русский, узбекский, английский): офлайн tesseract или AI-зрение",
-                  uz="Rasmdagi matnni aniqlash (rus, o'zbek, ingliz): oflayn tesseract yoki AI ko'rish",
-                  syntax=".ptext (ответом на фото)", examples=[".ptext"], rate=(8, 60))
+                  rate=(8, 60))
 async def cmd_ptext(ctx: CommandContext) -> None:
     app = ctx.app
     ref = require_media(ctx, image=True)
@@ -172,13 +163,10 @@ async def cmd_ptext(ctx: CommandContext) -> None:
                                    ctx.settings, images=[ImageInput(src.read_bytes(), "image/jpeg")], kind="ocr")
             result = (res.text.strip(), "AI vision")
         if result is None:
-            raise CommandError(ctx.t("🔤 OCR недоступен: установите tesseract (Termux: <code>pkg install tesseract</code>) "
-                                     "или добавьте AI-ключ с поддержкой изображений.",
-                                     "🔤 OCR mavjud emas: tesseract o'rnating (Termux: <code>pkg install tesseract</code>) "
-                                     "yoki rasmlarni qo'llab-quvvatlovchi AI kalitini qo'shing."))
+            raise CommandError(ctx.t("extra_cmds.ocr_nedostupen_ustanovite_tesseract_termux"))
         text, engine = result
         if not text:
-            await ctx.answer(ctx.t("🔤 Текст не найден ({e}).", "🔤 Matn topilmadi ({e}).", e=engine))
+            await ctx.answer(ctx.t("extra_cmds.tekst_nayden", e=engine))
             return
         body = f"🔤 <i>{esc(engine)}</i>\n<pre>{esc(clip(text, 3500))}</pre>"
         await ctx.answer(body, private=len(text) > 3500)

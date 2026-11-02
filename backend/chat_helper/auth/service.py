@@ -128,8 +128,8 @@ class AuthService:
         await self.audit.log("auth.paired", actor_id=user_id, target_type="session", target_id=tokens["session_id"], ip=ip,
                              device=device_name)
         if self.notifications:
-            await self.notifications.notify(user_id, "security", "Новое устройство / Yangi qurilma",
-                                            f"Chat helper Control: {device_name or device_id}", level="warning", push=True)
+            await self.notifications.notify_t(user_id, "security", "notify.new_device", body=f"Chat helper Control: {device_name or device_id}",
+                                              level="warning", push=True)
         return tokens
 
     async def _create_session(self, user_id: int, device_id: str, device_name: str | None, platform: str | None,

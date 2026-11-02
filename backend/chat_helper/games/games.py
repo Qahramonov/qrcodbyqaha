@@ -38,20 +38,18 @@ class Duel(Game):
         a = list(s.players)[0]
         if s.vs_bot:
             s.status = "active"
-            await eng.send(s, eng.t(s, "⚔️ <b>Дуэль на реакцию</b> с Chat helper!\nКогда загорится 🟢 — жми кнопку. Раньше времени — фальстарт.",
-                                    "⚔️ <b>Reaksiya dueli</b> Chat helper bilan!\n🟢 yonganda tugmani bosing. Erta bossangiz — fal'start."),
-                           kb([[(eng.t(s, "🎯 Готов!", "🎯 Tayyorman!"), _btn(s, "ready"))]]))
+            await eng.send(s, eng.t(s, "games.duel_reaktsiyu_chat_helper_kogda"),
+                           kb([[(eng.t(s, "games.gotov"), _btn(s, "ready"))]]))
             return
-        await eng.send(s, eng.t(s, "⚔️ <b>{a}</b> вызывает <b>{b}</b> на дуэль на реакцию!\nКогда загорится 🟢 — жмите «Огонь». Фальстарт = поражение.",
-                                "⚔️ <b>{a}</b> <b>{b}</b>ni reaksiya dueliga chorlaydi!\n🟢 yonganda «Olov»ni bosing. Fal'start = mag'lubiyat.",
+        await eng.send(s, eng.t(s, "games.vyzyvaet_duel_reaktsiyu_kogda_zagoritsya",
                                 a=s.name(a), b=esc(s.state["invitee_name"])),
-                       kb([[(eng.t(s, "✅ Принять", "✅ Qabul"), _btn(s, "accept")), (eng.t(s, "❌ Отказ", "❌ Rad"), _btn(s, "decline"))]]))
+                       kb([[(eng.t(s, "games.prinyat"), _btn(s, "accept")), (eng.t(s, "games.otkaz"), _btn(s, "decline"))]]))
 
     async def _arm(self, eng: GameEngine, s: Session) -> None:
         s.status = "active"
         s.state["phase"] = "wait"
         eng.touch(s, 60)
-        await eng.edit(s, eng.t(s, "🔴 <b>Приготовьтесь…</b>\nНе нажимайте, пока не загорится 🟢!", "🔴 <b>Tayyorlaning…</b>\n🟢 yonmaguncha bosmang!"),
+        await eng.edit(s, eng.t(s, "games.prigotovtes_nazhimayte_poka_zagoritsya"),
                        kb([[("🔴 …", _btn(s, "fire"))]]))
         st = await eng.app.settings.all(s.owner_id)
         delay = rng.uniform(st.get("duel_min_delay", 2), max(st.get("duel_min_delay", 2) + 0.5, st.get("duel_max_delay", 6)))
@@ -61,7 +59,7 @@ class Duel(Game):
         if s.state.get("phase") != "wait":
             return
         s.state["phase"] = "green"
-        await eng.edit(s, eng.t(s, "🟢 <b>ОГОНЬ!</b>", "🟢 <b>OLOV!</b>"), kb([[("🔫 " + eng.t(s, "ОГОНЬ!", "OLOV!"), _btn(s, "fire"))]]))
+        await eng.edit(s, eng.t(s, "games.ogon"), kb([[("🔫 " + eng.t(s, "games.ogon_2"), _btn(s, "fire"))]]))
         s.state["green_at"] = time.monotonic()
         if s.vs_bot:
             bot_ms = rng.randint(260, 520)
@@ -77,19 +75,18 @@ class Duel(Game):
 
     async def _no_shot(self, eng: GameEngine, s: Session) -> None:
         if s.state.get("phase") == "green":
-            await eng.edit(s, eng.t(s, "😴 Никто не выстрелил — ничья.", "😴 Hech kim otmadi — durang."), self._again(eng, s))
+            await eng.edit(s, eng.t(s, "games.nikto_vystrelil_nichya"), self._again(eng, s))
             await eng.finish(s, None, None, draw=True, score={"reason": "no_shot"})
 
     def _again(self, eng: GameEngine, s: Session):
-        return kb([[(eng.t(s, "🔁 Реванш", "🔁 Revansh"), f"gr:duel:{s.chat_id}:{s.conn_id or ''}"[:64])]])
+        return kb([[(eng.t(s, "games.revansh"), f"gr:duel:{s.chat_id}:{s.conn_id or ''}"[:64])]])
 
     async def _win(self, eng: GameEngine, s: Session, winner: int, loser: int, ms: int | None, false_start: bool = False) -> None:
         s.state["phase"] = "done"
         if false_start:
-            text = eng.t(s, "💥 <b>Фальстарт!</b> {l} нажал(а) слишком рано.\n🏆 Победитель: <b>{w}</b>",
-                         "💥 <b>Fal'start!</b> {l} juda erta bosdi.\n🏆 G'olib: <b>{w}</b>", l=s.name(loser), w=s.name(winner))
+            text = eng.t(s, "games.falstart_nazhal_slishkom_rano_pobeditel", l=s.name(loser), w=s.name(winner))
         else:
-            text = eng.t(s, "🏆 Победитель: <b>{w}</b>\n⚡️ Реакция: <b>{ms} мс</b>", "🏆 G'olib: <b>{w}</b>\n⚡️ Reaksiya: <b>{ms} ms</b>",
+            text = eng.t(s, "games.pobeditel_reaktsiya_ms",
                          w=s.name(winner), ms=ms)
         await eng.edit(s, "⚔️ " + text, self._again(eng, s))
         await eng.finish(s, winner, loser, score={"ms": ms, "false_start": false_start},
@@ -97,12 +94,12 @@ class Duel(Game):
 
     async def callback(self, eng, s, uid, action, arg):
         if action == "decline" and s.status == "pending":
-            await eng.edit(s, eng.t(s, "🏳️ Вызов отклонён.", "🏳️ Chaqiruv rad etildi."), None)
+            await eng.edit(s, eng.t(s, "games.vyzov_otklonyon"), None)
             await eng.finish(s, None, None, draw=True, score={"reason": "declined"})
             return "🏳️"
         if action == "accept" and s.status == "pending":
             if uid != s.state["invitee"]:
-                return eng.t(s, "Принять может только соперник", "Faqat raqib qabul qila oladi")
+                return eng.t(s, "games.prinyat_mozhet_tolko_sopernik")
             s.players[uid] = s.state["invitee_name"]
             await eng.app.db.execute("INSERT OR IGNORE INTO game_players(session_id, player_id, name, joined_at) VALUES (?,?,?,?)",
                                      (s.id, uid, s.state["invitee_name"][:64], int(time.time())))
@@ -132,59 +129,57 @@ class Revo(Game):
     ttl = 300
 
     def _kb(self, eng, s):
-        return kb([[("🔫 " + eng.t(s, "Нажать на курок", "Tepkini bosish"), _btn(s, "pull"))]])
+        return kb([[("🔫 " + eng.t(s, "games.nazhat_kurok"), _btn(s, "pull"))]])
 
     async def start(self, eng, s, args):
         s.state.update({"bullet": rng.randrange(6), "pos": 0, "turn": list(s.players)[0], "log": []})
         if not s.vs_bot:
-            await eng.send(s, eng.t(s, "🎰 <b>{a}</b> предлагает <b>{b}</b> сыграть в виртуальную рулетку (6 камер, 1 «патрон»).",
-                                    "🎰 <b>{a}</b> <b>{b}</b>ga virtual ruletka o'ynashni taklif qiladi (6 kamera, 1 «o'q»).",
+            await eng.send(s, eng.t(s, "games.predlagaet_sygrat_virtualnuyu_ruletku_6",
                                     a=s.name(list(s.players)[0]), b=esc(s.state["invitee_name"])),
-                           kb([[(eng.t(s, "✅ Играть", "✅ O'ynash"), _btn(s, "accept")), (eng.t(s, "❌ Нет", "❌ Yo'q"), _btn(s, "decline"))]]))
+                           kb([[(eng.t(s, "games.igrat_2"), _btn(s, "accept")), (eng.t(s, "games.net"), _btn(s, "decline"))]]))
             return
         s.status = "active"
-        await eng.send(s, await self._render(eng, s, eng.t(s, "🔄 Барабан раскручен!", "🔄 Baraban aylantirildi!")), self._kb(eng, s))
+        await eng.send(s, await self._render(eng, s, eng.t(s, "games.baraban_raskruchen")), self._kb(eng, s))
 
     async def _render(self, eng, s, head: str) -> str:
         chambers = "".join("⚪️" if i < s.state["pos"] else "⚫️" for i in range(6))
-        lines = [f"🎰 <b>{eng.t(s, 'Виртуальная рулетка', 'Virtual ruletka')}</b>", head, chambers]
+        lines = [f"🎰 <b>{eng.t(s, 'games.virtualnaya_ruletka')}</b>", head, chambers]
         lines += s.state["log"][-4:]
-        lines.append(eng.t(s, "Ход: <b>{p}</b>", "Navbat: <b>{p}</b>", p=s.name(s.state["turn"])))
+        lines.append(eng.t(s, "games.hod", p=s.name(s.state["turn"])))
         return "\n".join(lines)
 
     async def _pull(self, eng, s, uid) -> str:
         pos = s.state["pos"]
-        await eng.edit(s, await self._render(eng, s, eng.t(s, "😰 {p} медленно нажимает на курок…", "😰 {p} sekin tepkini bosmoqda…", p=s.name(uid))), None)
+        await eng.edit(s, await self._render(eng, s, eng.t(s, "games.medlenno_nazhimaet_kurok", p=s.name(uid))), None)
         await asyncio.sleep(1.2)
         if pos == s.state["bullet"]:
             winner = s.other(uid)
             s.state["pos"] = pos + 1
-            rendered = await self._render(eng, s, eng.t(s, "💥 <b>БАХ!</b> {p} выбывает (виртуально 😉)\n🏆 Победитель: <b>{w}</b>",
-                                                        "💥 <b>BAH!</b> {p} chiqib ketdi (virtual 😉)\n🏆 G'olib: <b>{w}</b>",
+            rendered = await self._render(eng, s, eng.t(s, "games.bah_vybyvaet_virtualno_pobeditel",
                                                         p=s.name(uid), w=s.name(winner)))
             await eng.edit(s, rendered.rsplit("\n", 1)[0], None)
             await eng.finish(s, winner, uid, score={"shot": pos + 1})
             return "💥"
         s.state["pos"] = pos + 1
-        s.state["log"].append(eng.t(s, "😅 *щёлк* — {p} повезло", "😅 *chiq* — {p}ga omad kuldi", p=s.name(uid)))
+        s.state["log"].append(eng.t(s, "games.schyolk_povezlo", p=s.name(uid)))
         s.state["turn"] = s.other(uid)
         eng.touch(s, 120)
-        await eng.edit(s, await self._render(eng, s, eng.t(s, "Камера {n} пуста.", "{n}-kamera bo'sh.", n=pos + 1)), self._kb(eng, s))
+        await eng.edit(s, await self._render(eng, s, eng.t(s, "games.kamera_pusta", n=pos + 1)), self._kb(eng, s))
         return "😅"
 
     async def callback(self, eng, s, uid, action, arg):
         if action == "decline" and s.status == "pending":
-            await eng.edit(s, eng.t(s, "🏳️ Отказ от игры.", "🏳️ O'yindan voz kechildi."), None)
+            await eng.edit(s, eng.t(s, "games.otkaz_igry"), None)
             await eng.finish(s, None, None, draw=True, score={"reason": "declined"})
             return "🏳️"
         if action == "accept" and s.status == "pending" and uid == s.state.get("invitee"):
             s.players[uid] = s.state["invitee_name"]
             s.status = "active"
-            await eng.edit(s, await self._render(eng, s, eng.t(s, "🔄 Барабан раскручен!", "🔄 Baraban aylantirildi!")), self._kb(eng, s))
+            await eng.edit(s, await self._render(eng, s, eng.t(s, "games.baraban_raskruchen")), self._kb(eng, s))
             return "🎰"
         if action == "pull" and s.status == "active":
             if uid != s.state["turn"]:
-                return eng.t(s, "Сейчас не ваш ход", "Hozir sizning navbatingiz emas")
+                return eng.t(s, "games.seychas_vash_hod")
             res = await self._pull(eng, s, uid)
             if s.status == "active" and s.vs_bot and s.state["turn"] == BOT_PLAYER:
                 await asyncio.sleep(0.8)
@@ -251,7 +246,7 @@ class TTT(Game):
 
     def _head(self, eng, s, extra=""):
         x, o = s.state["X"], s.state["O"]
-        return eng.t(s, "❌ {x}  vs  ⭕️ {o}\n{e}", "❌ {x}  vs  ⭕️ {o}\n{e}", x=s.name(x), o=s.name(o), e=extra)
+        return eng.t(s, "games.vs", x=s.name(x), o=s.name(o), e=extra)
 
     async def start(self, eng, s, args):
         first = list(s.players)[0]
@@ -259,27 +254,27 @@ class TTT(Game):
         if s.vs_bot:
             s.state["O"] = BOT_PLAYER
             s.status = "active"
-            await eng.send(s, "🎮 <b>Tic-tac-toe</b>\n" + self._head(eng, s, eng.t(s, "Ваш ход ❌", "Sizning yurishingiz ❌")), self._board(s))
+            await eng.send(s, "🎮 <b>Tic-tac-toe</b>\n" + self._head(eng, s, eng.t(s, "games.vash_hod")), self._board(s))
             return
-        head = eng.t(s, "❌ {x}  vs  ⭕️ {o}\nЖдём соперника…", "❌ {x}  vs  ⭕️ {o}\nRaqib kutilmoqda…",
+        head = eng.t(s, "games.vs_zhdyom_sopernika",
                      x=s.name(first), o=esc(s.state["invitee_name"]))
-        await eng.send(s, "🎮 <b>Tic-tac-toe</b>\n" + head, kb([[(eng.t(s, "✅ Играть ⭕️", "✅ O'ynash ⭕️"), _btn(s, "accept"))]]))
+        await eng.send(s, "🎮 <b>Tic-tac-toe</b>\n" + head, kb([[(eng.t(s, "games.igrat"), _btn(s, "accept"))]]))
 
     async def callback(self, eng, s, uid, action, arg):
         if action == "accept" and s.status == "pending" and uid == s.state.get("invitee"):
             s.players[uid] = s.state["invitee_name"]
             s.status = "active"
-            await eng.edit(s, "🎮 <b>Tic-tac-toe</b>\n" + self._head(eng, s, eng.t(s, "Ход: ❌ {p}", "Navbat: ❌ {p}", p=s.name(s.state["X"]))), self._board(s))
+            await eng.edit(s, "🎮 <b>Tic-tac-toe</b>\n" + self._head(eng, s, eng.t(s, "games.hod_3", p=s.name(s.state["X"]))), self._board(s))
             return "⭕️"
         if action != "m" or s.status != "active" or not arg.isdigit():
             return None
         sym = s.state["turn"]
         if s.state[sym] != uid:
-            return eng.t(s, "Сейчас не ваш ход", "Hozir sizning navbatingiz emas")
+            return eng.t(s, "games.seychas_vash_hod")
         i = int(arg)
         b = s.state["b"]
         if not 0 <= i < 9 or b[i] != " ":
-            return eng.t(s, "Клетка занята", "Katak band")
+            return eng.t(s, "games.kletka_zanyata")
         b[i] = sym
         if await self._check(eng, s):
             return sym
@@ -292,7 +287,7 @@ class TTT(Game):
             s.state["turn"] = "X"
         eng.touch(s, 300)
         nxt = s.state[s.state["turn"]]
-        await eng.edit(s, "🎮 <b>Tic-tac-toe</b>\n" + self._head(eng, s, eng.t(s, "Ход: {sym} {p}", "Navbat: {sym} {p}",
+        await eng.edit(s, "🎮 <b>Tic-tac-toe</b>\n" + self._head(eng, s, eng.t(s, "games.hod_2",
                                                                               sym="❌" if s.state["turn"] == "X" else "⭕️", p=s.name(nxt))), self._board(s))
         await eng.save(s)
         return sym
@@ -302,12 +297,12 @@ class TTT(Game):
         if w is None:
             return False
         if w == "draw":
-            await eng.edit(s, "🎮 <b>Tic-tac-toe</b>\n" + self._head(eng, s, eng.t(s, "🤝 Ничья!", "🤝 Durang!")), self._board(s))
+            await eng.edit(s, "🎮 <b>Tic-tac-toe</b>\n" + self._head(eng, s, eng.t(s, "games.nichya")), self._board(s))
             await eng.finish(s, None, None, draw=True)
         else:
             winner = s.state[w]
             loser = s.state["O" if w == "X" else "X"]
-            await eng.edit(s, "🎮 <b>Tic-tac-toe</b>\n" + self._head(eng, s, eng.t(s, "🏆 Победа: {p}", "🏆 G'alaba: {p}", p=s.name(winner))), self._board(s))
+            await eng.edit(s, "🎮 <b>Tic-tac-toe</b>\n" + self._head(eng, s, eng.t(s, "games.pobeda", p=s.name(winner))), self._board(s))
             await eng.finish(s, winner, loser)
         return True
 
@@ -333,31 +328,30 @@ class Rps(Game):
         if not s.vs_bot:
             s.players[s.state["invitee"]] = s.state["invitee_name"]
         names = " vs ".join(s.name(p) for p in s.players)
-        await eng.send(s, eng.t(s, "✊ <b>Камень-ножницы-бумага</b>\n{n}\nВыберите тайно — результат покажу, когда выберут оба.",
-                                "✊ <b>Tosh-qaychi-qog'oz</b>\n{n}\nYashirin tanlang — ikkalangiz tanlaganda natijani ko'rsataman.", n=names), self._kb(s))
+        await eng.send(s, eng.t(s, "games.kamen_nozhnitsy_bumaga_vyberite_tayno", n=names), self._kb(s))
 
     async def callback(self, eng, s, uid, action, arg):
         if action != "c" or arg not in RPS or s.status != "active":
             return None
         ch = s.state["choices"]
         if str(uid) in ch:
-            return eng.t(s, "Вы уже выбрали", "Siz allaqachon tanladingiz")
+            return eng.t(s, "games.vy_vybrali")
         ch[str(uid)] = arg
         if s.vs_bot:
             ch[str(BOT_PLAYER)] = rng.choice(list(RPS))
         if len(ch) < 2:
-            await eng.edit(s, s.state["last_text"].split("\n✅")[0] + "\n✅ " + eng.t(s, "{p} сделал(а) выбор", "{p} tanladi", p=s.name(uid)), self._kb(s))
+            await eng.edit(s, s.state["last_text"].split("\n✅")[0] + "\n✅ " + eng.t(s, "games.sdelal_vybor", p=s.name(uid)), self._kb(s))
             await eng.save(s)
             return "✅ " + RPS[arg]
         a, b = list(s.players)
         ca, cb_ = ch[str(a)], ch[str(b)]
         line = f"{s.name(a)} {RPS[ca]}  —  {RPS[cb_]} {s.name(b)}"
         if ca == cb_:
-            await eng.edit(s, "✊ " + line + "\n" + eng.t(s, "🤝 Ничья!", "🤝 Durang!"), None)
+            await eng.edit(s, "✊ " + line + "\n" + eng.t(s, "games.nichya"), None)
             await eng.finish(s, None, None, draw=True, score=ch)
         else:
             win, lose = (a, b) if BEATS[ca] == cb_ else (b, a)
-            await eng.edit(s, "✊ " + line + "\n" + eng.t(s, "🏆 Победа: {p}", "🏆 G'alaba: {p}", p=s.name(win)), None)
+            await eng.edit(s, "✊ " + line + "\n" + eng.t(s, "games.pobeda", p=s.name(win)), None)
             await eng.finish(s, win, lose, score=ch)
         return RPS[arg]
 
@@ -410,7 +404,7 @@ class Quiz(Game):
             s.players.pop(BOT_PLAYER, None)
         s.state["t0"] = time.monotonic()
         question = q[1] if s.lang == "uz" else q[0]
-        await eng.send(s, f"❓ <b>{esc(question)}</b>\n" + eng.t(s, "Кто первым ответит правильно?", "Kim birinchi to'g'ri javob beradi?"),
+        await eng.send(s, f"❓ <b>{esc(question)}</b>\n" + eng.t(s, "games.kto_pervym_otvetit_pravilno"),
                        kb([[(self._opt(s, o), _btn(s, "a", str(i)))] for i, o in enumerate(q[2])]))
         eng.schedule(s, 60, lambda: self.timeout(eng, s))
 
@@ -418,19 +412,19 @@ class Quiz(Game):
         if action != "a" or s.status != "active" or not arg.isdigit():
             return None
         if uid in s.state["out"]:
-            return eng.t(s, "Вы уже ответили неверно", "Siz allaqachon noto'g'ri javob berdingiz")
+            return eng.t(s, "games.vy_otvetili_neverno")
         q = QUIZ[s.state["q"]]
         correct = q[2][q[3]]
         if int(arg) == q[3]:
             ms = int((time.monotonic() - s.state["t0"]) * 1000)
             others = [p for p in s.players if p != uid]
-            await eng.edit(s, s.state["last_text"].split("\n")[0] + "\n" + eng.t(s, "✅ {a}\n🏆 {p} — за {t} с", "✅ {a}\n🏆 {p} — {t} s da",
+            await eng.edit(s, s.state["last_text"].split("\n")[0] + "\n" + eng.t(s, "games.text_2",
                                                                                 a=esc(self._opt(s, correct)), p=s.name(uid), t=round(ms / 1000, 1)), None)
             await eng.finish(s, uid, others[0] if others else None, score={"ms": ms})
             return "✅"
         s.state["out"].append(uid)
         if all(p in s.state["out"] for p in s.players):
-            await eng.edit(s, s.state["last_text"].split("\n")[0] + "\n" + eng.t(s, "❌ Никто не угадал. Ответ: {a}", "❌ Hech kim topmadi. Javob: {a}",
+            await eng.edit(s, s.state["last_text"].split("\n")[0] + "\n" + eng.t(s, "games.nikto_ugadal_otvet",
                                                                                 a=esc(self._opt(s, correct))), None)
             await eng.finish(s, None, None, draw=True)
         await eng.save(s)
@@ -438,7 +432,7 @@ class Quiz(Game):
 
     async def timeout(self, eng, s):
         q = QUIZ[s.state["q"]]
-        await eng.edit(s, s.state["last_text"].split("\n")[0] + "\n⌛ " + eng.t(s, "Время вышло. Ответ: {a}", "Vaqt tugadi. Javob: {a}",
+        await eng.edit(s, s.state["last_text"].split("\n")[0] + "\n⌛ " + eng.t(s, "games.vremya_vyshlo_otvet",
                                                                                a=esc(self._opt(s, q[2][q[3]]))), None)
         await eng.finish(s, None, None, draw=True, score={"reason": "timeout"})
 
@@ -462,7 +456,7 @@ class Guess(Game):
             s.players[s.state["invitee"]] = s.state["invitee_name"]
         else:
             s.players.pop(BOT_PLAYER, None)
-        await eng.send(s, eng.t(s, "🔢 <b>Угадай число</b> от 1 до {h}! Пишите числа в чат.", "🔢 <b>Sonni top</b> 1 dan {h} gacha! Chatga son yozing.", h=hi), None)
+        await eng.send(s, eng.t(s, "games.ugaday_chislo_1_pishite_chisla", h=hi), None)
 
     async def text(self, eng, s, uid, text):
         if not re.fullmatch(r"\d{1,4}", text):
@@ -472,14 +466,14 @@ class Guess(Game):
         n = s.state["n"]
         if g == n:
             others = [p for p in s.players if p != uid]
-            await eng.edit(s, eng.t(s, "🔢 Число <b>{n}</b> угадал(а) <b>{p}</b> за {t} попыток! 🎉", "🔢 <b>{n}</b> sonini <b>{p}</b> {t} urinishda topdi! 🎉",
+            await eng.edit(s, eng.t(s, "games.chislo_ugadal_popytok",
                                     n=n, p=s.name(uid), t=s.state["tries"]), None)
             await eng.finish(s, uid, others[0] if others else None, score={"tries": s.state["tries"]})
             return True
-        hint = eng.t(s, "больше ⬆️", "kattaroq ⬆️") if g < n else eng.t(s, "меньше ⬇️", "kichikroq ⬇️")
+        hint = eng.t(s, "games.bolshe") if g < n else eng.t(s, "games.menshe")
         s.state["log"].append(f"{s.name(uid)}: {g} → {hint}")
         eng.touch(s, 180)
-        await eng.edit(s, eng.t(s, "🔢 <b>Угадай число</b> 1–{h}\n", "🔢 <b>Sonni top</b> 1–{h}\n", h=s.state["hi"]) + "\n".join(s.state["log"][-6:]), None)
+        await eng.edit(s, eng.t(s, "games.ugaday_chislo_1", h=s.state["hi"]) + "\n".join(s.state["log"][-6:]), None)
         await eng.save(s)
         return True
 
@@ -503,7 +497,7 @@ class MathGame(Game):
             s.players[s.state["invitee"]] = s.state["invitee_name"]
         else:
             s.players.pop(BOT_PLAYER, None)
-        await eng.send(s, eng.t(s, "🧮 Кто быстрее? <b>{q} = ?</b>", "🧮 Kim tezroq? <b>{q} = ?</b>", q=s.state["q"]), None)
+        await eng.send(s, eng.t(s, "games.kto_bystree", q=s.state["q"]), None)
         eng.schedule(s, 45, lambda: self.timeout(eng, s))
 
     async def text(self, eng, s, uid, text):
@@ -513,13 +507,13 @@ class MathGame(Game):
             return True
         ms = int((time.monotonic() - s.state["t0"]) * 1000)
         others = [p for p in s.players if p != uid]
-        await eng.edit(s, eng.t(s, "🧮 {q} = <b>{a}</b>\n🏆 {p} — {t} с", "🧮 {q} = <b>{a}</b>\n🏆 {p} — {t} s", q=s.state["q"], a=s.state["ans"],
+        await eng.edit(s, eng.t(s, "games.text", q=s.state["q"], a=s.state["ans"],
                                 p=s.name(uid), t=round(ms / 1000, 2)), None)
         await eng.finish(s, uid, others[0] if others else None, score={"ms": ms}, best_ms={uid: ms})
         return True
 
     async def timeout(self, eng, s):
-        await eng.edit(s, eng.t(s, "🧮 {q} = <b>{a}</b>\n⌛ Никто не успел.", "🧮 {q} = <b>{a}</b>\n⌛ Hech kim ulgurmadi.", q=s.state["q"], a=s.state["ans"]), None)
+        await eng.edit(s, eng.t(s, "games.nikto_uspel", q=s.state["q"], a=s.state["ans"]), None)
         await eng.finish(s, None, None, draw=True, score={"reason": "timeout"})
 
 
@@ -544,14 +538,14 @@ class WordGame(Game):
         start_word = rng.choice(["яблоко", "машина", "телефон", "дерево", "кошка", "olma", "kitob", "daryo"] if s.lang == "uz"
                                 else ["яблоко", "машина", "телефон", "дерево", "кошка", "река", "город", "звезда"])
         s.state.update({"used": [start_word], "need": last_letter(start_word), "turn": None, "scores": {}})
-        await eng.send(s, self._text(eng, s, eng.t(s, "Первое слово: <b>{w}</b>", "Birinchi so'z: <b>{w}</b>", w=start_word)), None)
+        await eng.send(s, self._text(eng, s, eng.t(s, "games.pervoe_slovo", w=start_word)), None)
         eng.schedule(s, 60, lambda: self.timeout(eng, s))
 
     def _text(self, eng, s, head):
         sc = s.state["scores"]
         board = " · ".join(f"{s.name(int(k))}: {v}" for k, v in sc.items()) or "—"
-        return (eng.t(s, "🔤 <b>Игра в слова</b>\n", "🔤 <b>So'z o'yini</b>\n") + head + "\n" +
-                eng.t(s, "Следующее слово на букву <b>«{l}»</b> · 60 с на ход", "Keyingi so'z <b>«{l}»</b> harfiga · har yurishga 60 s",
+        return (eng.t(s, "games.igra_slova") + head + "\n" +
+                eng.t(s, "games.sleduyuschee_slovo_bukvu_60_hod",
                       l=s.state["need"].upper()) + "\n🏅 " + board)
 
     async def text(self, eng, s, uid, text):
@@ -575,14 +569,14 @@ class WordGame(Game):
     async def timeout(self, eng, s):
         sc = s.state["scores"]
         if not sc:
-            await eng.edit(s, eng.t(s, "🔤 Игра в слова завершена — слов не было.", "🔤 So'z o'yini yakunlandi — so'zlar bo'lmadi."), None)
+            await eng.edit(s, eng.t(s, "games.igra_slova_zavershena_slov_bylo"), None)
             await eng.finish(s, None, None, draw=True)
             return
         last = s.state["turn"]
         waiting = [p for p in s.players if p != last]
         loser = waiting[0] if waiting else None
         winner = last
-        await eng.edit(s, eng.t(s, "🔤 Время вышло! Слов: {n}\n🏆 Победа: {p}", "🔤 Vaqt tugadi! So'zlar: {n}\n🏆 G'alaba: {p}",
+        await eng.edit(s, eng.t(s, "games.vremya_vyshlo_slov_pobeda",
                                 n=len(s.state["used"]) - 1, p=s.name(winner)), None)
         await eng.finish(s, winner, loser, score=sc)
 
@@ -602,22 +596,22 @@ class Reaction(Game):
         else:
             s.players.pop(BOT_PLAYER, None)
         s.state.update({"phase": "wait", "times": {}})
-        await eng.send(s, eng.t(s, "⚡️ <b>Тест реакции</b>: жмите, когда станет 🟢", "⚡️ <b>Reaksiya testi</b>: 🟢 bo'lganda bosing"),
+        await eng.send(s, eng.t(s, "games.test_reaktsii_zhmite_kogda_stanet"),
                        kb([[("🔴 …", _btn(s, "tap"))]]))
         eng.schedule(s, rng.uniform(2, 5), lambda: self._green(eng, s))
 
     async def _green(self, eng, s):
         s.state["phase"] = "green"
-        await eng.edit(s, "🟢 <b>" + eng.t(s, "ЖМИ!", "BOS!") + "</b>", kb([[("⚡️ TAP", _btn(s, "tap"))]]))
+        await eng.edit(s, "🟢 <b>" + eng.t(s, "games.zhmi") + "</b>", kb([[("⚡️ TAP", _btn(s, "tap"))]]))
         s.state["t0"] = time.monotonic()
         eng.schedule(s, 6, lambda: self._results(eng, s))
 
     async def _results(self, eng, s):
         t = s.state["times"]
-        lines = [eng.t(s, "⚡️ <b>Результаты реакции</b>", "⚡️ <b>Reaksiya natijalari</b>")]
+        lines = [eng.t(s, "games.rezultaty_reaktsii")]
         for pid in s.players:
             v = t.get(str(pid))
-            lines.append(f"{s.name(pid)}: " + (eng.t(s, "фальстарт", "fal'start") if v == -1 else (f"{v} ms" if v else "—")))
+            lines.append(f"{s.name(pid)}: " + (eng.t(s, "games.falstart_2") if v == -1 else (f"{v} ms" if v else "—")))
         valid = {int(k): v for k, v in t.items() if v and v > 0}
         if valid:
             win = min(valid, key=valid.get)
@@ -637,7 +631,7 @@ class Reaction(Game):
             return "✔️"
         if s.state["phase"] == "wait":
             t[str(uid)] = -1
-            return eng.t(s, "Фальстарт!", "Fal'start!")
+            return eng.t(s, "games.falstart")
         t[str(uid)] = int((time.monotonic() - s.state["t0"]) * 1000)
         if all(str(p) in t for p in s.players):
             await self._results(eng, s)
@@ -664,7 +658,7 @@ async def start_game(ctx: CommandContext, game: str, args: list[str] | None = No
     if ctx.is_business:
         chat = ctx.message.chat
         if chat.id == ctx.user_id:
-            raise CommandError(ctx.t("Игры работают в чате с собеседником.", "O'yinlar suhbatdosh bilan chatda ishlaydi."))
+            raise CommandError(ctx.t("games.igry_rabotayut_chate_sobesednikom"))
         state["invitee"] = chat.id
         state["invitee_name"] = chat.full_name or chat.username or str(chat.id)
         conn_id = ctx.conn.id if ctx.conn else None
@@ -672,39 +666,37 @@ async def start_game(ctx: CommandContext, game: str, args: list[str] | None = No
         players[BOT_PLAYER] = "Chat helper"
         conn_id = None
     else:
-        raise CommandError(ctx.t("Игры нельзя запускать в тестовом режиме.", "O'yinlarni test rejimida ishga tushirib bo'lmaydi."))
+        raise CommandError(ctx.t("games.igry_nelzya_zapuskat_testovom_rezhime"))
     active = [s for s in eng.sessions.values() if s.chat_id == ctx.chat_id and s.conn_id == conn_id]
     if len(active) >= 2:
-        raise CommandError(ctx.t("В этом чате уже идут игры. Завершите их или подождите.", "Bu chatda o'yinlar davom etmoqda."))
+        raise CommandError(ctx.t("games.etom_chate_idut_igry_zavershite"))
     s = await eng.create(game, owner_id=ctx.user_id, conn_id=conn_id, chat_id=ctx.chat_id, lang=ctx.lang, players=players, state=state,
                          ttl=ctx.settings.get("game_timeout_sec", 120) if game in ("duel", "revo") else None)
     await eng.games[game].start(eng, s, args or [])
     await ctx.cleanup_command(fallback_text="🎮")
 
 
-def _game_cmd(gid: str, aliases: list[str], ru: str, uz: str, example: str):
+def _game_cmd(gid: str, aliases: list[str], example: str):
+    """Description texts live in the catalogs under cmd.<gid>.desc."""
     async def handler(ctx: CommandContext) -> None:
         await start_game(ctx, gid, ctx.args)
     registry.add(CommandSpec(
-        id=gid, category="games", handler=handler, aliases=aliases, ru=ru, uz=uz, syntax=f".{gid}", examples=[example],
+        id=gid, category="games", handler=handler, aliases=aliases, syntax=f".{gid}", examples=[example],
         rights=["can_reply"], **GAME))
 
 
-_game_cmd("duel", ["дуэль", "duel_"], "Дуэль на реакцию: приглашение, фальстарт, время реакции, рейтинг",
-          "Reaksiya dueli: taklif, fal'start, reaksiya vaqti, reyting", ".duel")
-_game_cmd("revo", ["рулетка", "ruletka"], "Виртуальная русская рулетка: 6 камер, пошагово, без ставок",
-          "Virtual rus ruletkasi: 6 kamera, navbat bilan, garovsiz", ".revo")
-_game_cmd("ttt", ["крестики", "xo", "tictactoe"], "Крестики-нолики (с собеседником или с ботом)", "X-O (suhbatdosh yoki bot bilan)", ".ttt")
-_game_cmd("rps", ["кнб", "камень", "tqq"], "Камень-ножницы-бумага с тайным выбором", "Tosh-qaychi-qog'oz yashirin tanlov bilan", ".rps")
-_game_cmd("quiz", ["викторина", "viktorina"], "Викторина: кто первым ответит правильно", "Viktorina: kim birinchi to'g'ri javob beradi", ".quiz")
-_game_cmd("guess", ["угадай", "top"], "Угадай число (подсказки больше/меньше)", "Sonni top (kattaroq/kichikroq maslahatlari)", ".guess 100")
-_game_cmd("mathgame", ["математика", "matematika"], "Кто быстрее решит пример", "Kim misolni tezroq yechadi", ".mathgame")
-_game_cmd("wordgame", ["слова", "so'zlar"], "Игра в слова: на последнюю букву", "So'z o'yini: oxirgi harfga", ".wordgame")
-_game_cmd("reaction", ["реакция", "reaksiya"], "Тест реакции для обоих игроков", "Ikkala o'yinchi uchun reaksiya testi", ".reaction")
+_game_cmd("duel", ["дуэль", "duel_"], ".duel")
+_game_cmd("revo", ["рулетка", "ruletka"], ".revo")
+_game_cmd("ttt", ["крестики", "xo", "tictactoe"], ".ttt")
+_game_cmd("rps", ["кнб", "камень", "tqq"], ".rps")
+_game_cmd("quiz", ["викторина", "viktorina"], ".quiz")
+_game_cmd("guess", ["угадай", "top"], ".guess 100")
+_game_cmd("mathgame", ["математика", "matematika"], ".mathgame")
+_game_cmd("wordgame", ["слова", "so'zlar"], ".wordgame")
+_game_cmd("reaction", ["реакция", "reaksiya"], ".reaction")
 
 
-@registry.command("dice", "games", aliases=["кубик", "кости", "zar"], ru="Бросить кубик Telegram (🎲 🎯 🏀 ⚽ 🎳)", uz="Telegram zarini tashlash (🎲 🎯 🏀 ⚽ 🎳)",
-                  syntax=".dice [🎲|🎯|🏀|⚽|🎳]", examples=[".dice", ".dice 🎯"], rights=["can_reply"], **GAME)
+@registry.command("dice", "games", aliases=["кубик", "кости", "zar"], rights=["can_reply"], **GAME)
 async def cmd_dice(ctx: CommandContext) -> None:
     emoji = ctx.args[0] if ctx.args and ctx.args[0] in ("🎲", "🎯", "🏀", "⚽", "🎳") else "🎲"
     if ctx.source == "sandbox":
@@ -712,7 +704,7 @@ async def cmd_dice(ctx: CommandContext) -> None:
         return
     res = await ctx.app.sender.send_dice(ctx.chat_id, emoji, bc_id=ctx.bc_id)
     if not res.ok:
-        raise CommandError(ctx.t("Не удалось отправить кубик ({k}).", "Zarni yuborib bo'lmadi ({k}).", k=res.kind))
+        raise CommandError(ctx.t("games.udalos_otpravit_kubik", k=res.kind))
     await ctx.cleanup_command(fallback_text=emoji)
     await ctx.app.metrics.incr("games_played", ctx.user_id)
 
@@ -725,46 +717,42 @@ def slot_combo(value: int) -> list[str]:
     return [SLOT[v % 4], SLOT[(v // 4) % 4], SLOT[(v // 16) % 4]]
 
 
-@registry.command("slot", "games", aliases=["слот", "казино"], ru="Слот-машина Telegram 🎰 (без ставок)", uz="Telegram slot-mashinasi 🎰 (garovsiz)",
-                  syntax=".slot", examples=[".slot"], rights=["can_reply"], **GAME)
+@registry.command("slot", "games", aliases=["слот", "казино"], rights=["can_reply"], **GAME)
 async def cmd_slot(ctx: CommandContext) -> None:
     if ctx.source == "sandbox":
         await ctx.answer("🎰 " + " ".join(slot_combo(rng.randint(1, 64))))
         return
     res = await ctx.app.sender.send_dice(ctx.chat_id, "🎰", bc_id=ctx.bc_id)
     if not res.ok:
-        raise CommandError(ctx.t("Не удалось отправить слот ({k}).", "Slotni yuborib bo'lmadi ({k}).", k=res.kind))
+        raise CommandError(ctx.t("games.udalos_otpravit_slot", k=res.kind))
     await ctx.cleanup_command(fallback_text="🎰")
     value = res.message.dice.value if res.message is not None and res.message.dice else None
     if value:
         await asyncio.sleep(2.2)
         combo = slot_combo(value)
         jackpot = len(set(combo)) == 1
-        txt = "🎰 " + " | ".join(combo) + ("\n🎉 " + ctx.t("ДЖЕКПОТ!", "JEKPOT!") if jackpot else "")
+        txt = "🎰 " + " | ".join(combo) + ("\n🎉 " + ctx.t("games.dzhekpot") if jackpot else "")
         await ctx.app.sender.send_text(ctx.chat_id, txt, bc_id=ctx.bc_id, reply_to=res.message_id)
     await ctx.app.metrics.incr("games_played", ctx.user_id)
 
 
-@registry.command("coin", "games", aliases=["монетка", "монета", "tanga"], ru="Подбросить монетку", uz="Tanga tashlash",
-                  syntax=".coin", examples=[".coin"], sandbox_safe=True, **GAME)
+@registry.command("coin", "games", aliases=["монетка", "монета", "tanga"], sandbox_safe=True, **GAME)
 async def cmd_coin(ctx: CommandContext) -> None:
-    await ctx.status("🪙 " + ctx.t("Подбрасываю…", "Tashlayapman…"))
+    await ctx.status("🪙 " + ctx.t("games.podbrasyvayu"))
     if ctx.source != "sandbox":
         await asyncio.sleep(1.0)
-    side = rng.choice([ctx.t("🦅 Орёл", "🦅 Gerb"), ctx.t("🔢 Решка", "🔢 Raqam")])
+    side = rng.choice([ctx.t("games.oryol"), ctx.t("games.reshka")])
     await ctx.answer("🪙 " + side)
 
 
-@registry.command("rd", "games", aliases=["рандом", "random_choice", "tasodif"], ru="Случайное число или выбор: .rd, .rd 50, .rd 10 20, .rd чай | кофе",
-                  uz="Tasodifiy son yoki tanlov: .rd, .rd 50, .rd 10 20, .rd choy | qahva", syntax=".rd [макс | мин макс | вариант | вариант]",
-                  examples=[".rd", ".rd 1 6", ".rd пицца | суши | бургер"], sandbox_safe=True, **GAME)
+@registry.command("rd", "games", aliases=["рандом", "random_choice", "tasodif"], sandbox_safe=True, **GAME)
 async def cmd_rd(ctx: CommandContext) -> None:
     raw = ctx.raw.strip()
     if "|" in raw:
         opts = [o.strip() for o in raw.split("|") if o.strip()]
         if len(opts) < 2:
             raise UsageError()
-        await ctx.answer(ctx.t("🎲 Выбор: <b>{x}</b>", "🎲 Tanlov: <b>{x}</b>", x=esc(rng.choice(opts))))
+        await ctx.answer(ctx.t("games.vybor", x=esc(rng.choice(opts))))
         return
     nums = ctx.args
     try:
@@ -781,8 +769,7 @@ async def cmd_rd(ctx: CommandContext) -> None:
     await ctx.answer(f"🎲 {lo}–{hi}: <b>{rng.randint(lo, hi)}</b>")
 
 
-@registry.command("challenge", "games", aliases=["вызов", "chaqiruv"], ru="Случайный вызов: бот выбирает игру за вас", uz="Tasodifiy chaqiruv: bot o'yinni tanlaydi",
-                  syntax=".challenge", examples=[".challenge"], rights=["can_reply"], **GAME)
+@registry.command("challenge", "games", aliases=["вызов", "chaqiruv"], rights=["can_reply"], **GAME)
 async def cmd_challenge(ctx: CommandContext) -> None:
     game = rng.choice(["duel", "ttt", "rps", "quiz", "mathgame", "revo", "reaction"])
     await start_game(ctx, game)

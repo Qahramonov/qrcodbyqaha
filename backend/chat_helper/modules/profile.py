@@ -77,17 +77,16 @@ class ProfileService:
         lang = s["lang"]
         conn = await self.app.connections.primary_for_user(uid)
         if conn is None or not conn.is_enabled:
-            await self.app.sender.send_text(uid, tr(lang, "⚠️ Сначала подключите бизнес-аккаунт.", "⚠️ Avval biznes akkauntni ulang."))
+            await self.app.sender.send_text(uid, tr(lang, "profile.snachala_podklyuchite_biznes_akkaunt"))
             return
         if not conn.can(FIELD_RIGHT[field]):
-            await self.app.sender.send_text(uid, tr(lang, "🔒 Нет права на это изменение. Включите его: Настройки → Изм. → Автоматизация чатов → Chat helper → Профиль.",
-                                                    "🔒 Bu o'zgartirish uchun huquq yo'q. Yoqing: Sozlamalar → Tahrirlash → Chat automation → Chat helper → Profil."))
+            await self.app.sender.send_text(uid, tr(lang, "profile.net_prava_izmenenie_vklyuchite_ego"))
             return
         if field == "name" and not (values.get("first_name") or "").strip():
-            await self.app.sender.send_text(uid, tr(lang, "Имя не может быть пустым.", "Ism bo'sh bo'lishi mumkin emas."))
+            await self.app.sender.send_text(uid, tr(lang, "profile.imya_mozhet_byt_pustym"))
             return
         if field == "bio" and len(values.get("bio") or "") > 140:
-            await self.app.sender.send_text(uid, tr(lang, "Био максимум 140 символов.", "Bio maksimum 140 belgi."))
+            await self.app.sender.send_text(uid, tr(lang, "profile.bio_maksimum_140_simvolov"))
             return
         cur = await self.current(uid)
         self.pending[uid] = {"field": field, "values": values, "conn": conn.id, "ts": time.time(), "old": cur}
@@ -100,9 +99,8 @@ class ProfileService:
             preview = f"{esc(values.get('first_name') or '')} {esc(values.get('last_name') or '')} | {esc(values.get('bio') or '—')}"
             before = f"{esc(cur.get('first_name') or '')} {esc(cur.get('last_name') or '')} | {esc(cur.get('bio') or '—')}"
         else:
-            preview, before = tr(lang, "новое фото профиля", "yangi profil rasmi"), tr(lang, "текущее фото", "joriy rasm")
-        text = tr(lang, "👤 <b>Предпросмотр изменения профиля</b>\n\nБыло: {b}\nСтанет: <b>{a}</b>\n\nПодтвердить?",
-                  "👤 <b>Profil o'zgarishini ko'rish</b>\n\nEdi: {b}\nBo'ladi: <b>{a}</b>\n\nTasdiqlaysizmi?", b=before, a=preview)
+            preview, before = tr(lang, "profile.novoe_foto_profilya"), tr(lang, "profile.tekuschee_foto")
+        text = tr(lang, "profile.predprosmotr_izmeneniya_profilya_bylo_stanet", b=before, a=preview)
         markup = kb([[(p(lang, "confirm"), "pr:ok"), (p(lang, "cancel"), "pr:no")]])
         if field == "avatar":
             await self.app.sender.send_media(uid, "photo", values["file_id"], caption=text, markup=markup)
@@ -125,9 +123,9 @@ class ProfileService:
         try:
             await self.apply(uid, item, "manual")
             await cb.answer(p(lang, "done"), show_alert=False)
-            await self.app.sender.send_text(uid, tr(lang, "✅ Профиль обновлён.", "✅ Profil yangilandi."))
+            await self.app.sender.send_text(uid, tr(lang, "profile.profil_obnovlyon"))
         except Exception as e:
-            await cb.answer(tr(lang, "Ошибка: {e}", "Xato: {e}", e=str(e)[:150]), show_alert=True)
+            await cb.answer(tr(lang, "profile.oshibka", e=str(e)[:150]), show_alert=True)
         try:
             await cb.message.edit_reply_markup(reply_markup=None)
         except Exception:
@@ -169,7 +167,7 @@ class ProfileService:
         snap = await self._settings_blob(uid, "profile_backup")
         lang = (await self.app.settings.all(uid))["lang"]
         if not snap:
-            await self.app.sender.send_text(uid, tr(lang, "Резервной копии нет. Нажмите «💾 Бэкап».", "Zaxira nusxa yo'q. «💾 Zaxira» ni bosing."))
+            await self.app.sender.send_text(uid, tr(lang, "profile.rezervnoy_kopii_net_nazhmite_bekap"))
             return
         await self.propose(uid, "restore", {"first_name": snap.get("first_name") or "", "last_name": snap.get("last_name"), "bio": snap.get("bio")}, target)
 
@@ -235,23 +233,20 @@ class ProfileService:
 # commands
 # ------------------------------------------------------------------------------------------------
 
-@registry.command("profile", "profile", aliases=["профиль", "profil"], ru="Ваш профиль (или публичные данные автора сообщения-ответа)",
-                  uz="Profilingiz (yoki javob xabari muallifining ochiq ma'lumotlari)", syntax=".profile", examples=[".profile"])
+@registry.command("profile", "profile", aliases=["профиль", "profil"], )
 async def cmd_profile(ctx: CommandContext) -> None:
     r = ctx.reply
     if r is not None and r.from_user is not None and r.from_user.id != ctx.user_id:
         u = r.from_user
-        await ctx.answer(ctx.t("👤 <b>{n}</b>\n@{un} · ID <code>{i}</code>\n<i>Показаны только публичные данные Telegram.</i>",
-                               "👤 <b>{n}</b>\n@{un} · ID <code>{i}</code>\n<i>Faqat ochiq Telegram ma'lumotlari.</i>",
+        await ctx.answer(ctx.t("profile.id_pokazany_tolko_publichnye_dannye",
                                n=esc(u.full_name), un=esc(u.username or "—"), i=u.id), private=True)
         return
     info = await ctx.app.profile.current(ctx.user_id, fresh=True)
-    await ctx.answer(ctx.t("👤 <b>{f} {l}</b>\n@{u}\n📝 {b}", "👤 <b>{f} {l}</b>\n@{u}\n📝 {b}", f=esc(info.get("first_name") or ""),
+    await ctx.answer(ctx.t("profile.text", f=esc(info.get("first_name") or ""),
                            l=esc(info.get("last_name") or ""), u=esc(info.get("username") or "—"), b=esc(info.get("bio") or "—")), private=True)
 
 
-@registry.command("name", "profile", aliases=["имя", "ism"], ru="Изменить имя бизнес-аккаунта (с предпросмотром)", uz="Biznes akkaunt ismini o'zgartirish",
-                  syntax=".name Имя [| Фамилия]", examples=[".name Камрон | Ахмедов"], rights=["can_edit_name"], status=LIMITED_BY_TELEGRAM)
+@registry.command("name", "profile", aliases=["имя", "ism"], rights=["can_edit_name"], status=LIMITED_BY_TELEGRAM)
 async def cmd_name(ctx: CommandContext) -> None:
     if not ctx.raw:
         raise UsageError()
@@ -262,8 +257,7 @@ async def cmd_name(ctx: CommandContext) -> None:
         return
 
 
-@registry.command("bio", "profile", aliases=["био"], ru="Изменить био (до 140 символов, «-» очистить)", uz="Bio'ni o'zgartirish (140 belgigacha)",
-                  syntax=".bio текст | .bio -", examples=[".bio Дизайнер · отвечаю с 10 до 19"], rights=["can_edit_bio"], status=LIMITED_BY_TELEGRAM)
+@registry.command("bio", "profile", aliases=["био"], rights=["can_edit_bio"], status=LIMITED_BY_TELEGRAM)
 async def cmd_bio(ctx: CommandContext) -> None:
     if not ctx.raw:
         raise UsageError()
@@ -271,24 +265,18 @@ async def cmd_bio(ctx: CommandContext) -> None:
     await ctx.cleanup_command(fallback_text="👤")
 
 
-@registry.command("avatar", "profile", aliases=["аватар", "ava"], ru="Сделать фото аватаром (ответом на фото, с подтверждением)",
-                  uz="Rasmni avatar qilish (rasmga javob, tasdiq bilan)", syntax=".avatar (ответом на фото)", examples=[".avatar"],
-                  rights=["can_edit_profile_photo"], status=LIMITED_BY_TELEGRAM)
+@registry.command("avatar", "profile", aliases=["аватар", "ava"], rights=["can_edit_profile_photo"], status=LIMITED_BY_TELEGRAM)
 async def cmd_avatar(ctx: CommandContext) -> None:
     from .media_util import require_media
     ref = require_media(ctx, image=True)
     if ref.kind != "photo":
-        raise CommandError(ctx.t("Нужна фотография (не файл).", "Rasm kerak (fayl emas)."))
+        raise CommandError(ctx.t("profile.nuzhna_fotografiya_fayl"))
     await ctx.app.profile.propose(ctx.user_id, "avatar", {"file_id": ref.file_id})
     await ctx.cleanup_command(fallback_text="👤")
 
 
 @registry.command("clock", "profile", aliases=["часы", "soat"],
-                  ru="Часы в био или фамилии: on/off, bio/last_name, интервал (мин. 15 мин из-за лимитов Telegram)",
-                  uz="Bio yoki familiyada soat: on/off, bio/last_name, interval (Telegram cheklovlari tufayli kamida 15 daq)",
-                  syntax=".clock on|off|bio|last_name|interval N|format ТЕКСТ", examples=[".clock on", ".clock interval 30", ".clock format ⏰ {time} в сети"],
-                  status=LIMITED_BY_TELEGRAM, notes_ru="Telegram ограничивает частоту смены профиля; поминутные часы небезопасны и не поддерживаются.",
-                  notes_uz="Telegram profil o'zgarish chastotasini cheklaydi; har daqiqalik soat xavfsiz emas.")
+                  status=LIMITED_BY_TELEGRAM, )
 async def cmd_clock(ctx: CommandContext) -> None:
     sub = ctx.parsed.first
     s = ctx.app.settings
@@ -305,41 +293,34 @@ async def cmd_clock(ctx: CommandContext) -> None:
     elif sub == "format" and len(ctx.raw.split(None, 1)) > 1:
         fmt = ctx.raw.split(None, 1)[1][:64]
         if "{time}" not in fmt:
-            raise UsageError(ctx.t("Формат должен содержать {time}", "Formatda {time} bo'lishi kerak"))
+            raise UsageError(ctx.t("profile.format_dolzhen_soderzhat"))
         await s.set(ctx.user_id, "clock_format", fmt)
     elif sub:
         raise UsageError()
     st = await s.all(ctx.user_id)
-    await ctx.answer(ctx.t("🕒 Часы: {on} · поле: {f} · каждые {i} мин · формат: {fm}", "🕒 Soat: {on} · maydon: {f} · har {i} daq · format: {fm}",
+    await ctx.answer(ctx.t("profile.chasy_pole_kazhdye_min_format",
                            on="on" if st["clock_enabled"] else "off", f=st["clock_field"], i=st["clock_interval_min"], fm=esc(st["clock_format"])),
                      private=True)
 
 
-@registry.command("profile_backup", "profile", aliases=["бэкаппрофиля", "pbackup"], ru="Сохранить резервную копию имени и био", uz="Ism va bio zaxirasi",
-                  syntax=".profile_backup", examples=[".profile_backup"])
+@registry.command("profile_backup", "profile", aliases=["бэкаппрофиля", "pbackup"], )
 async def cmd_profile_backup(ctx: CommandContext) -> None:
     snap = await ctx.app.profile.backup(ctx.user_id)
-    await ctx.answer(ctx.t("💾 Сохранено: {f} {l} | {b}", "💾 Saqlandi: {f} {l} | {b}", f=esc(snap.get("first_name") or ""), l=esc(snap.get("last_name") or ""),
+    await ctx.answer(ctx.t("profile.sohraneno", f=esc(snap.get("first_name") or ""), l=esc(snap.get("last_name") or ""),
                            b=esc(snap.get("bio") or "—")), private=True)
 
 
-@registry.command("profile_restore", "profile", aliases=["восстановитьпрофиль", "prestore"], ru="Восстановить профиль из резервной копии",
-                  uz="Profilni zaxiradan tiklash", syntax=".profile_restore", examples=[".profile_restore"], rights=["can_edit_name"])
+@registry.command("profile_restore", "profile", aliases=["восстановитьпрофиль", "prestore"], rights=["can_edit_name"])
 async def cmd_profile_restore(ctx: CommandContext) -> None:
     await ctx.app.profile.restore_flow(ctx.user_id, ctx.message)  # type: ignore[arg-type]
     await ctx.cleanup_command(fallback_text="👤")
 
 
 @registry.command("online", "profile", aliases=["онлайн", "offline", "оффлайн"],
-                  ru="«В сети» — честно: официальный Bot API не управляет онлайн-статусом (NOT_SUPPORTED_BY_OFFICIAL_API); "
-                     "карточка с альтернативами (AFK, Chat Activity)",
-                  uz="«Onlayn» — halol: rasmiy Bot API onlayn holatni boshqarmaydi (NOT_SUPPORTED_BY_OFFICIAL_API); "
-                     "muqobillar kartasi (AFK, Chat Activity)",
-                  syntax=".online | .offline", examples=[".online"], status=NOT_SUPPORTED, sandbox_safe=True)
+                  status=NOT_SUPPORTED, sandbox_safe=True)
 async def cmd_online(ctx: CommandContext) -> None:
     if ctx.source == "sandbox":
-        await ctx.answer(ctx.t("ℹ️ Статус «в сети» не управляется Bot API (NOT_SUPPORTED_BY_OFFICIAL_API).",
-                               "ℹ️ «Onlayn» holati Bot API orqali boshqarilmaydi (NOT_SUPPORTED_BY_OFFICIAL_API)."))
+        await ctx.answer(ctx.t("profile.status_seti_upravlyaetsya_bot_api"))
         return
     from .controls import post_card
     await post_card(ctx.app, ctx.user_id, ctx.chat_id if ctx.is_business else ctx.user_id, "online",

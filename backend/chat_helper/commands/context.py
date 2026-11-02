@@ -83,11 +83,11 @@ class CommandContext:
     def is_super(self) -> bool:
         return self.role == "super_admin"
 
-    def t(self, ru: str, uz: str, **kw: Any) -> str:
-        return tr(self.lang, ru, uz, **kw)
+    def t(self, key: str, **kw: Any) -> str:
+        return tr(self.lang, key, **kw)
 
     def usage(self) -> str:
-        return p(self.lang, "usage", syntax=self.spec.syntax.replace(".", self.prefix, 1))
+        return p(self.lang, "usage", syntax=self.spec.syntax_for(self.lang).replace(".", self.prefix, 1))
 
     def reply_text(self) -> str:
         r = self.reply
@@ -130,13 +130,10 @@ class CommandContext:
 
     async def _fallback_private(self, text: str, res: S.SendResult) -> None:
         reason = {
-            S.WINDOW: self.t("Telegram разрешает боту писать в чат только если собеседник писал за последние 24 часа.",
-                             "Telegram botga faqat suhbatdosh so'nggi 24 soatda yozgan chatga yozishga ruxsat beradi."),
-            S.RIGHTS: self.t("Боту не хватает бизнес-прав (нужно «Отвечать на сообщения»).",
-                             "Botda biznes huquqlari yetarli emas («Xabarlarga javob berish» kerak)."),
-            S.CONNECTION: self.t("Бизнес-подключение недействительно — переподключите бота.",
-                                 "Biznes ulanish yaroqsiz — botni qayta ulang."),
-        }.get(res.kind, self.t("Не удалось отправить в чат.", "Chatga yuborib bo'lmadi."))
+            S.WINDOW: self.t("context.telegram_razreshaet_botu_pisat_chat"),
+            S.RIGHTS: self.t("context.botu_hvataet_biznes_prav_nuzhno"),
+            S.CONNECTION: self.t("context.biznes_podklyuchenie_nedeystvitelno_perepodklyuc"),
+        }.get(res.kind, self.t("context.udalos_otpravit_chat"))
         await self.app.sender.send_text(self.user_id, f"{text}\n\n<i>ℹ️ {reason}</i>", parse_mode="HTML")
 
     async def answer_private(self, text: str, markup: InlineKeyboardMarkup | None = None) -> int | None:
@@ -169,7 +166,7 @@ class CommandContext:
         res = await self.app.sender.send_media(self.chat_id, kind, media, bc_id=self.bc_id, caption=caption,
                                                reply_to=reply_to, markup=markup, **extra)
         if not res.ok and res.kind in (S.WINDOW, S.RIGHTS, S.CONNECTION):
-            await self._fallback_private(self.t("🎞 Результат отправлен сюда.", "🎞 Natija shu yerga yuborildi."), res)
+            await self._fallback_private(self.t("context.rezultat_otpravlen_syuda"), res)
             return await self.app.sender.send_media(self.user_id, kind, media, caption=caption, **extra)
         return res
 

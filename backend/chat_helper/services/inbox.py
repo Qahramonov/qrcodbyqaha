@@ -62,21 +62,21 @@ class InboxService:
         lang = settings["lang"]
         title = esc(chat_row.get("title") or chat_id)
         if is_new and settings.get("notify_new_chats") and not muted:
-            await self.app.notifications.notify(user_id, "new_chat", tr(lang, "Новый собеседник", "Yangi suhbatdosh"),
-                                                tr(lang, "{t} написал(а) впервые", "{t} birinchi marta yozdi", t=title), push=True)
+            await self.app.notifications.notify(user_id, "new_chat", tr(lang, "inbox.novyy_sobesednik"),
+                                                tr(lang, "inbox.napisal_vpervye", t=title), push=True)
         if any(r.startswith("keyword:") for r in reasons) and settings.get("notify_important") and not muted:
             key = (user_id, chat_id)
             if time.time() - self._last_alert.get(key, 0) > 600:
                 self._last_alert[key] = time.time()
                 body = clip(text or "", 300) if settings.get("store_previews", True) else ""
                 kb = InlineKeyboardMarkup(inline_keyboard=[[
-                    InlineKeyboardButton(text=tr(lang, "💡 Варианты ответа", "💡 Javob variantlari"), callback_data=f"hint:{chat_id}"),
-                    InlineKeyboardButton(text=tr(lang, "🔕 Заглушить 2ч", "🔕 2 soat jim"), callback_data=f"cmute:{chat_id}"),
+                    InlineKeyboardButton(text=tr(lang, "inbox.varianty_otveta"), callback_data=f"hint:{chat_id}"),
+                    InlineKeyboardButton(text=tr(lang, "inbox.zaglushit_2ch"), callback_data=f"cmute:{chat_id}"),
                 ]])
-                await self.app.notifications.notify(user_id, "important", tr(lang, "Важное сообщение", "Muhim xabar"),
+                await self.app.notifications.notify(user_id, "important", tr(lang, "inbox.vazhnoe_soobschenie"),
                                                     f"{title}: {body}", level="warning")
                 await self.app.sender.send_text(
-                    user_id, tr(lang, "❗️ <b>Важное сообщение</b> от {t}\n\n{b}", "❗️ <b>Muhim xabar</b> {t} dan\n\n{b}",
+                    user_id, tr(lang, "inbox.vazhnoe_soobschenie_2",
                                 t=title, b=esc(body)), markup=kb)
         return score
 
@@ -89,8 +89,8 @@ class InboxService:
     async def digest_text(self, user_id: int, lang: str, use_ai: bool = False) -> str:
         rows = await self.unanswered(user_id, 15)
         if not rows:
-            return tr(lang, "📭 Неотвеченных чатов нет. Отличная работа!", "📭 Javobsiz chatlar yo'q. Ajoyib!")
-        lines = [tr(lang, "📬 <b>Smart Inbox — ждут ответа ({n})</b>", "📬 <b>Smart Inbox — javob kutmoqda ({n})</b>", n=len(rows))]
+            return tr(lang, "inbox.neotvechennyh_chatov_net_otlichnaya_rabota")
+        lines = [tr(lang, "inbox.smart_inbox_zhdut_otveta", n=len(rows))]
         for r in rows:
             mark = "🔥" if r["priority_score"] >= 5 else "•"
             prev = f" — <i>{esc(clip(r['last_preview'] or '', 60))}</i>" if r.get("last_preview") else ""
@@ -101,8 +101,7 @@ class InboxService:
                 material = "\n".join(f"{r['title']}: {r['last_preview'] or ''} (unanswered {r['unanswered']})" for r in rows)
                 res = await self.app.ai.complete(
                     user_id, [{"role": "user", "content": material}], kind="summary",
-                    system=tr(lang, "Кратко (3-5 пунктов) подскажи владельцу, кому ответить в первую очередь и почему. Не выдумывай фактов.",
-                              "Egasiga 3-5 bandda kimga birinchi navbatda javob berish kerakligini qisqacha ayting. Faktlarni to'qimang."),
+                    system=tr(lang, "inbox.kratko_3_5_punktov_podskazhi"),
                     max_tokens=300)
                 text += "\n\n🧠 " + esc(res.text)
             except Exception as e:  # AI optional

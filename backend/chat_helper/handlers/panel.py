@@ -13,7 +13,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import BufferedInputFile, CallbackQuery, Message
 
-from ..business.rights import inspect, status_title
+from ..business.rights import inspect, right_title, status_title
 from ..commands.registry import CATEGORIES, PLAN_RANK
 from ..core.context import AppContext
 from ..core.timeutil import fmt_dt, human_duration
@@ -23,6 +23,7 @@ from ..modules.afk import render_afk
 from ..modules.autoreply import mode_title
 from ..security.sanitize import clip, esc
 from ..services.settings import MODES, MSG_THEMES, STYLES
+from ..subscriptions.service import plan_description
 from .ui import PanelGate, access, ensure_user, register_screen, render, show
 
 log = logging.getLogger(__name__)
@@ -68,44 +69,43 @@ async def screen_home(app: AppContext, uid: int, s: dict[str, Any]) -> tuple[str
     mutes = sum(1 for r in active if r["module"] in ("mute", "nogif", "nomute"))
     protects = sum(1 for r in active if r["module"] == "protect")
     reminders = len(await app.reminders.list(uid))
-    lines = [tr(lang, "✨ <b>Chat helper</b> — ваш помощник в Telegram", "✨ <b>Chat helper</b> — Telegram'dagi yordamchingiz"), "",
-             tr(lang, "👋 Привет, {n}!", "👋 Salom, {n}!", n=name or "👤"),
-             tr(lang, "🔗 Подключение: {s}", "🔗 Ulanish: {s}",
-                s=status_title(acc.conn.status, lang) if acc.conn else tr(lang, "⚪️ не подключено", "⚪️ ulanmagan")),
-             tr(lang, "💬 Режим: {m}", "💬 Rejim: {m}", m=mode_title(s["mode"], lang))]
+    lines = [tr(lang, "panel.chat_helper_vash_pomoschnik_telegram"), "",
+             tr(lang, "panel.privet", n=name or "👤"),
+             tr(lang, "panel.podklyuchenie",
+                s=status_title(acc.conn.status, lang) if acc.conn else tr(lang, "panel.podklyucheno")),
+             tr(lang, "panel.rezhim", m=mode_title(s["mode"], lang))]
     if afk:
-        lines.append(tr(lang, "💤 AFK: {d}", "💤 AFK: {d}", d=human_duration(time.time() - afk["started_at"], lang)))
+        lines.append(tr(lang, "panel.afk", d=human_duration(time.time() - afk["started_at"], lang)))
     if mutes or protects or reminders:
-        lines.append(tr(lang, "🔕 Фильтров: {m} · 🛡 Защищено чатов: {p} · ⏰ Напоминаний: {r}",
-                        "🔕 Filtrlar: {m} · 🛡 Himoyalangan chatlar: {p} · ⏰ Eslatmalar: {r}", m=mutes, p=protects, r=reminders))
+        lines.append(tr(lang, "panel.filtrov_zaschischeno_chatov_napominaniy", m=mutes, p=protects, r=reminders))
     if s.get("automation_paused"):
-        lines.append(tr(lang, "⏸ Автоматизация на паузе", "⏸ Avtomatlashtirish to'xtatilgan"))
-    lines.append(tr(lang, "💎 Тариф: {p}", "💎 Tarif: {p}", p=plan.upper()))
+        lines.append(tr(lang, "panel.avtomatizatsiya_pauze"))
+    lines.append(tr(lang, "panel.tarif", p=plan.upper()))
     if app.runtime.emergency_stop:
         lines.append(p(lang, "emergency"))
     items = [
-        (tr(lang, "👤 Мой аккаунт", "👤 Akkauntim"), "m:account"),
-        (tr(lang, "💬 Мои чаты", "💬 Chatlarim"), "m:chats"),
-        (tr(lang, "⚡ Быстрые команды", "⚡ Tezkor buyruqlar"), "m:quick"),
-        (tr(lang, "🧠 AI Assistant", "🧠 AI yordamchi"), "m:ai"),
-        (tr(lang, "🤖 AI-двойник", "🤖 AI-egizak"), "m:twin"),
-        (tr(lang, "💬 Автоответчик", "💬 Avtojavob"), "m:autoreply"),
+        (tr(lang, "panel.moy_akkaunt"), "m:account"),
+        (tr(lang, "panel.moi_chaty"), "m:chats"),
+        (tr(lang, "panel.bystrye_komandy"), "m:quick"),
+        (tr(lang, "panel.ai_assistant_2"), "m:ai"),
+        (tr(lang, "panel.ai_dvoynik"), "m:twin"),
+        (tr(lang, "panel.avtootvetchik_2"), "m:autoreply"),
         ("💤 AFK", "m:afk"),
         ("🔕 Mute Manager", "m:mutes"),
         ("🛡 Protect Manager", "m:protects"),
         ("🎬 Media Studio", "m:media"),
-        (tr(lang, "🎮 Игры", "🎮 O'yinlar"), "m:games"),
+        (tr(lang, "panel.igry_2"), "m:games"),
         ("📝 Text Tools", "m:texttools"),
-        (tr(lang, "⏰ Напоминания", "⏰ Eslatmalar"), "m:reminders"),
-        (tr(lang, "📊 Статистика", "📊 Statistika"), "m:stats"),
-        (tr(lang, "💎 Подписка", "💎 Obuna"), "m:sub"),
-        (tr(lang, "⚙️ Настройки", "⚙️ Sozlamalar"), "m:settings"),
-        (tr(lang, "❓ Помощь", "❓ Yordam"), "m:help"),
-        (tr(lang, "👤 Профиль", "👤 Profil"), "m:profile"),
+        (tr(lang, "panel.napominaniya"), "m:reminders"),
+        (tr(lang, "panel.statistika"), "m:stats"),
+        (tr(lang, "panel.podpiska_2"), "m:sub"),
+        (tr(lang, "panel.nastroyki_2"), "m:settings"),
+        (tr(lang, "panel.pomosch_2"), "m:help"),
+        (tr(lang, "panel.profil"), "m:profile"),
     ]
     rows = grid(items, 2)
     if acc.is_super:
-        rows.append([(tr(lang, "👑 Super Admin", "👑 Super Admin"), "m:admin")])
+        rows.append([(tr(lang, "panel.super_admin"), "m:admin")])
     return "\n".join(lines), kb(rows)
 
 
@@ -116,20 +116,20 @@ async def screen_inspector(app: AppContext, uid: int, s: dict[str, Any], idx: in
         from .onboarding import screen_connect
         return await screen_connect(app, uid, s)
     c = conns[idx]
-    from ..business.rights import RIGHT_TITLES, command_dependencies
+    from ..business.rights import command_dependencies
     rep = inspect(c.rights, c.is_enabled, lang, c.paused)
     deps = command_dependencies(app.registry)
     snap = await app.db.fetchone("SELECT created_at FROM permission_snapshots WHERE connection_id=? ORDER BY id DESC LIMIT 1", (c.id,))
-    lines = [tr(lang, "🔍 <b>Permission Inspector</b>", "🔍 <b>Huquqlar tekshiruvi</b>"), rep["status_title"],
-             tr(lang, "Последнее обновление прав: {t}", "Huquqlar oxirgi yangilangan: {t}",
+    lines = [tr(lang, "panel.permission_inspector"), rep["status_title"],
+             tr(lang, "panel.poslednee_obnovlenie_prav",
                 t=fmt_dt((snap or {}).get("created_at") or c.connected_at, s["timezone"])), "",
-             tr(lang, "<b>Права</b>", "<b>Huquqlar</b>")]
+             tr(lang, "panel.prava")]
     for right in ("can_reply", "can_read_messages", "can_delete_sent_messages", "can_delete_all_messages", "can_edit_name",
                   "can_edit_bio", "can_edit_profile_photo", "can_edit_username", "can_manage_stories"):
         cmds = deps.get(right) or []
         tail = (" · " + ", ".join(s["prefix"] + x for x in cmds[:6]) + ("…" if len(cmds) > 6 else "")) if cmds else ""
-        lines.append(("✅ " if c.rights.get(right) else "❌ ") + tr(lang, *RIGHT_TITLES[right]) + esc(tail))
-    lines += ["", tr(lang, "<b>Возможности</b>", "<b>Imkoniyatlar</b>")]
+        lines.append(("✅ " if c.rights.get(right) else "❌ ") + right_title(right, lang) + esc(tail))
+    lines += ["", tr(lang, "panel.vozmozhnosti")]
     for cap in rep["capabilities"]:
         mark = "✅" if cap["available"] else "❌"
         extra = "" if cap["available"] else " — " + ", ".join(cap["missing_titles"])
@@ -143,26 +143,25 @@ async def screen_ai(app: AppContext, uid: int, s: dict[str, Any]) -> tuple[str, 
     lang = s["lang"]
     usage = await app.ai.usage_summary(uid)
     provs = [p_["name"] for p_ in app.ai.providers_status() if p_["configured"]]
-    lines = [tr(lang, "🧠 <b>AI Assistant</b>", "🧠 <b>AI yordamchi</b>"), "",
-             tr(lang, "Провайдеры: {p}", "Provayderlar: {p}", p=", ".join(provs) if provs else tr(lang, "не настроены", "sozlanmagan")),
-             tr(lang, "Стиль: {s}", "Uslub: {s}", s=s["ai_style"]),
-             tr(lang, "Сегодня: {r} запросов · ${c}", "Bugun: {r} so'rov · ${c}", r=usage["today_requests"], c=f"{usage['today_cost']:.4f}"),
-             tr(lang, "Лимит: {l}/день", "Limit: {l}/kun", l=usage["daily_limit"] if usage["daily_limit"] is not None else "∞"), "",
-             tr(lang, "Пишите мне любой вопрос — отвечу как ассистент. В чатах: <code>{p}gpt вопрос</code>",
-                "Menga istalgan savolni yozing — yordamchi sifatida javob beraman. Chatlarda: <code>{p}gpt savol</code>", p=s["prefix"])]
+    lines = [tr(lang, "panel.ai_assistant"), "",
+             tr(lang, "panel.provaydery", p=", ".join(provs) if provs else tr(lang, "panel.nastroeny")),
+             tr(lang, "panel.stil", s=s["ai_style"]),
+             tr(lang, "panel.segodnya_zaprosov", r=usage["today_requests"], c=f"{usage['today_cost']:.4f}"),
+             tr(lang, "panel.limit_den", l=usage["daily_limit"] if usage["daily_limit"] is not None else "∞"), "",
+             tr(lang, "panel.pishite_mne_lyuboy_vopros_otvechu", p=s["prefix"])]
     rows = [
-        [toggle(tr(lang, "AI-автоответ", "AI-avtojavob"), s["mode"] in ("ai", "hybrid"), "mode:" + ("manual" if s["mode"] in ("ai", "hybrid") else "ai")),
-         toggle(tr(lang, "Гибрид", "Gibrid"), s["mode"] == "hybrid", "mode:hybrid")],
-        [toggle(tr(lang, "Подтверждать ответы", "Javoblarni tasdiqlash"), s["ai_confirm"], "tg:ai_confirm")],
-        [toggle(tr(lang, "Долгая память", "Uzoq xotira"), s["ai_long_memory"], "tg:ai_long_memory"),
-         toggle(tr(lang, "История", "Tarix"), s["ai_store_history"], "tg:ai_store_history")],
-        [toggle(tr(lang, "Расшифровка голосовых", "Ovozlarni matnga"), s["ai_auto_transcribe"], "tg:ai_auto_transcribe")],
-        [toggle(tr(lang, "Дневная сводка", "Kunlik xulosa"), s["ai_daily_summary"], "tg:ai_daily_summary"),
-         toggle(tr(lang, "Приоритеты", "Ustuvorlik"), s["ai_priority_detection"], "tg:ai_priority_detection")],
+        [toggle(tr(lang, "panel.ai_avtootvet"), s["mode"] in ("ai", "hybrid"), "mode:" + ("manual" if s["mode"] in ("ai", "hybrid") else "ai")),
+         toggle(tr(lang, "panel.gibrid"), s["mode"] == "hybrid", "mode:hybrid")],
+        [toggle(tr(lang, "panel.podtverzhdat_otvety"), s["ai_confirm"], "tg:ai_confirm")],
+        [toggle(tr(lang, "panel.dolgaya_pamyat"), s["ai_long_memory"], "tg:ai_long_memory"),
+         toggle(tr(lang, "panel.istoriya"), s["ai_store_history"], "tg:ai_store_history")],
+        [toggle(tr(lang, "panel.rasshifrovka_golosovyh"), s["ai_auto_transcribe"], "tg:ai_auto_transcribe")],
+        [toggle(tr(lang, "panel.dnevnaya_svodka"), s["ai_daily_summary"], "tg:ai_daily_summary"),
+         toggle(tr(lang, "panel.prioritety"), s["ai_priority_detection"], "tg:ai_priority_detection")],
         [(f"{'▶️ ' if st == s['ai_style'] else ''}{st}", f"ai:style:{st}") for st in STYLES[:4]],
         [(f"{'▶️ ' if st == s['ai_style'] else ''}{st}", f"ai:style:{st}") for st in STYLES[4:]],
-        [(tr(lang, "🧪 Playground", "🧪 Playground"), "ai:pg"), (tr(lang, "🗂 Память", "🗂 Xotira"), "ai:mem")],
-        [(tr(lang, "🧹 Очистить память", "🧹 Xotirani tozalash"), "ai:clear")],
+        [(tr(lang, "panel.playground"), "ai:pg"), (tr(lang, "panel.pamyat"), "ai:mem")],
+        [(tr(lang, "panel.ochistit_pamyat"), "ai:clear")],
         nav(lang),
     ]
     return "\n".join(lines), kb(rows)
@@ -171,23 +170,22 @@ async def screen_ai(app: AppContext, uid: int, s: dict[str, Any]) -> tuple[str, 
 async def screen_ai_memory(app: AppContext, uid: int, s: dict[str, Any]) -> tuple[str, Any]:
     lang = s["lang"]
     facts = await app.ai.memory.list(uid, limit=30)
-    lines = [tr(lang, "🗂 <b>Сохранённые факты</b>", "🗂 <b>Saqlangan faktlar</b>")]
+    lines = [tr(lang, "panel.sohranyonnye_fakty")]
     if not facts:
-        lines.append(tr(lang, "Пусто. Добавить: <code>{p}remember факт</code>", "Bo'sh. Qo'shish: <code>{p}remember fakt</code>", p=s["prefix"]))
+        lines.append(tr(lang, "panel.pusto_dobavit_remember_fakt", p=s["prefix"]))
     for f in facts:
         lines.append(f"• #{f['id']} {esc(clip(f['content'], 120))}")
     if not s["ai_long_memory"]:
-        lines += ["", tr(lang, "ℹ️ Долгая память выключена — новые факты не сохраняются автоматически.",
-                         "ℹ️ Uzoq xotira o'chirilgan — yangi faktlar avtomatik saqlanmaydi.")]
-    return "\n".join(lines), kb([[(tr(lang, "🧹 Очистить всё", "🧹 Hammasini tozalash"), "ai:clear")], nav(lang, "m:ai")])
+        lines += ["", tr(lang, "panel.dolgaya_pamyat_vyklyuchena_novye_fakty")]
+    return "\n".join(lines), kb([[(tr(lang, "panel.ochistit_vsyo"), "ai:clear")], nav(lang, "m:ai")])
 
 
 async def screen_autoreply(app: AppContext, uid: int, s: dict[str, Any], page: int = 0) -> tuple[str, Any]:
     lang = s["lang"]
     rules = await app.autoreply.rules(uid)
     part, page, pages = paginate(rules, page, 6)
-    lines = [tr(lang, "💬 <b>Автоответчик</b>", "💬 <b>Avtojavob</b>"), tr(lang, "Режим: {m}", "Rejim: {m}", m=mode_title(s["mode"], lang)), "",
-             tr(lang, "Правила ({n}):", "Qoidalar ({n}):", n=len(rules))]
+    lines = [tr(lang, "panel.avtootvetchik"), tr(lang, "panel.rezhim_2", m=mode_title(s["mode"], lang)), "",
+             tr(lang, "panel.pravila", n=len(rules))]
     rows: list[list[tuple[str, str]]] = []
     for m in MODES:
         pass
@@ -197,11 +195,10 @@ async def screen_autoreply(app: AppContext, uid: int, s: dict[str, Any], page: i
         rows.append([(("⏸ " if r["enabled"] else "▶️ ") + f"#{r['id']}", f"ar:tog:{r['id']}"), (f"🗑 #{r['id']}", f"ar:del:{r['id']}")])
     if pager("ar:list", page, pages):
         rows.append(pager("ar:list", page, pages))
-    rows.append([(tr(lang, "➕ Правило", "➕ Qoida"), "ar:add"), (tr(lang, "👋 Приветствие", "👋 Salomlashish"), "ar:welcome")])
-    rows.append([toggle(tr(lang, "Приветствие", "Salomlashish"), s["welcome_enabled"], "tg:welcome_enabled"),
-                 toggle(tr(lang, "Пауза", "Pauza"), s["automation_paused"], "tg:automation_paused")])
-    lines += ["", tr(lang, "🕘 Рабочие часы: {a}–{b} (режим «Бизнес»). Изменить: <code>{p}work 09:00-18:00</code>",
-                     "🕘 Ish vaqti: {a}–{b} («Biznes» rejimi). O'zgartirish: <code>{p}work 09:00-18:00</code>",
+    rows.append([(tr(lang, "panel.pravilo"), "ar:add"), (tr(lang, "panel.privetstvie"), "ar:welcome")])
+    rows.append([toggle(tr(lang, "panel.privetstvie_2"), s["welcome_enabled"], "tg:welcome_enabled"),
+                 toggle(tr(lang, "panel.pauza"), s["automation_paused"], "tg:automation_paused")])
+    lines += ["", tr(lang, "panel.rabochie_chasy_rezhim_biznes_izmenit",
                      a=s["work_start"], b=s["work_end"], p=s["prefix"])]
     rows.append(nav(lang))
     return "\n".join(lines), kb(rows)
@@ -213,30 +210,29 @@ async def screen_afk(app: AppContext, uid: int, s: dict[str, Any]) -> tuple[str,
     st = await app.afk.stats(uid)
     lines = ["💤 <b>AFK</b>", ""]
     if sess:
-        lines.append(tr(lang, "Статус: 🟢 включён · {d}", "Holat: 🟢 yoqilgan · {d}", d=human_duration(time.time() - sess["started_at"], lang)))
+        lines.append(tr(lang, "panel.status_vklyuchyon", d=human_duration(time.time() - sess["started_at"], lang)))
         if sess.get("reason"):
-            lines.append(tr(lang, "Причина: {r}", "Sabab: {r}", r=esc(sess["reason"])))
+            lines.append(tr(lang, "panel.prichina", r=esc(sess["reason"])))
         if sess.get("ends_at"):
-            lines.append(tr(lang, "До: {t}", "Gacha: {t}", t=fmt_dt(sess["ends_at"], s["timezone"])))
-        lines.append(tr(lang, "Сообщений: {m} · ответов: {r}", "Xabarlar: {m} · javoblar: {r}", m=sess["messages_received"], r=sess["replies_sent"]))
+            lines.append(tr(lang, "panel.text", t=fmt_dt(sess["ends_at"], s["timezone"])))
+        lines.append(tr(lang, "panel.soobscheniy_otvetov", m=sess["messages_received"], r=sess["replies_sent"]))
     else:
-        lines.append(tr(lang, "Статус: ⚪️ выключен", "Holat: ⚪️ o'chirilgan"))
-    lines += ["", tr(lang, "Всего сессий: {n} · времени: {t}", "Jami sessiyalar: {n} · vaqt: {t}",
+        lines.append(tr(lang, "panel.status_vyklyuchen"))
+    lines += ["", tr(lang, "panel.vsego_sessiy_vremeni",
                      n=st.get("sessions", 0), t=human_duration(st.get("total_sec", 0) or 0, lang))]
     rows = []
     if sess:
-        rows.append([(tr(lang, "✅ Выключить AFK", "✅ AFK'ni o'chirish"), "afk:off")])
+        rows.append([(tr(lang, "panel.vyklyuchit_afk"), "afk:off")])
     else:
-        rows.append([(tr(lang, "💤 Включить", "💤 Yoqish"), "afk:on:0"), ("30m", "afk:on:1800"), ("1h", "afk:on:3600"), ("3h", "afk:on:10800")])
-        rows.append([(tr(lang, "🌙 До утра", "🌙 Ertalabgacha"), "afk:sleep")])
-    rows.append([(tr(lang, "✏️ Причина", "✏️ Sabab"), "afk:reason"), (tr(lang, "👁 Предпросмотр", "👁 Ko'rish"), "afk:preview")])
+        rows.append([(tr(lang, "panel.vklyuchit"), "afk:on:0"), ("30m", "afk:on:1800"), ("1h", "afk:on:3600"), ("3h", "afk:on:10800")])
+        rows.append([(tr(lang, "panel.utra"), "afk:sleep")])
+    rows.append([(tr(lang, "panel.prichina_2"), "afk:reason"), (tr(lang, "panel.predprosmotr"), "afk:preview")])
     rows.append([(("▶️ " if t == s["msg_theme"] else "") + t, f"afk:theme:{t}") for t in MSG_THEMES])
-    rows.append([toggle(tr(lang, "Авто-выкл.", "Avto-o'chirish"), s["afk_auto_off"], "tg:afk_auto_off"),
+    rows.append([toggle(tr(lang, "panel.avto_vykl"), s["afk_auto_off"], "tg:afk_auto_off"),
                  toggle("AI", s["afk_ai"], "tg:afk_ai")])
-    rows.append([toggle(tr(lang, "Сводка", "Xulosa"), s["afk_notify_summary"], "tg:afk_notify_summary"),
-                 (tr(lang, "⏱ Интервал {m}м", "⏱ Interval {m}d", m=s["afk_cooldown_min"]), "afk:cd")])
-    lines += ["", tr(lang, "Исключение для чата: напишите в нём <code>{p}ignore</code>, или выключите AFK для чата в приложении.",
-                     "Chat uchun istisno: unda <code>{p}ignore</code> yozing yoki ilovada AFK'ni o'chiring.", p=s["prefix"])]
+    rows.append([toggle(tr(lang, "panel.svodka"), s["afk_notify_summary"], "tg:afk_notify_summary"),
+                 (tr(lang, "panel.interval_m", m=s["afk_cooldown_min"]), "afk:cd")])
+    lines += ["", tr(lang, "panel.isklyuchenie_chata_napishite_nyom_ignore", p=s["prefix"])]
     rows.append(nav(lang))
     return "\n".join(lines), kb(rows)
 
@@ -247,16 +243,16 @@ async def screen_media(app: AppContext, uid: int, s: dict[str, Any]) -> tuple[st
     lim = await app.subs.limit(uid, "media_jobs_day")
     pre = s["prefix"]
     lines = ["🎬 <b>Media Studio</b>", "",
-             tr(lang, "Ответьте командой на медиа в любом чате (или пришлите медиа мне):", "Istalgan chatda mediaga buyruq bilan javob bering (yoki menga yuboring):"),
+             tr(lang, "panel.otvette_komandoy_media_lyubom_chate"),
              f"<code>{pre}reverse</code> · <code>{pre}speed 2</code> · <code>{pre}ld 25</code> · <code>{pre}ramka gold</code>",
-             f"<code>{pre}meme up ВЕРХ | down НИЗ</code> · <code>{pre}blur</code> · <code>{pre}circle</code> · <code>{pre}gif</code>",
+             f"<code>{pre}{esc(tr(lang, 'panel.meme_example'))}</code> · <code>{pre}blur</code> · <code>{pre}circle</code> · <code>{pre}gif</code>",
              f"<code>{pre}mp3</code> · <code>{pre}voice</code> · <code>{pre}sticker</code> · <code>{pre}trim 0:05 0:15</code>", "",
-             tr(lang, "FFmpeg: {f}", "FFmpeg: {f}", f="✅" if app.health.ffmpeg_ok else "❌ pkg install ffmpeg"),
-             tr(lang, "Сегодня: {u}/{l} задач · макс. {mb} МБ", "Bugun: {u}/{l} vazifa · maks. {mb} MB",
+             tr(lang, "panel.ffmpeg", f="✅" if app.health.ffmpeg_ok else "❌ pkg install ffmpeg"),
+             tr(lang, "panel.segodnya_zadach_maks_mb",
                 u=used, l=lim if lim is not None else "∞", mb=app.config.media_max_input_mb)]
-    rows = [[toggle(tr(lang, "Модуль включён", "Modul yoqilgan"), s["media_enabled"], "tg:media_enabled")],
-            [toggle(tr(lang, "Удалять команды из чата", "Buyruqlarni chatdan o'chirish"), s["delete_commands"], "tg:delete_commands")],
-            [(tr(lang, "📋 Все медиа-команды", "📋 Barcha media buyruqlar"), "cmd:cat:media:0")],
+    rows = [[toggle(tr(lang, "panel.modul_vklyuchyon"), s["media_enabled"], "tg:media_enabled")],
+            [toggle(tr(lang, "panel.udalyat_komandy_chata"), s["delete_commands"], "tg:delete_commands")],
+            [(tr(lang, "panel.vse_media_komandy"), "cmd:cat:media:0")],
             nav(lang)]
     return "\n".join(lines), kb(rows)
 
@@ -264,28 +260,27 @@ async def screen_media(app: AppContext, uid: int, s: dict[str, Any]) -> tuple[st
 async def screen_games(app: AppContext, uid: int, s: dict[str, Any]) -> tuple[str, Any]:
     lang = s["lang"]
     top = await app.games.leaderboard(uid, None, limit=5)
-    lines = [tr(lang, "🎮 <b>Игры</b>", "🎮 <b>O'yinlar</b>"), "",
-             tr(lang, "Запускайте в чате с собеседником или здесь со мной:", "Suhbatdosh bilan chatda yoki shu yerda men bilan o'ynang:"),
+    lines = [tr(lang, "panel.igry"), "",
+             tr(lang, "panel.zapuskayte_chate_sobesednikom_zdes_so"),
              " · ".join(f"<code>{s['prefix']}{g}</code>" for g in ("duel", "revo", "ttt", "rps", "quiz", "dice", "slot", "coin", "guess",
                                                                    "mathgame", "wordgame", "reaction", "challenge", "rd")), "",
-             tr(lang, "🏆 Лидеры:", "🏆 Yetakchilar:")]
+             tr(lang, "panel.lidery")]
     if not top:
-        lines.append(tr(lang, "пока нет результатов", "hozircha natijalar yo'q"))
+        lines.append(tr(lang, "panel.poka_net_rezultatov"))
     for i, r in enumerate(top, 1):
         lines.append(f"{i}. {esc(r['name'] or r['player_id'])} — {r['wins']}W/{r['losses']}L · {r['rating']}")
-    lines += ["", tr(lang, "Все игры развлекательные, без ставок.", "Barcha o'yinlar ko'ngilochar, garovsiz.")]
-    rows = [[toggle(tr(lang, "Игры включены", "O'yinlar yoqilgan"), s["games_enabled"], "tg:games_enabled")],
-            [(tr(lang, "📋 Команды игр", "📋 O'yin buyruqlari"), "cmd:cat:games:0")], nav(lang)]
+    lines += ["", tr(lang, "panel.vse_igry_razvlekatelnye_bez_stavok")]
+    rows = [[toggle(tr(lang, "panel.igry_vklyucheny"), s["games_enabled"], "tg:games_enabled")],
+            [(tr(lang, "panel.komandy_igr"), "cmd:cat:games:0")], nav(lang)]
     return "\n".join(lines), kb(rows)
 
 
 async def screen_commands(app: AppContext, uid: int, s: dict[str, Any]) -> tuple[str, Any]:
     lang = s["lang"]
     cats = app.registry.by_category()
-    lines = [tr(lang, "⌨️ <b>Команды</b> ({n})", "⌨️ <b>Buyruqlar</b> ({n})", n=len(app.registry)),
-             tr(lang, "Префикс: <code>{p}</code> · пишите в любом чате бизнес-аккаунта или здесь.",
-                "Prefiks: <code>{p}</code> · biznes akkauntning istalgan chatida yoki shu yerda yozing.", p=s["prefix"])]
-    items = [(f"{CATEGORIES[c][0]} {tr(lang, CATEGORIES[c][1], CATEGORIES[c][2])} ({len(v)})", f"cmd:cat:{c}:0")
+    lines = [tr(lang, "panel.komandy", n=len(app.registry)),
+             tr(lang, "panel.prefiks_pishite_lyubom_chate_biznes", p=s["prefix"])]
+    items = [(f"{CATEGORIES[c][0]} {tr(lang, CATEGORIES[c][1])} ({len(v)})", f"cmd:cat:{c}:0")
              for c, v in cats.items() if v and c in CATEGORIES]
     rows = grid(items, 2)
     rows.append(nav(lang))
@@ -297,8 +292,8 @@ async def screen_cmd_cat(app: AppContext, uid: int, s: dict[str, Any], cat: str,
     specs = sorted(app.registry.by_category().get(cat, []), key=lambda x: x.id)
     part, page, pages = paginate(specs, page, 8)
     disabled = set(s.get("disabled_commands") or [])
-    emoji, ru, uz = CATEGORIES.get(cat, ("•", cat, cat))
-    lines = [f"{emoji} <b>{tr(lang, ru, uz)}</b>", ""]
+    emoji, key = CATEGORIES.get(cat, ("•", None))
+    lines = [f"{emoji} <b>{tr(lang, key) if key else cat}</b>", ""]
     rows = []
     for sp in part:
         mark = "⚪️" if sp.id in disabled else "🟢"
@@ -319,17 +314,17 @@ async def screen_cmd_info(app: AppContext, uid: int, s: dict[str, Any], cid: str
     d = sp.to_dict(lang, s["prefix"])
     on = sp.id not in (s.get("disabled_commands") or [])
     lines = [f"<b>{esc(d['name'])}</b>", esc(d["description"]), "",
-             tr(lang, "Синтаксис: <code>{x}</code>", "Sintaksis: <code>{x}</code>", x=esc(d["syntax"]))]
+             tr(lang, "panel.sintaksis", x=esc(d["syntax"]))]
     if d["aliases"]:
-        lines.append(tr(lang, "Алиасы: {a}", "Taxalluslar: {a}", a=esc(", ".join(d["aliases"]))))
+        lines.append(tr(lang, "panel.aliasy", a=esc(", ".join(d["aliases"]))))
     for ex in d["examples"][:3]:
         lines.append(f"• <code>{esc(ex.replace('.', s['prefix'], 1))}</code>")
-    lines.append(tr(lang, "Тариф: {p} · статус: {st}", "Tarif: {p} · holat: {st}", p=d["min_plan"].upper(), st=d["status"]))
+    lines.append(tr(lang, "panel.tarif_status", p=d["min_plan"].upper(), st=d["status"]))
     if d["rights"]:
-        lines.append(tr(lang, "Права: {r}", "Huquqlar: {r}", r=", ".join(d["rights"])))
+        lines.append(tr(lang, "panel.prava_2", r=", ".join(d["rights"])))
     if d["notes"]:
         lines.append("ℹ️ " + esc(d["notes"]))
-    rows = [[toggle(tr(lang, "Команда включена", "Buyruq yoqilgan"), on, f"cmd:tog:{sp.id}")], nav(lang, f"cmd:cat:{sp.category}:0")]
+    rows = [[toggle(tr(lang, "panel.komanda_vklyuchena"), on, f"cmd:tog:{sp.id}")], nav(lang, f"cmd:cat:{sp.category}:0")]
     return "\n".join(lines), kb(rows)
 
 
@@ -337,25 +332,24 @@ async def screen_profile(app: AppContext, uid: int, s: dict[str, Any]) -> tuple[
     lang = s["lang"]
     info = await app.profile.current(uid)
     conn = await app.connections.primary_for_user(uid)
-    lines = [tr(lang, "👤 <b>Профиль бизнес-аккаунта</b>", "👤 <b>Biznes akkaunt profili</b>"), "",
-             tr(lang, "Имя: {n}", "Ism: {n}", n=esc(info.get("first_name") or "—")),
-             tr(lang, "Фамилия: {n}", "Familiya: {n}", n=esc(info.get("last_name") or "—")),
-             tr(lang, "Био: {b}", "Bio: {b}", b=esc(info.get("bio") or "—")),
-             tr(lang, "Часы: {c}", "Soat: {c}", c=on_off(lang, s["clock_enabled"]))]
+    lines = [tr(lang, "panel.profil_biznes_akkaunta"), "",
+             tr(lang, "panel.imya", n=esc(info.get("first_name") or "—")),
+             tr(lang, "panel.familiya", n=esc(info.get("last_name") or "—")),
+             tr(lang, "panel.bio", b=esc(info.get("bio") or "—")),
+             tr(lang, "panel.chasy", c=on_off(lang, s["clock_enabled"]))]
     if conn is None:
-        lines += ["", tr(lang, "⚠️ Подключите бизнес-аккаунт, чтобы менять профиль.", "⚠️ Profilni o'zgartirish uchun biznes akkauntni ulang.")]
+        lines += ["", tr(lang, "panel.podklyuchite_biznes_akkaunt_chtoby_menyat")]
     else:
-        for r, t in (("can_edit_name", tr(lang, "имя", "ism")), ("can_edit_bio", "bio"), ("can_edit_profile_photo", tr(lang, "фото", "rasm"))):
+        for r, t in (("can_edit_name", tr(lang, "panel.imya_2")), ("can_edit_bio", "bio"), ("can_edit_profile_photo", tr(lang, "panel.foto"))):
             if not conn.can(r):
-                lines.append(tr(lang, "🔒 Нет права менять {t}", "🔒 {t}ni o'zgartirish huquqi yo'q", t=t))
-    rows = [[(tr(lang, "✏️ Имя", "✏️ Ism"), "pr:name"), ("✏️ Bio", "pr:bio"), (tr(lang, "🖼 Аватар", "🖼 Avatar"), "pr:avatar")],
-            [(tr(lang, "💾 Бэкап", "💾 Zaxira"), "pr:backup"), (tr(lang, "♻️ Восстановить", "♻️ Tiklash"), "pr:restore"),
-             (tr(lang, "🕘 История", "🕘 Tarix"), "pr:hist")],
-            [toggle(tr(lang, "Часы в профиле", "Profildagi soat"), s["clock_enabled"], "tg:clock_enabled"),
+                lines.append(tr(lang, "panel.net_prava_menyat", t=t))
+    rows = [[(tr(lang, "panel.imya_3"), "pr:name"), ("✏️ Bio", "pr:bio"), (tr(lang, "panel.avatar"), "pr:avatar")],
+            [(tr(lang, "panel.bekap"), "pr:backup"), (tr(lang, "panel.vosstanovit"), "pr:restore"),
+             (tr(lang, "panel.istoriya_2"), "pr:hist")],
+            [toggle(tr(lang, "panel.chasy_profile"), s["clock_enabled"], "tg:clock_enabled"),
              ((f"→ {s['clock_field']}"), "pr:clockfield")],
             nav(lang)]
-    lines += ["", tr(lang, "ℹ️ Постоянный статус «онлайн» недоступен в Bot API — такую функцию мы не имитируем.",
-                     "ℹ️ Doimiy «onlayn» holati Bot API'da mavjud emas — biz uni taqlid qilmaymiz.")]
+    lines += ["", tr(lang, "panel.postoyannyy_status_onlayn_nedostupen_bot")]
     return "\n".join(lines), kb(rows)
 
 
@@ -368,32 +362,26 @@ async def screen_stats(app: AppContext, uid: int, s: dict[str, Any]) -> tuple[st
     vals = {}
     for k in ("messages_in", "messages_out", "auto_replies", "ai_requests", "media_jobs", "commands", "games_played"):
         vals[k] = (int(await m.total(k, uid, today())), int(await m.total(k, uid, d7)))
-    labels = {"messages_in": ("📥 Входящие", "📥 Kiruvchi"), "messages_out": ("📤 Исходящие", "📤 Chiquvchi"),
-              "auto_replies": ("🤖 Автоответы", "🤖 Avtojavoblar"), "ai_requests": ("🧠 AI-запросы", "🧠 AI so'rovlar"),
-              "media_jobs": ("🎬 Медиа", "🎬 Media"), "commands": ("⌨️ Команды", "⌨️ Buyruqlar"), "games_played": ("🎮 Игры", "🎮 O'yinlar")}
-    lines = [tr(lang, "📊 <b>Статистика</b>  (сегодня / 7 дней)", "📊 <b>Statistika</b>  (bugun / 7 kun)"), ""]
+    lines = [tr(lang, "panel.statistika_segodnya_7_dney"), ""]
     for k, (a, b) in vals.items():
-        lines.append(f"{tr(lang, *labels[k])}: <b>{a}</b> / {b}")
+        lines.append(f"{tr(lang, 'panel.stat.' + k)}: <b>{a}</b> / {b}")
     chats = await app.chats.list(uid, page_size=1)
     unanswered = await app.inbox.unanswered(uid, 100)
-    lines += ["", tr(lang, "💬 Чатов: {c} · ждут ответа: {u}", "💬 Chatlar: {c} · javob kutmoqda: {u}", c=chats["total"], u=len(unanswered))]
-    return "\n".join(lines), kb([[(tr(lang, "📬 Smart Inbox", "📬 Smart Inbox"), "inbox")], nav(lang)])
+    lines += ["", tr(lang, "panel.chatov_zhdut_otveta", c=chats["total"], u=len(unanswered))]
+    return "\n".join(lines), kb([[(tr(lang, "panel.smart_inbox"), "inbox")], nav(lang)])
 
 
 async def screen_privacy(app: AppContext, uid: int, s: dict[str, Any]) -> tuple[str, Any]:
     lang = s["lang"]
-    lines = [tr(lang, "🔐 <b>Приватность</b>", "🔐 <b>Maxfiylik</b>"), "",
-             tr(lang, "• Мы не храним полную переписку. Для AI-контекста сохраняются последние сообщения чата (если включено) и удаляются через {d} дн.\n"
-                      "• Администратор не видит содержимое ваших чатов.\n• Экспорт и удаление данных — в любой момент.",
-                "• Biz to'liq yozishmalarni saqlamaymiz. AI konteksti uchun so'nggi xabarlar (yoqilgan bo'lsa) saqlanadi va {d} kundan keyin o'chiriladi.\n"
-                "• Administrator chatlaringiz mazmunini ko'rmaydi.\n• Ma'lumotlarni eksport va o'chirish — istalgan vaqtda.",
+    lines = [tr(lang, "panel.privatnost"), "",
+             tr(lang, "panel.my_hranim_polnuyu_perepisku_ai",
                 d=s["history_retention_days"])]
-    rows = [[(("▶️ " if s["history_retention_days"] == d else "") + tr(lang, "{d} дн.", "{d} kun", d=d), f"pv:ret:{d}") for d in (0, 1, 7, 30)],
-            [toggle(tr(lang, "История для AI", "AI uchun tarix"), s["ai_store_history"], "tg:ai_store_history"),
-             toggle(tr(lang, "Превью", "Ko'rinish"), s["store_previews"], "tg:store_previews")],
-            [toggle(tr(lang, "Долгая память (согласие)", "Uzoq xotira (rozilik)"), s["ai_long_memory"], "tg:ai_long_memory")],
-            [(tr(lang, "📦 Экспорт данных", "📦 Ma'lumotlarni eksport"), "pv:export")],
-            [(tr(lang, "🗑 Удалить все мои данные", "🗑 Barcha ma'lumotlarimni o'chirish"), "pv:del")],
+    rows = [[(("▶️ " if s["history_retention_days"] == d else "") + tr(lang, "panel.dn", d=d), f"pv:ret:{d}") for d in (0, 1, 7, 30)],
+            [toggle(tr(lang, "panel.istoriya_ai"), s["ai_store_history"], "tg:ai_store_history"),
+             toggle(tr(lang, "panel.prevyu"), s["store_previews"], "tg:store_previews")],
+            [toggle(tr(lang, "panel.dolgaya_pamyat_soglasie"), s["ai_long_memory"], "tg:ai_long_memory")],
+            [(tr(lang, "panel.eksport_dannyh"), "pv:export")],
+            [(tr(lang, "panel.udalit_vse_moi_dannye"), "pv:del")],
             nav(lang)]
     return "\n".join(lines), kb(rows)
 
@@ -403,46 +391,43 @@ async def screen_sub(app: AppContext, uid: int, s: dict[str, Any]) -> tuple[str,
     plan = await app.subs.plan_of(uid)
     sub = await app.subs.active_subscription(uid)
     limits = await app.subs.limits(uid)
-    lines = [tr(lang, "💎 <b>Подписка</b>", "💎 <b>Obuna</b>"), tr(lang, "Тариф: <b>{p}</b>", "Tarif: <b>{p}</b>", p=plan.upper())]
+    lines = [tr(lang, "panel.podpiska"), tr(lang, "panel.tarif_2", p=plan.upper())]
     if sub and sub.get("expires_at"):
-        lines.append(tr(lang, "Действует до {d}", "{d} gacha amal qiladi", d=fmt_dt(sub["expires_at"], s["timezone"])))
+        lines.append(tr(lang, "panel.deystvuet", d=fmt_dt(sub["expires_at"], s["timezone"])))
     lines.append("")
-    lim_names = {"ai_requests_day": ("AI/день", "AI/kun"), "media_jobs_day": ("Медиа/день", "Media/kun"),
-                 "autoreply_rules": ("Правил", "Qoidalar"), "automation_rules": ("Автоматизаций", "Avtomatlashtirish")}
-    for k, (ru, uz) in lim_names.items():
+    for k in ("ai_requests_day", "media_jobs_day", "autoreply_rules", "automation_rules"):
         v = limits.get(k)
-        lines.append(f"• {tr(lang, ru, uz)}: {'∞' if v == -1 else v}")
+        lines.append(f"• {tr(lang, 'panel.limit.' + k)}: {'∞' if v == -1 else v}")
     lines.append("")
     rows = []
     for pl in app.subs.plans():
         if pl["id"] == "free":
             continue
-        lines.append(f"<b>{esc(pl['name'])}</b> — {pl['price_stars']} ⭐️ / {pl['duration_days']} {tr(lang, 'дн.', 'kun')}: {esc(pl['description'] or '')}")
+        lines.append(f"<b>{esc(pl['name'])}</b> — {pl['price_stars']} ⭐️ / {pl['duration_days']} {tr(lang, 'panel.dn_2')}: {esc(plan_description(pl, lang))}")
         if app.config.payments_enabled and pl["price_stars"] > 0 and PLAN_RANK.get(pl["id"], 0) >= PLAN_RANK.get(plan, 0):
-            rows.append([(tr(lang, "⭐️ Купить {n}", "⭐️ {n} sotib olish", n=pl["name"]), f"sub:buy:{pl['id']}")])
+            rows.append([(tr(lang, "panel.kupit", n=pl["name"]), f"sub:buy:{pl['id']}")])
     if not app.config.payments_enabled:
-        lines += ["", tr(lang, "ℹ️ Оплата Stars пока не включена владельцем бота. Подписку может выдать администратор или промокод.",
-                         "ℹ️ Stars orqali to'lov hali yoqilmagan. Obunani administrator yoki promokod orqali olish mumkin.")]
-    rows.append([(tr(lang, "🎁 Промокод", "🎁 Promokod"), "sub:promo"), (tr(lang, "🆓 Пробный 3 дня", "🆓 3 kunlik sinov"), "sub:trial")])
+        lines += ["", tr(lang, "panel.oplata_stars_poka_vklyuchena_vladeltsem")]
+    rows.append([(tr(lang, "panel.promokod"), "sub:promo"), (tr(lang, "panel.probnyy_3_dnya"), "sub:trial")])
     rows.append(nav(lang))
     return "\n".join(lines), kb(rows)
 
 
 async def screen_settings(app: AppContext, uid: int, s: dict[str, Any]) -> tuple[str, Any]:
     lang = s["lang"]
-    lines = [tr(lang, "⚙️ <b>Настройки</b>", "⚙️ <b>Sozlamalar</b>"), "",
-             tr(lang, "Язык: {l} · префикс: <code>{p}</code> · часовой пояс: {tz}", "Til: {l} · prefiks: <code>{p}</code> · vaqt mintaqasi: {tz}",
+    lines = [tr(lang, "panel.nastroyki"), "",
+             tr(lang, "panel.yazyk_prefiks_chasovoy_poyas",
                 l=lang.upper(), p=s["prefix"], tz=s["timezone"]),
-             tr(lang, "Пауза после вашего ответа: {m} мин", "Javobingizdan keyin pauza: {m} daq", m=s["owner_pause_minutes"])]
+             tr(lang, "panel.pauza_posle_vashego_otveta_min", m=s["owner_pause_minutes"])]
     rows = [[(("▶️ " if lang == "ru" else "") + "🇷🇺 Русский", "st:lang:ru"), (("▶️ " if lang == "uz" else "") + "🇺🇿 O'zbekcha", "st:lang:uz")],
             [(("▶️ " if s["prefix"] == x else "") + x, f"st:prefix:{x}") for x in PREFIXES],
             [(("▶️ " if s["owner_pause_minutes"] == m else "") + f"⏸{m}", f"st:pause:{m}") for m in (0, 5, 15, 30, 60)],
-            [toggle(tr(lang, "Важные сообщения", "Muhim xabarlar"), s["notify_important"], "tg:notify_important"),
-             toggle(tr(lang, "Новые чаты", "Yangi chatlar"), s["notify_new_chats"], "tg:notify_new_chats")],
-            [toggle(tr(lang, "Отключение бота", "Bot uzilishi"), s["notify_disconnect"], "tg:notify_disconnect"),
-             toggle(tr(lang, "Удалять команды", "Buyruqlarni o'chirish"), s["delete_commands"], "tg:delete_commands")],
-            [(tr(lang, "🌍 Часовой пояс", "🌍 Vaqt mintaqasi"), "st:tzmenu")],
-            [(tr(lang, "📱 Приложение и устройства", "📱 Ilova va qurilmalar"), "m:app")],
+            [toggle(tr(lang, "panel.vazhnye_soobscheniya"), s["notify_important"], "tg:notify_important"),
+             toggle(tr(lang, "panel.novye_chaty"), s["notify_new_chats"], "tg:notify_new_chats")],
+            [toggle(tr(lang, "panel.otklyuchenie_bota"), s["notify_disconnect"], "tg:notify_disconnect"),
+             toggle(tr(lang, "panel.udalyat_komandy"), s["delete_commands"], "tg:delete_commands")],
+            [(tr(lang, "panel.chasovoy_poyas"), "st:tzmenu")],
+            [(tr(lang, "panel.prilozhenie_ustroystva"), "m:app")],
             nav(lang)]
     return "\n".join(lines), kb(rows)
 
@@ -450,16 +435,15 @@ async def screen_settings(app: AppContext, uid: int, s: dict[str, Any]) -> tuple
 async def screen_app(app: AppContext, uid: int, s: dict[str, Any]) -> tuple[str, Any]:
     lang = s["lang"]
     sessions = await app.auth.sessions(uid)
-    lines = [tr(lang, "📱 <b>Chat helper Control</b>", "📱 <b>Chat helper Control</b>"), "",
-             tr(lang, "Android-приложение для управления ботом. Установите APK, запустите backend в Termux и нажмите «Код для входа».",
-                "Botni boshqarish uchun Android ilova. APK'ni o'rnating, Termux'da backend'ni ishga tushiring va «Kirish kodi» tugmasini bosing."),
-             tr(lang, "Адрес сервера в приложении: <code>http://127.0.0.1:{port}</code>", "Ilovadagi server manzili: <code>http://127.0.0.1:{port}</code>",
+    lines = [tr(lang, "panel.chat_helper_control"), "",
+             tr(lang, "panel.android_prilozhenie_upravleniya_botom_ustanovite"),
+             tr(lang, "panel.adres_servera_prilozhenii_http_127",
                 port=app.config.api_port), "",
-             tr(lang, "Устройства ({n}):", "Qurilmalar ({n}):", n=len(sessions))]
-    rows = [[(tr(lang, "🔑 Код для входа", "🔑 Kirish kodi"), "app:pair")]]
+             tr(lang, "panel.ustroystva", n=len(sessions))]
+    rows = [[(tr(lang, "panel.kod_vhoda"), "app:pair")]]
     for ss in sessions[:6]:
         lines.append(f"• {esc(ss['device_name'] or ss['device_id'])} · {fmt_dt(ss['last_used_at'] or ss['created_at'], s['timezone'])}")
-        rows.append([(tr(lang, "🚫 Отключить {d}", "🚫 {d} ni uzish", d=clip(ss["device_name"] or ss["device_id"], 18)), f"app:rev:{ss['id']}")])
+        rows.append([(tr(lang, "panel.otklyuchit", d=clip(ss["device_name"] or ss["device_id"], 18)), f"app:rev:{ss['id']}")])
     rows.append(nav(lang))
     return "\n".join(lines), kb(rows)
 
@@ -467,23 +451,14 @@ async def screen_app(app: AppContext, uid: int, s: dict[str, Any]) -> tuple[str,
 async def screen_help(app: AppContext, uid: int, s: dict[str, Any]) -> tuple[str, Any]:
     lang = s["lang"]
     pre = s["prefix"]
-    lines = [tr(lang, "❓ <b>Помощь</b>", "❓ <b>Yordam</b>"), "",
-             tr(lang, "<b>Как это работает.</b> Chat helper подключается к вашему аккаунту через официальную функцию Telegram "
-                      "«Автоматизация чатов» (Secretary Mode, Bot API). Бот видит личные чаты, которые вы выбрали, и может отвечать от вашего имени. "
-                      "Пароли, коды входа и файлы сессии не нужны.",
-                "<b>Qanday ishlaydi.</b> Chat helper akkauntingizga Telegram'ning rasmiy «Chat automation» funksiyasi (Secretary Mode, Bot API) "
-                "orqali ulanadi. Bot siz tanlagan shaxsiy chatlarni ko'radi va sizning nomingizdan javob bera oladi. "
-                "Parol, kirish kodi va sessiya fayllari kerak emas."), "",
-             tr(lang, "<b>Команды</b> пишите прямо в чате: <code>{p}afk</code>, <code>{p}gpt вопрос</code>, ответом на голосовое — <code>{p}reverse</code>.",
-                "<b>Buyruqlarni</b> to'g'ridan-to'g'ri chatda yozing: <code>{p}afk</code>, <code>{p}gpt savol</code>, ovozliga javoban — <code>{p}reverse</code>.", p=pre),
-             tr(lang, "Команда заменяется результатом (или удаляется, если есть право удаления).", "Buyruq natija bilan almashtiriladi (yoki o'chirish huquqi bo'lsa o'chiriladi)."), "",
-             tr(lang, "<b>Ограничения Telegram</b>: бот отвечает только в чатах, где собеседник писал за последние 24 часа; группы не поддерживаются; "
-                      "статус «онлайн» изменить нельзя.",
-                "<b>Telegram cheklovlari</b>: bot faqat suhbatdosh so'nggi 24 soatda yozgan chatlarda javob beradi; guruhlar qo'llab-quvvatlanmaydi; "
-                "«onlayn» holatini o'zgartirib bo'lmaydi."), "",
-             tr(lang, "Полный список: <code>{p}help</code> или раздел «Команды».", "To'liq ro'yxat: <code>{p}help</code> yoki «Buyruqlar» bo'limi.", p=pre)]
-    rows = [[(tr(lang, "🔗 Подключение", "🔗 Ulanish"), "m:connect"), (tr(lang, "🖼 Инструкция", "🖼 Yo'riqnoma"), "ob:guide")],
-            [(tr(lang, "✉️ Написать в поддержку", "✉️ Qo'llab-quvvatlashga yozish"), "help:support")], nav(lang)]
+    lines = [tr(lang, "panel.pomosch"), "",
+             tr(lang, "panel.kak_rabotaet_chat_helper_podklyuchaetsya"), "",
+             tr(lang, "panel.komandy_pishite_pryamo_chate_afk", p=pre),
+             tr(lang, "panel.komanda_zamenyaetsya_rezultatom_udalyaetsya_esli"), "",
+             tr(lang, "panel.ogranicheniya_telegram_bot_otvechaet_tolko"), "",
+             tr(lang, "panel.polnyy_spisok_help_razdel_komandy", p=pre)]
+    rows = [[(tr(lang, "panel.podklyuchenie_2"), "m:connect"), (tr(lang, "panel.instruktsiya"), "ob:guide")],
+            [(tr(lang, "panel.napisat_podderzhku"), "help:support")], nav(lang)]
     return "\n".join(lines), kb(rows)
 
 
@@ -549,7 +524,7 @@ async def cmd_cancel(message: Message, state: FSMContext, app: AppContext) -> No
     uid = await _ensure_user(app, message)
     await state.clear()
     s = await app.settings.all(uid)
-    await message.answer(tr(s["lang"], "✖️ Отменено. Меню: /menu", "✖️ Bekor qilindi. Menyu: /menu"))
+    await message.answer(tr(s["lang"], "panel.otmeneno_menyu_menu"))
 
 
 @router.message(Command("app"))
@@ -565,13 +540,10 @@ async def _send_pair_code(app: AppContext, uid: int, target: Message) -> None:
     try:
         code, expires = await app.auth.create_pairing_code(uid)
     except AuthError as e:
-        await target.answer(tr(lang, "⏳ Слишком много кодов. Попробуйте позже ({s} с).", "⏳ Kodlar juda ko'p. Keyinroq urinib ko'ring ({s} s).",
+        await target.answer(tr(lang, "panel.slishkom_mnogo_kodov_poprobuyte_pozzhe",
                                s=e.retry_after or 60))
         return
-    await target.answer(tr(lang, "🔑 <b>Код для Chat helper Control</b>\n\n<code>{c}</code>\n\nДействует {m} мин, одноразовый. "
-                                 "Никому не пересылайте его — код даёт доступ к управлению вашим аккаунтом в Chat helper.",
-                           "🔑 <b>Chat helper Control uchun kod</b>\n\n<code>{c}</code>\n\n{m} daqiqa amal qiladi, bir martalik. "
-                           "Uni hech kimga yubormang — kod Chat helper'dagi akkauntingizni boshqarishga ruxsat beradi.",
+    await target.answer(tr(lang, "panel.kod_chat_helper_control_deystvuet",
                            c=code, m=max(1, (expires - int(time.time())) // 60)))
 
 
@@ -603,8 +575,7 @@ async def cb_toggle(cb: CallbackQuery, app: AppContext) -> None:
     cur = await app.settings.get(uid, key)
     if key == "ai_long_memory" and not cur:
         s = await app.settings.all(uid)
-        await cb.answer(tr(s["lang"], "Вы даёте согласие хранить факты для AI. Отключить можно в любой момент.",
-                           "Siz AI uchun faktlarni saqlashga rozilik berasiz. Istalgan vaqtda o'chirish mumkin."), show_alert=True)
+        await cb.answer(tr(s["lang"], "panel.vy_dayote_soglasie_hranit_fakty"), show_alert=True)
     else:
         await cb.answer()
     await app.settings.set(uid, key, not cur)
@@ -680,7 +651,7 @@ async def cb_afk(cb: CallbackQuery, state: FSMContext, app: AppContext) -> None:
         await cb.answer("👋")
     elif action == "sleep":
         from ..core.timeutil import next_occurrence
-        await app.afk.enable(uid, tr(lang, "Сон", "Uyqu"), kind="sleep", ends_at=next_occurrence(8, 0, s["timezone"]))
+        await app.afk.enable(uid, tr(lang, "panel.son"), kind="sleep", ends_at=next_occurrence(8, 0, s["timezone"]))
         await cb.answer("🌙")
     elif action == "theme" and len(parts) > 2 and parts[2] in MSG_THEMES:
         await app.settings.set(uid, "msg_theme", parts[2])
@@ -694,17 +665,17 @@ async def cb_afk(cb: CallbackQuery, state: FSMContext, app: AppContext) -> None:
     elif action == "reason":
         await cb.answer()
         await state.set_state(PS.afk_reason)
-        await cb.message.answer(tr(lang, "✏️ Напишите причину отсутствия (или /cancel):", "✏️ Yo'qlik sababini yozing (yoki /cancel):"))
+        await cb.message.answer(tr(lang, "panel.napishite_prichinu_otsutstviya_cancel"))
         return
     elif action == "preview":
         await cb.answer()
         user = await app.users.get(uid) or {}
         from ..core.timeutil import day_part
         sess = await app.afk.active(uid)
-        text = render_afk(s["msg_theme"], lang, name=user.get("first_name") or "Owner", reason=(sess or {}).get("reason") or tr(lang, "Занят делами", "Band"),
+        text = render_afk(s["msg_theme"], lang, name=user.get("first_name") or "Owner", reason=(sess or {}).get("reason") or tr(lang, "panel.zanyat_delami"),
                           away=int(time.time() - (sess or {}).get("started_at", time.time() - 8040)), until_ts=(sess or {}).get("ends_at"),
                           tz_name=s["timezone"], part=day_part(s["timezone"]), kind=(sess or {}).get("kind", "afk"))
-        await cb.message.answer(tr(lang, "👁 Так увидят собеседники:", "👁 Suhbatdoshlar shunday ko'radi:") + "\n\n" + text)
+        await cb.message.answer(tr(lang, "panel.tak_uvidyat_sobesedniki") + "\n\n" + text)
         return
     await show(app, uid, "afk", cb.message, True)
 
@@ -728,14 +699,12 @@ async def cb_autoreply(cb: CallbackQuery, state: FSMContext, app: AppContext) ->
     if action == "add":
         await cb.answer()
         await state.set_state(PS.rule_keyword)
-        await cb.message.answer(tr(lang, "🔑 Ключевые слова через запятую (например: <i>цена, прайс, стоимость</i>) или /cancel:",
-                                   "🔑 Kalit so'zlarni vergul bilan yozing (masalan: <i>narx, prays</i>) yoki /cancel:"))
+        await cb.message.answer(tr(lang, "panel.klyuchevye_slova_cherez_zapyatuyu_naprimer"))
         return
     if action == "welcome":
         await cb.answer()
         await state.set_state(PS.welcome_text)
-        await cb.message.answer(tr(lang, "👋 Текст приветствия для новых собеседников. Можно {name}, {owner}, {time}. /cancel — отмена.",
-                                   "👋 Yangi suhbatdoshlar uchun salomlashish matni. {name}, {owner}, {time} ishlatish mumkin. /cancel — bekor."))
+        await cb.message.answer(tr(lang, "panel.tekst_privetstviya_novyh_sobesednikov_mozhno"))
         return
     if action in ("del", "tog") and len(parts) > 2 and parts[2].isdigit():
         rid = int(parts[2])
@@ -762,7 +731,7 @@ async def st_rule_keyword(message: Message, state: FSMContext, app: AppContext) 
     s = await app.settings.all(uid)
     await state.update_data(keyword=message.text[:500])
     await state.set_state(PS.rule_response)
-    await message.answer(tr(s["lang"], "💬 Теперь текст ответа:", "💬 Endi javob matnini yozing:"))
+    await message.answer(tr(s["lang"], "panel.teper_tekst_otveta"))
 
 
 @router.message(StateFilter(PS.rule_response), F.text)
@@ -774,7 +743,7 @@ async def st_rule_response(message: Message, state: FSMContext, app: AppContext)
     try:
         rule = await app.autoreply.add_rule(uid, {"trigger_type": "keyword", "pattern": data.get("keyword", ""),
                                                   "response": message.text, "cooldown_sec": s["autoreply_cooldown_sec"]})
-        await message.answer(tr(s["lang"], "✅ Правило #{i} создано.", "✅ #{i} qoida yaratildi.", i=rule["id"]))
+        await message.answer(tr(s["lang"], "panel.pravilo_sozdano", i=rule["id"]))
     except ValueError as e:
         await message.answer(f"⚠️ {esc(str(e))}")
     await show(app, uid, "autoreply", message, False)
@@ -829,7 +798,7 @@ async def cb_ai(cb: CallbackQuery, state: FSMContext, app: AppContext) -> None:
         await show(app, uid, "ai", cb.message, True)
     elif action == "clear":
         n = await app.ai.memory.clear_all(uid)
-        await cb.answer(tr(lang, "Удалено записей: {n}", "O'chirildi: {n}", n=n), show_alert=True)
+        await cb.answer(tr(lang, "panel.udaleno_zapisey", n=n), show_alert=True)
         await show(app, uid, "ai", cb.message, True)
     elif action == "mem":
         await cb.answer()
@@ -841,10 +810,7 @@ async def cb_ai(cb: CallbackQuery, state: FSMContext, app: AppContext) -> None:
             await cb.message.answer(p(lang, "requires_ai"))
             return
         await state.set_state(PS.playground)
-        await cb.message.answer(tr(lang, "🧪 <b>AI Playground</b>: пишите сообщения — я отвечу с вашими настройками, но никому ничего не отправлю. "
-                                         "Сравнить модели: <code>/compare вопрос</code>. Выход: /cancel",
-                                   "🧪 <b>AI Playground</b>: xabar yozing — sozlamalaringiz bilan javob beraman, hech kimga yubormayman. "
-                                   "Modellarni solishtirish: <code>/compare savol</code>. Chiqish: /cancel"))
+        await cb.message.answer(tr(lang, "panel.ai_playground_pishite_soobscheniya_ya"))
     else:
         await cb.answer()
 
@@ -859,7 +825,7 @@ async def st_playground(message: Message, app: AppContext) -> None:
         if text.startswith("/compare"):
             q = text[len("/compare"):].strip()
             if not q:
-                await message.answer(tr(s["lang"], "Напишите вопрос после /compare", "/compare dan keyin savol yozing"))
+                await message.answer(tr(s["lang"], "panel.napishite_vopros_posle_compare"))
                 return
             results = await app.ai.compare(uid, q, settings=s)
             out = []
@@ -881,11 +847,9 @@ async def cb_profile(cb: CallbackQuery, state: FSMContext, app: AppContext) -> N
     lang = s["lang"]
     action = cb.data.split(":")[1]
     prompts = {
-        "name": (PS.profile_name, tr(lang, "✏️ Новое имя. Формат: <i>Имя | Фамилия</i> (фамилия необязательна). /cancel",
-                                     "✏️ Yangi ism. Format: <i>Ism | Familiya</i> (familiya ixtiyoriy). /cancel")),
-        "bio": (PS.profile_bio, tr(lang, "✏️ Новое био (до 140 символов, «-» чтобы очистить). /cancel",
-                                   "✏️ Yangi bio (140 belgigacha, tozalash uchun «-»). /cancel")),
-        "avatar": (PS.profile_avatar, tr(lang, "🖼 Пришлите фото для аватара. /cancel", "🖼 Avatar uchun rasm yuboring. /cancel")),
+        "name": (PS.profile_name, tr(lang, "panel.novoe_imya_format_imya_familiya")),
+        "bio": (PS.profile_bio, tr(lang, "panel.novoe_bio_140_simvolov_chtoby")),
+        "avatar": (PS.profile_avatar, tr(lang, "panel.prishlite_foto_avatara_cancel")),
     }
     if action in prompts:
         await cb.answer()
@@ -895,7 +859,7 @@ async def cb_profile(cb: CallbackQuery, state: FSMContext, app: AppContext) -> N
         return
     if action == "backup":
         res = await app.profile.backup(uid)
-        await cb.answer(tr(lang, "💾 Сохранено", "💾 Saqlandi") if res else "—", show_alert=False)
+        await cb.answer(tr(lang, "panel.sohraneno") if res else "—", show_alert=False)
         return
     if action == "restore":
         await cb.answer()
@@ -904,7 +868,7 @@ async def cb_profile(cb: CallbackQuery, state: FSMContext, app: AppContext) -> N
     if action == "hist":
         await cb.answer()
         rows = await app.profile.history(uid, 15)
-        lines = [tr(lang, "🕘 <b>История изменений профиля</b>", "🕘 <b>Profil o'zgarishlari tarixi</b>")]
+        lines = [tr(lang, "panel.istoriya_izmeneniy_profilya")]
         for r in rows:
             lines.append(f"• {fmt_dt(r['created_at'], s['timezone'])} {r['field']}: {esc(clip(r['old_value'] or '—', 30))} → {esc(clip(r['new_value'] or '—', 30))}")
         if len(rows) == 0:
@@ -962,15 +926,12 @@ async def cb_privacy(cb: CallbackQuery, app: AppContext) -> None:
         data = await app.backups.export_user(uid)
         blob = json.dumps(data, ensure_ascii=False, indent=1, default=str).encode()
         await cb.message.answer_document(BufferedInputFile(blob, filename=f"chat_helper_export_{uid}.json"),
-                                         caption=tr(lang, "📦 Ваши данные в Chat helper", "📦 Chat helper'dagi ma'lumotlaringiz"))
+                                         caption=tr(lang, "panel.vashi_dannye_chat_helper"))
         await app.audit.log("privacy.export", actor_id=uid, target_type="user", target_id=uid)
     elif action == "del":
         await cb.answer()
-        await _render_custom(cb.message, tr(lang, "⚠️ <b>Удалить все ваши данные?</b>\nНастройки, правила, AI-память, историю, статистику и сессии приложения. "
-                                                  "Бизнес-подключение нужно отключить в Telegram отдельно. Действие необратимо.",
-                                            "⚠️ <b>Barcha ma'lumotlaringizni o'chirasizmi?</b>\nSozlamalar, qoidalar, AI xotirasi, tarix, statistika va ilova sessiyalari. "
-                                            "Biznes ulanishni Telegram'da alohida o'chiring. Qaytarib bo'lmaydi."),
-                             kb([[(tr(lang, "🗑 Да, удалить навсегда", "🗑 Ha, butunlay o'chirish"), "pv:del2")], nav(lang, "m:privacy")]))
+        await _render_custom(cb.message, tr(lang, "panel.udalit_vse_vashi_dannye_nastroyki"),
+                             kb([[(tr(lang, "panel.da_udalit_navsegda"), "pv:del2")], nav(lang, "m:privacy")]))
     elif action == "del2":
         await app.users.delete_user_data(uid)
         app.settings.invalidate(uid)
@@ -979,7 +940,7 @@ async def cb_privacy(cb: CallbackQuery, app: AppContext) -> None:
         app.connections.invalidate()
         await app.audit.log("privacy.delete_all", actor_id=uid, target_type="user", target_id=uid)
         await cb.answer(p(lang, "done"), show_alert=True)
-        await _render_custom(cb.message, tr(lang, "🗑 Данные удалены. /start — начать заново.", "🗑 Ma'lumotlar o'chirildi. /start — qaytadan boshlash."), None)
+        await _render_custom(cb.message, tr(lang, "panel.dannye_udaleny_start_nachat_zanovo"), None)
     else:
         await cb.answer()
 
@@ -993,7 +954,7 @@ async def cb_sub(cb: CallbackQuery, state: FSMContext, app: AppContext) -> None:
     action = parts[1]
     if action == "buy" and len(parts) > 2:
         if not app.config.payments_enabled:
-            await cb.answer(tr(lang, "Оплата не включена", "To'lov yoqilmagan"), show_alert=True)
+            await cb.answer(tr(lang, "panel.oplata_vklyuchena"), show_alert=True)
             return
         await cb.answer()
         try:
@@ -1003,13 +964,13 @@ async def cb_sub(cb: CallbackQuery, state: FSMContext, app: AppContext) -> None:
     elif action == "promo":
         await cb.answer()
         await state.set_state(PS.promo)
-        await cb.message.answer(tr(lang, "🎁 Введите промокод (или /cancel):", "🎁 Promokodni kiriting (yoki /cancel):"))
+        await cb.message.answer(tr(lang, "panel.vvedite_promokod_cancel"))
     elif action == "trial":
         try:
             await app.subs.start_trial(uid)
-            await cb.answer(tr(lang, "🆓 Пробный Plus на 3 дня активирован!", "🆓 3 kunlik Plus sinovi faollashtirildi!"), show_alert=True)
+            await cb.answer(tr(lang, "panel.probnyy_plus_3_dnya_aktivirovan"), show_alert=True)
         except ValueError:
-            await cb.answer(tr(lang, "Пробный период уже использован или подписка активна.", "Sinov muddati ishlatilgan yoki obuna faol."), show_alert=True)
+            await cb.answer(tr(lang, "panel.probnyy_period_ispolzovan_podpiska_aktivna"), show_alert=True)
         await show(app, uid, "sub", cb.message, True)
     else:
         await cb.answer()
@@ -1026,7 +987,7 @@ async def st_promo(message: Message, state: FSMContext, app: AppContext) -> None
         return
     try:
         sub = await app.subs.redeem(uid, message.text.strip())
-        await message.answer(tr(s["lang"], "🎉 Промокод активирован: {p} до {d}", "🎉 Promokod faollashtirildi: {p} {d} gacha",
+        await message.answer(tr(s["lang"], "panel.promokod_aktivirovan",
                                 p=sub["plan_id"].upper(), d=fmt_dt(sub["expires_at"], s["timezone"])))
         await app.audit.log("promo.redeem", actor_id=uid, target_type="promo", target_id=message.text.strip().upper())
     except ValueError as e:
@@ -1054,7 +1015,7 @@ async def cb_settings(cb: CallbackQuery, app: AppContext) -> None:
             await cb.answer()
             rows = grid([(("▶️ " if z == s["timezone"] else "") + z, f"st:tz:{i}") for i, z in enumerate(TIMEZONES)], 2)
             rows.append(nav(s["lang"], "m:settings"))
-            await _render_custom(cb.message, tr(s["lang"], "🌍 Выберите часовой пояс:", "🌍 Vaqt mintaqasini tanlang:"), kb(rows))
+            await _render_custom(cb.message, tr(s["lang"], "panel.vyberite_chasovoy_poyas"), kb(rows))
             return
     except ValueError as e:
         await cb.answer(str(e)[:150], show_alert=True)
@@ -1090,7 +1051,7 @@ async def cb_help(cb: CallbackQuery, state: FSMContext, app: AppContext) -> None
     await cb.answer()
     if cb.data == "help:support":
         await state.set_state(PS.support)
-        await cb.message.answer(tr(s["lang"], "✉️ Опишите вопрос одним сообщением (или /cancel):", "✉️ Savolingizni bitta xabarda yozing (yoki /cancel):"))
+        await cb.message.answer(tr(s["lang"], "panel.opishite_vopros_odnim_soobscheniem_cancel"))
 
 
 @router.message(StateFilter(PS.support), F.text)
@@ -1099,7 +1060,7 @@ async def st_support(message: Message, state: FSMContext, app: AppContext) -> No
     s = await app.settings.all(uid)
     await state.clear()
     await app.support_message(uid, message.text)
-    await message.answer(tr(s["lang"], "✅ Сообщение отправлено администратору.", "✅ Xabar administratorga yuborildi."))
+    await message.answer(tr(s["lang"], "panel.soobschenie_otpravleno_administratoru"))
 
 
 @router.callback_query(F.data.startswith("adm:"))
@@ -1130,8 +1091,7 @@ async def cb_admin(cb: CallbackQuery, state: FSMContext, app: AppContext) -> Non
             return
         await cb.answer()
         await state.set_state(PS.broadcast_text)
-        await cb.message.answer(tr(s["lang"], "📣 Текст рассылки (HTML). Будет создан черновик — запуск после предпросмотра. /cancel",
-                                   "📣 Tarqatma matni (HTML). Qoralama yaratiladi — ko'rib chiqqandan keyin ishga tushadi. /cancel"))
+        await cb.message.answer(tr(s["lang"], "panel.tekst_rassylki_html_budet_sozdan"))
         return
     elif action == "health":
         await cb.answer()
@@ -1155,8 +1115,8 @@ async def st_broadcast(message: Message, state: FSMContext, app: AppContext) -> 
     bid = await app.broadcast.create(uid, text=message.html_text[:4000])
     await app.broadcast.preview(bid, uid)
     s = await app.settings.all(uid)
-    await message.answer(tr(s["lang"], "Черновик #{b} создан. Запустить?", "#{b} qoralama yaratildi. Ishga tushirilsinmi?", b=bid),
-                         reply_markup=kb([[(tr(s["lang"], "🚀 Запустить", "🚀 Ishga tushirish"), f"bc:start:{bid}"),
+    await message.answer(tr(s["lang"], "panel.chernovik_sozdan_zapustit", b=bid),
+                         reply_markup=kb([[(tr(s["lang"], "panel.zapustit"), f"bc:start:{bid}"),
                                            (p(s["lang"], "cancel"), f"bc:cancel:{bid}")]]))
 
 
@@ -1206,5 +1166,5 @@ async def private_fallback(message: Message, app: AppContext) -> None:
         await app.ai_auto.dm_assistant(uid, message, s)
         return
     if message.text or message.caption:
-        await message.answer(tr(s["lang"], "Откройте меню: /menu · команды: <code>{p}help</code>", "Menyuni oching: /menu · buyruqlar: <code>{p}help</code>",
+        await message.answer(tr(s["lang"], "panel.otkroyte_menyu_menu_komandy_help",
                                 p=s["prefix"]))

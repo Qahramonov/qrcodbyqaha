@@ -55,7 +55,8 @@ class ActivityMiddleware(BaseMiddleware):
             except Exception:  # pragma: no cover
                 pass
             if app.runtime.maintenance and isinstance(event, Update) and event.message and not await app.users.is_admin(uid):
-                await event.message.answer("🛠 Chat helper на обслуживании. Попробуйте позже. / Texnik xizmat. Keyinroq urinib ko'ring.")
+                from .localization import p as phrase
+                await event.message.answer(phrase((await app.settings.all(uid))["lang"], "maintenance"))
                 return None
         return await handler(event, data)
 
@@ -130,6 +131,7 @@ async def build_app(cfg: Settings, bot: Bot | None = None, *, with_bot: bool = T
     app.audit = AuditService(app.db)
     app.metrics = MetricsService(app.db)
     app.notifications = NotificationService(app.db, app.events)
+    app.notifications.settings = app.settings
     app.quotas = QuotaService(app.db)
     app.limiter = SlidingWindowLimiter()
     app.dedup = Deduplicator(app.db)
@@ -195,8 +197,10 @@ async def build_app(cfg: Settings, bot: Bot | None = None, *, with_bot: bool = T
         await app.notifications.notify(cfg.super_admin_id, "support", f"Support: {uid}", text[:1500])
         if app.sender is not None:
             from .security.sanitize import esc
-            await app.sender.send_text(cfg.super_admin_id, f"✉️ <b>Support</b> от {esc(u.get('first_name') or '')} (@{esc(u.get('username') or '-')}, "
-                                                           f"<code>{uid}</code>):\n{esc(text[:3000])}")
+            from .localization import tr
+            admin_lang = (await app.settings.all(cfg.super_admin_id))["lang"]
+            await app.sender.send_text(cfg.super_admin_id, tr(admin_lang, "app.support_from", n=esc(u.get('first_name') or ''),
+                                                              u=esc(u.get('username') or '-'), id=uid, t=esc(text[:3000])))
     app.support_message = support_message  # type: ignore[attr-defined]
 
     _register_jobs(app)
@@ -305,10 +309,9 @@ def _register_jobs(app: AppContext) -> None:
             s = await app.settings.all(row["owner_id"])
             from .security.sanitize import esc
             name = esc(await chat_title(app, row["owner_id"], row["chat_id"]))
-            text = tr(s["lang"], "⏰ Время режима «{m}» в чате «{n}» истекло — режим выключен.",
-                      "⏰ «{n}» chatidagi «{m}» rejimi vaqti tugadi — rejim o'chirildi.", m=row["module"], n=name)
+            text = tr(s["lang"], "app.vremya_rezhima_chate_isteklo_rezhim", m=row["module"], n=name)
             if row["module"] == "mute":
-                text += "\n" + tr(s["lang"], "📊 Удалено сообщений: {d}", "📊 O'chirilgan xabarlar: {d}", d=row["state"].get("deleted", 0))
+                text += "\n" + tr(s["lang"], "app.udaleno_soobscheniy", d=row["state"].get("deleted", 0))
             await app.sender.send_text(row["owner_id"], text)
 
     sch.every(20, "controls_expiry", controls_expiry, 10)

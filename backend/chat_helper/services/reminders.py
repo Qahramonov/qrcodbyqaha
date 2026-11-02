@@ -77,16 +77,14 @@ class ReminderService:
         conn = await self.app.connections.get(row["connection_id"]) if row["connection_id"] else None
         reason = None
         if conn is None or not conn.is_enabled or conn.user_id != owner:
-            reason = tr(s["lang"], "бизнес-подключение отключено", "biznes ulanish uzilgan")
+            reason = tr(s["lang"], "reminders.biznes_podklyuchenie_otklyucheno")
         elif not conn.can("can_reply"):
-            reason = tr(s["lang"], "нет права «Ответы на сообщения»", "«Xabarlarga javob berish» huquqi yo'q")
+            reason = tr(s["lang"], "reminders.net_prava_otvety_soobscheniya")
         else:
             res = await self.app.sender.send_text(row["chat_id"], "⏰ " + esc(row["text"]), bc_id=conn.id)
             if res.ok:
                 await self._finish(row["id"], "done")
                 return
-            reason = {"window_24h": tr(s["lang"], "собеседник не писал 24 часа (ограничение Telegram)",
-                                       "suhbatdosh 24 soat yozmagan (Telegram cheklovi)")}.get(res.kind, res.kind)
+            reason = {"window_24h": tr(s["lang"], "reminders.sobesednik_pisal_24_chasa_ogranichenie")}.get(res.kind, res.kind)
         await self._finish(row["id"], "failed", reason)
-        await self.app.sender.send_text(owner, tr(s["lang"], "⏰ Напоминание для чата не отправлено ({r}). Вот оно:\n{t}",
-                                                  "⏰ Chat uchun eslatma yuborilmadi ({r}). Mana u:\n{t}", r=esc(reason or ""), t=esc(row["text"])))
+        await self.app.sender.send_text(owner, tr(s["lang"], "reminders.napominanie_chata_otpravleno_vot_ono", r=esc(reason or ""), t=esc(row["text"])))

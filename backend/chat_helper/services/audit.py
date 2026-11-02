@@ -123,6 +123,14 @@ class NotificationService:
                 log.warning("notification push failed for %s", user_id)
         return nid
 
+    async def notify_t(self, user_id: int, kind: str, title_key: str, body_key: str | None = None, *, level: str = "info",
+                       push: bool = False, body: str = "", **fmt: Any) -> int:
+        """Like notify(), but texts are translation keys rendered in the recipient's language."""
+        from ..localization import tr
+        lang = (await self.settings.all(user_id))["lang"] if getattr(self, "settings", None) else "ru"
+        return await self.notify(user_id, kind, tr(lang, title_key, **fmt), tr(lang, body_key, **fmt) if body_key else body,
+                                 level=level, push=push)
+
     async def list(self, user_id: int, unread_only: bool = False, limit: int = 100) -> list[dict[str, Any]]:
         sql = "SELECT * FROM notification_events WHERE user_id=?"
         if unread_only:

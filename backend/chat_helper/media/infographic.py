@@ -24,34 +24,16 @@ ACCENT_B = (139, 92, 246)       # violet
 TEXT = (240, 243, 255)
 TEXT_DIM = (166, 176, 206)
 
-STEPS = {
-    "ru": {
-        "title": "Подключение за 1 минуту",
-        "subtitle": "Официальная функция Telegram «Автоматизация чатов»",
-        "steps": [
-            ("Скопируйте username бота", "Кнопка «Скопировать» в чате с ботом"),
-            ("Откройте настройки профиля", "Настройки → Изм. (Edit)"),
-            ("Раздел «Автоматизация чатов»", "Старые версии: Telegram для бизнеса → Чат-боты"),
-            ("Добавьте бота", "Вставьте username и выберите чаты"),
-            ("Выдайте права", "Чтение, ответы, удаление сообщений"),
-            ("Проверьте подключение", "Вернитесь в бот → «Проверить подключение»"),
-        ],
-        "footer": "Chat helper · официальный Telegram Bot API · без паролей и кодов входа",
-    },
-    "uz": {
-        "title": "1 daqiqada ulash",
-        "subtitle": "Telegram'ning rasmiy «Chat automation» funksiyasi",
-        "steps": [
-            ("Bot username'ini nusxalang", "Bot chatidagi «Nusxalash» tugmasi"),
-            ("Profil sozlamalarini oching", "Sozlamalar → Tahrirlash (Edit)"),
-            ("«Chatlarni avtomatlashtirish»", "Eski versiyalar: Telegram Business → Chat-botlar"),
-            ("Botni qo'shing", "Username'ni qo'ying va chatlarni tanlang"),
-            ("Huquqlarni bering", "O'qish, javob berish, xabarlarni o'chirish"),
-            ("Ulanishni tekshiring", "Botga qayting → «Ulanishni tekshirish»"),
-        ],
-        "footer": "Chat helper · rasmiy Telegram Bot API · parol va kirish kodlarisiz",
-    },
-}
+STEP_COUNT = 6
+
+
+def texts(lang: str) -> dict:
+    """Infographic texts from the localization catalogs (keys ``infographic.*``)."""
+    from ..localization import tr
+    return {"title": tr(lang, "infographic.title"), "subtitle": tr(lang, "infographic.subtitle"),
+            "steps": [(tr(lang, f"infographic.step{i}.title"), tr(lang, f"infographic.step{i}.hint")) for i in range(1, STEP_COUNT + 1)],
+            "footer": tr(lang, "infographic.footer")}
+
 
 _FONT_FILES = {
     "bold": ["/usr/share/fonts/opentype/inter/Inter-Bold.otf", "/system/fonts/Roboto-Bold.ttf",
@@ -188,7 +170,7 @@ def _fit(d: ImageDraw.ImageDraw, text: str, font_kind: str, size: int, max_w: in
 
 
 def render(lang: str = "ru") -> Image.Image:
-    data = STEPS.get(lang, STEPS["ru"])
+    data = texts(lang)
     cw, ch = _s(W), _s(H)
     canvas = _vertical_gradient(cw, ch, BG_TOP, BG_BOTTOM).convert("RGBA")
     _glow(canvas, _s(120), _s(160), _s(420), ACCENT_A, 120)

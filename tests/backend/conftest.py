@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import sys
 from pathlib import Path
 
@@ -41,8 +42,14 @@ async def env(tmp_path: Path):
         return await dp.feed_update(bot, update)
     e.feed = feed
     yield e
-    for t in list(app.ai_auto._bg):
+    from chat_helper.modules import animations, repeat
+    tasks = [*app.ai_auto._bg, *animations._active.values(), *repeat._tasks.values()]  # noqa: SLF001
+    for t in tasks:
         t.cancel()
+    if tasks:
+        await asyncio.gather(*tasks, return_exceptions=True)
+    animations._active.clear()  # noqa: SLF001
+    repeat._tasks.clear()  # noqa: SLF001
     await app.media.queue.stop()
     await app.db.close()
 

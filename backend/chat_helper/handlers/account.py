@@ -26,9 +26,7 @@ router.message.middleware(PanelGate())
 router.callback_query.middleware(PanelGate())
 
 QUICK_DEFAULT = ["afk", "unafk", "mute", "unmute", "protect", "ai", "sum", "a", "remind", "re"]
-TEXT_TOOLS = [("calc", "2+2*2"), ("fix", "ghbdtn"), ("r", "Привет"), ("morse", "SOS"), ("ball", "Получится?"), ("upper", "текст"),
-              ("translate", "en Привет"), ("base64", "hello"), ("hash", "md5 hello"), ("password", "16"), ("qr", "https://t.me"),
-              ("uuid", ""), ("time", "Asia/Tashkent"), ("geo", "41.3111, 69.2797")]
+TEXT_TOOLS = ["calc", "fix", "r", "morse", "ball", "upper", "translate", "base64", "hash", "password", "qr", "uuid", "time", "geo"]
 
 
 class AC(StatesGroup):
@@ -37,7 +35,7 @@ class AC(StatesGroup):
 
 
 def _t(lang: str):
-    return lambda ru, uz, **kw: tr(lang, ru, uz, **kw)
+    return lambda key, **kw: tr(lang, key, **kw)
 
 
 @screen("account")
@@ -48,16 +46,16 @@ async def screen_account(app: Any, uid: int, s: dict[str, Any]) -> tuple[str, An
     acc = await access(app, uid)
     plan = await app.subs.plan_of(uid)
     grants = [k for k, v in (await app.delegation.grants(uid)).items() if v["active"]]
-    lines = [t("👤 <b>Мой аккаунт</b>", "👤 <b>Mening akkauntim</b>"), "",
+    lines = [t("account.moy_akkaunt"), "",
              f"🆔 <code>{uid}</code>" + (f" · @{esc(u['username'])}" if u.get("username") else ""),
-             t("Имя: {n}", "Ism: {n}", n=esc(u.get("first_name") or "—")),
-             t("Подключение: {s}", "Ulanish: {s}", s=status_title(acc.conn.status, lang) if acc.conn else t("⚪️ нет", "⚪️ yo'q")),
-             t("Тариф: {p} · язык: {l}", "Tarif: {p} · til: {l}", p=plan.upper(), l=lang.upper()),
-             t("Делегирование администратору: {d}", "Administratorga vakolat: {d}", d=", ".join(grants) if grants else t("нет", "yo'q"))]
-    rows = [[(t("🔗 Подключение и права", "🔗 Ulanish va huquqlar"), "m:connect")],
-            [(t("🤝 Делегирование", "🤝 Vakolat berish"), "m:delegation"), (t("🔐 Приватность и данные", "🔐 Maxfiylik va ma'lumotlar"), "m:privacy")],
-            [(t("📱 Приложение и устройства", "📱 Ilova va qurilmalar"), "m:app"), (t("💎 Подписка", "💎 Obuna"), "m:sub")],
-            [(t("🌐 Язык", "🌐 Til"), "m:lang"), (t("🏠 Меню", "🏠 Menyu"), "m:home")]]
+             t("account.imya", n=esc(u.get("first_name") or "—")),
+             t("account.podklyuchenie", s=status_title(acc.conn.status, lang) if acc.conn else t("account.net")),
+             t("account.tarif_yazyk", p=plan.upper(), l=lang.upper()),
+             t("account.delegirovanie_administratoru", d=", ".join(grants) if grants else t("account.net_2"))]
+    rows = [[(t("account.podklyuchenie_prava"), "m:connect")],
+            [(t("account.delegirovanie_2"), "m:delegation"), (t("account.privatnost_dannye"), "m:privacy")],
+            [(t("account.prilozhenie_ustroystva"), "m:app"), (t("account.podpiska"), "m:sub")],
+            [(t("account.yazyk"), "m:lang"), (t("account.menyu"), "m:home")]]
     return "\n".join(lines), kb(rows)
 
 
@@ -66,19 +64,14 @@ async def screen_delegation(app: Any, uid: int, s: dict[str, Any]) -> tuple[str,
     lang = s["lang"]
     t = _t(lang)
     grants = await app.delegation.grants(uid)
-    lines = [t("🤝 <b>Делегирование</b>", "🤝 <b>Vakolat berish</b>"),
-             t("Вы можете добровольно разрешить администратору Chat helper помогать с отдельными настройками. "
-               "Права бота в Telegram сами по себе такого доступа не дают. Любое разрешение можно отозвать; каждое действие "
-               "администратора записывается. Подарки и звёзды не делегируются никогда.",
-               "Siz Chat helper administratoriga alohida sozlamalarda yordam berishga ixtiyoriy ruxsat berishingiz mumkin. "
-               "Telegram'dagi bot huquqlari bunday kirishni o'z-o'zidan bermaydi. Har qanday ruxsatni qaytarib olish mumkin; "
-               "administratorning har bir amali yoziladi. Sovg'a va yulduzlar hech qachon berilmaydi."), ""]
+    lines = [t("account.delegirovanie"),
+             t("account.vy_mozhete_dobrovolno_razreshit_administratoru"), ""]
     rows = []
     for scope, title in SCOPES.items():
         on = bool(grants.get(scope, {}).get("active"))
-        lines.append(("🟢 " if on else "⚪️ ") + tr(lang, *title))
-        rows.append([(("⏹ " if on else "▶️ ") + tr(lang, *title).split(" ", 1)[1][:30], f"dg:{scope}")])
-    rows.append([(t("⬅️ Мой аккаунт", "⬅️ Akkauntim"), "m:account")])
+        lines.append(("🟢 " if on else "⚪️ ") + tr(lang, title))
+        rows.append([(("⏹ " if on else "▶️ ") + tr(lang, title).split(" ", 1)[1][:30], f"dg:{scope}")])
+    rows.append([(t("account.moy_akkaunt_2"), "m:account")])
     return "\n".join(lines), kb(rows)
 
 
@@ -87,8 +80,8 @@ async def screen_quick(app: Any, uid: int, s: dict[str, Any]) -> tuple[str, Any]
     lang = s["lang"]
     t = _t(lang)
     fav = s.get("favorite_commands") or QUICK_DEFAULT
-    lines = [t("⚡ <b>Быстрые команды</b>", "⚡ <b>Tezkor buyruqlar</b>"),
-             t("Нажмите, чтобы скопировать команду, и вставьте её в нужный чат.", "Buyruqni nusxalash uchun bosing va kerakli chatga qo'ying."), ""]
+    lines = [t("account.bystrye_komandy"),
+             t("account.nazhmite_chtoby_skopirovat_komandu_vstavte"), ""]
     rows = []
     for cid in fav[:12]:
         spec = app.registry.commands.get(cid)
@@ -97,9 +90,9 @@ async def screen_quick(app: Any, uid: int, s: dict[str, Any]) -> tuple[str, Any]
         lines.append(f"<code>{s['prefix']}{cid}</code> — {esc(clip(spec.describe(lang), 70))}")
         rows.append((f"{s['prefix']}{cid}", f"copy:{s['prefix']}{cid} "))
     grid_rows = [rows[i:i + 3] for i in range(0, len(rows), 3)]
-    grid_rows += [[(t("💤 AFK вкл/выкл", "💤 AFK yoq/o'ch"), "qk:afk"), (t("⏸ Пауза автоматики", "⏸ Avtomatika pauzasi"), "qk:pause")],
-                  [(t("🎞 Студия анимаций", "🎞 Animatsiya studiyasi"), "qk:anim"), (t("⌨️ Все команды", "⌨️ Barcha buyruqlar"), "m:commands")],
-                  [(t("⭐ Изменить избранное", "⭐ Sevimlilarni o'zgartirish"), "qk:fav"), (t("🏠 Меню", "🏠 Menyu"), "m:home")]]
+    grid_rows += [[(t("account.afk_vkl_vykl"), "qk:afk"), (t("account.pauza_avtomatiki"), "qk:pause")],
+                  [(t("account.studiya_animatsiy"), "qk:anim"), (t("account.vse_komandy"), "m:commands")],
+                  [(t("account.izmenit_izbrannoe"), "qk:fav"), (t("account.menyu"), "m:home")]]
     return "\n".join(lines), kb(grid_rows)
 
 
@@ -109,30 +102,28 @@ async def screen_mutes(app: Any, uid: int, s: dict[str, Any]) -> tuple[str, Any]
     t = _t(lang)
     tz = s.get("timezone") or app.config.timezone
     ms = await app.filters.mute_settings(uid, 0)
-    lines = [t("🔕 <b>Mute Manager</b>", "🔕 <b>Mute Manager</b>"),
-             t("Mute удаляет новые входящие сообщения выбранного чата (право «Удаление входящих»). Включается командой "
-               "<code>{p}mute</code> в чате или из «💬 Мои чаты».", "Mute tanlangan chatdagi yangi kiruvchi xabarlarni o'chiradi "
-               "(«Kiruvchilarni o'chirish» huquqi). Chatda <code>{p}mute</code> yoki «💬 Chatlarim» orqali yoqiladi.", p=s["prefix"]), ""]
+    lines = [t("account.mute_manager"),
+             t("account.mute_udalyaet_novye_vhodyaschie_soobscheniya", p=s["prefix"]), ""]
     rows = []
     active = [r for r in await app.controls.active(uid) if r["module"] in ("mute", "nogif", "nomute")]
     if not active:
-        lines.append(t("Сейчас нет активных фильтров.", "Hozir faol filtrlar yo'q."))
+        lines.append(t("account.seychas_net_aktivnyh_filtrov"))
     for r in active[:10]:
         title = esc(clip(((await app.chats.get(uid, r["chat_id"])) or {}).get("title") or str(r["chat_id"]), 28))
         icon = {"mute": "🔕", "nogif": "🚫", "nomute": "🧹"}[r["module"]]
         until = fmt_dt(r["until_at"], tz, with_date=False) if r.get("until_at") else "∞"
-        lines.append(f"{icon} {title} · {until} · " + t("удалено {d}", "o'chirildi {d}", d=r["state"].get("deleted", 0)))
+        lines.append(f"{icon} {title} · {until} · " + t("account.udaleno", d=r["state"].get("deleted", 0)))
         rows.append([(f"⏹ {icon} {clip(title, 22)}", f"mm:off:{r['module']}:{r['chat_id']}")])
-    lines += ["", t("<b>Настройки по умолчанию</b>", "<b>Standart sozlamalar</b>"),
-              t("Удалять: {x}", "O'chirish: {x}", x=", ".join(type_title(x, lang) for x in ms["types"])),
-              t("Не удалять сообщения со словами: {w}", "Shu so'zli xabarlarni o'chirmaslik: {w}", w=esc(", ".join(ms["whitelist"])) or "—"),
-              t("Подтверждение перед включением: {v}", "Yoqishdan oldin tasdiq: {v}", v=t("да", "ha") if not s.get("mute_confirmed") else t("нет", "yo'q")),
-              t("Где показывать кнопки: {v}", "Tugmalar qayerda: {v}", v=t("в чате", "chatda") if s.get("controls_place") == "chat" else t("в личке", "shaxsiyda"))]
+    lines += ["", t("account.nastroyki_umolchaniyu"),
+              t("account.udalyat", x=", ".join(type_title(x, lang) for x in ms["types"])),
+              t("account.udalyat_soobscheniya_so_slovami", w=esc(", ".join(ms["whitelist"])) or "—"),
+              t("account.podtverzhdenie_pered_vklyucheniem", v=t("account.da") if not s.get("mute_confirmed") else t("account.net_2")),
+              t("account.gde_pokazyvat_knopki", v=t("account.chate") if s.get("controls_place") == "chat" else t("account.lichke"))]
     type_btns = [(("✅ " if x in ms["types"] else "") + type_title(x, lang), f"mm:type:{x}") for x in ("all", "text", "media", "voice", "circle", "gif", "sticker")]
     rows += [type_btns[i:i + 4] for i in range(0, len(type_btns), 4)]
-    rows += [[(t("📝 Слова-исключения", "📝 Istisno so'zlar"), "mm:wl"), (t("🔁 Спрашивать подтверждение", "🔁 Tasdiq so'rash"), "mm:confirm")],
-             [(t("📍 Кнопки: в чате / в личке", "📍 Tugmalar: chatda / shaxsiyda"), "mm:place")],
-             [(t("🏠 Меню", "🏠 Menyu"), "m:home")]]
+    rows += [[(t("account.slova_isklyucheniya"), "mm:wl"), (t("account.sprashivat_podtverzhdenie"), "mm:confirm")],
+             [(t("account.knopki_chate_lichke"), "mm:place")],
+             [(t("account.menyu"), "m:home")]]
     return "\n".join(lines), kb(rows)
 
 
@@ -140,21 +131,18 @@ async def screen_mutes(app: Any, uid: int, s: dict[str, Any]) -> tuple[str, Any]
 async def screen_protects(app: Any, uid: int, s: dict[str, Any]) -> tuple[str, Any]:
     lang = s["lang"]
     t = _t(lang)
-    lines = [t("🛡 <b>Protect Manager</b>", "🛡 <b>Protect Manager</b>"),
-             t("В защищённых чатах всё, что отправляет Chat helper (автоответы, AI, медиа, команды), нельзя переслать или сохранить. "
-               "Ваши обычные сообщения это не затрагивает, скриншоты Telegram не блокирует. Одно сообщение: <code>{p}g текст</code>.",
-               "Himoyalangan chatlarda Chat helper yuboradigan hamma narsani uzatib yoki saqlab bo'lmaydi. Oddiy xabarlaringizga ta'sir "
-               "qilmaydi, Telegram skrinshotlarni bloklamaydi. Bitta xabar: <code>{p}g matn</code>.", p=s["prefix"]), ""]
+    lines = [t("account.protect_manager"),
+             t("account.zaschischyonnyh_chatah_vsyo_chto_otpravlyaet", p=s["prefix"]), ""]
     rows = []
     active = [r for r in await app.controls.active(uid, module="protect")]
     if not active:
-        lines.append(t("Нет защищённых чатов. Включить: <code>{p}protect</code> в чате.", "Himoyalangan chatlar yo'q. Yoqish: chatda <code>{p}protect</code>.",
+        lines.append(t("account.net_zaschischyonnyh_chatov_vklyuchit_protect",
                        p=s["prefix"]))
     for r in active[:12]:
         title = esc(clip(((await app.chats.get(uid, r["chat_id"])) or {}).get("title") or str(r["chat_id"]), 28))
         lines.append(f"🛡 {title}")
         rows.append([(f"🔓 {clip(title, 26)}", f"pp:off:{r['chat_id']}")])
-    rows.append([(t("🏠 Меню", "🏠 Menyu"), "m:home")])
+    rows.append([(t("account.menyu"), "m:home")])
     return "\n".join(lines), kb(rows)
 
 
@@ -162,18 +150,20 @@ async def screen_protects(app: Any, uid: int, s: dict[str, Any]) -> tuple[str, A
 async def screen_texttools(app: Any, uid: int, s: dict[str, Any]) -> tuple[str, Any]:
     lang = s["lang"]
     t = _t(lang)
-    lines = [t("📝 <b>Text Tools</b>", "📝 <b>Matn vositalari</b>"),
-             t("Работают в любом чате и здесь. Нажмите, чтобы скопировать пример.", "Istalgan chatda va shu yerda ishlaydi. Misolni nusxalash uchun bosing."), ""]
+    lines = [t("account.text_tools"),
+             t("account.rabotayut_lyubom_chate_zdes_nazhmite"), ""]
     btns = []
-    for cid, example in TEXT_TOOLS:
+    for cid in TEXT_TOOLS:
         spec = app.registry.commands.get(cid)
         if spec is None:
             continue
-        cmd = f"{s['prefix']}{cid} {example}".strip()
+        example = next(iter(spec.examples_for(lang)), "")    # localized catalog example, e.g. ".r Salom 👋🏽"
+        args = example.split(maxsplit=1)[1] if example.startswith("." + cid) and " " in example else ""
+        cmd = f"{s['prefix']}{cid} {args}".strip()
         lines.append(f"<code>{esc(cmd)}</code> — {esc(clip(spec.describe(lang), 60))}")
         btns.append((f"{s['prefix']}{cid}", f"copy:{cmd}"))
     rows = [btns[i:i + 4] for i in range(0, len(btns), 4)]
-    rows.append([(t("⌨️ Все команды", "⌨️ Barcha buyruqlar"), "cmd:cat:text:0"), (t("🏠 Меню", "🏠 Menyu"), "m:home")])
+    rows.append([(t("account.vse_komandy"), "cmd:cat:text:0"), (t("account.menyu"), "m:home")])
     return "\n".join(lines), kb(rows)
 
 
@@ -183,18 +173,18 @@ async def screen_reminders(app: Any, uid: int, s: dict[str, Any]) -> tuple[str, 
     t = _t(lang)
     tz = s.get("timezone") or app.config.timezone
     rows_db = await app.reminders.list(uid)
-    lines = [t("⏰ <b>Напоминания</b>", "⏰ <b>Eslatmalar</b>"), ""]
+    lines = [t("account.napominaniya"), ""]
     rows = []
     if not rows_db:
-        lines.append(t("Нет активных напоминаний.", "Faol eslatmalar yo'q."))
+        lines.append(t("account.net_aktivnyh_napominaniy"))
     for r in rows_db[:12]:
-        where = t("в чат", "chatga") if r["kind"] == "chat" else t("в личку", "shaxsiyga")
+        where = t("account.chat") if r["kind"] == "chat" else t("account.lichku")
         lines.append(f"#{r['id']} · {fmt_dt(r['run_at'], tz)} · {where} · {esc(clip(r['text'], 40))}")
         rows.append([(f"🗑 #{r['id']} {clip(r['text'], 24)}", f"rm:del:{r['id']}")])
-    lines += ["", t("В чате: <code>{p}remindf 1h текст</code> — напомнит прямо в чат.", "Chatda: <code>{p}remindf 1h matn</code> — chatning o'ziga eslatadi.",
+    lines += ["", t("account.chate_remindf_1h_tekst_napomnit",
                     p=s["prefix"])]
-    rows.append([(t("➕ Новое напоминание", "➕ Yangi eslatma"), "rm:new")])
-    rows.append([(t("🏠 Меню", "🏠 Menyu"), "m:home")])
+    rows.append([(t("account.novoe_napominanie"), "rm:new")])
+    rows.append([(t("account.menyu"), "m:home")])
     return "\n".join(lines), kb(rows)
 
 
@@ -237,8 +227,7 @@ async def cb_account(cb: CallbackQuery, state: FSMContext, app: Any) -> None:
         elif action == "wl":
             await state.set_state(AC.whitelist)
             await cb.answer()
-            await cb.message.answer(t("📝 Пришлите слова через запятую: сообщения с ними Mute не удалит (например: срочно, мама). «-» — очистить.",
-                                      "📝 So'zlarni vergul bilan yuboring: ular bor xabarlarni Mute o'chirmaydi (masalan: shoshilinch, onam). «-» — tozalash."))
+            await cb.message.answer(t("account.prishlite_slova_cherez_zapyatuyu_soobscheniya"))
             return
     elif kind == "pp" and action == "off" and len(parts) == 3 and parts[2].lstrip("-").isdigit():
         await app.controls.set(uid, int(parts[2]), "protect", False)
@@ -251,8 +240,7 @@ async def cb_account(cb: CallbackQuery, state: FSMContext, app: Any) -> None:
         elif action == "new":
             await state.set_state(AC.reminder)
             await cb.answer()
-            await cb.message.answer(t("⏰ Когда и о чём напомнить? Формат: <code>30m позвонить маме</code> или <code>2h отчёт</code>.",
-                                      "⏰ Qachon va nima haqida eslatay? Format: <code>30m onamga qo'ng'iroq</code> yoki <code>2h hisobot</code>."))
+            await cb.message.answer(t("account.kogda_chyom_napomnit_format_30m"))
             return
     elif kind == "qk":
         target = "quick"
@@ -269,7 +257,7 @@ async def cb_account(cb: CallbackQuery, state: FSMContext, app: Any) -> None:
             await send_studio(app, uid)
             return
         elif action == "fav":
-            await cb.answer(t("Избранное: отправьте «{p}fav команда1 команда2 …» боту", "Sevimlilar: botga «{p}fav buyruq1 buyruq2 …» yuboring",
+            await cb.answer(t("account.izbrannoe_otpravte_fav_komanda1_komanda2",
                               p=s["prefix"]), show_alert=True)
             return
     await cb.answer("✅")
@@ -285,7 +273,7 @@ async def cb_delegated_profile(cb: CallbackQuery, app: Any) -> None:
         return
     res = await app.delegation.decide_profile_change(uid, int(parts[2]), parts[1] == "ok")
     lang = (await app.settings.all(uid))["lang"]
-    await cb.answer({"applied": tr(lang, "✅ Применено", "✅ Qo'llandi"), "rejected": tr(lang, "✖️ Отклонено", "✖️ Rad etildi")}.get(res, res),
+    await cb.answer({"applied": tr(lang, "account.primeneno"), "rejected": tr(lang, "account.otkloneno")}.get(res, res),
                     show_alert=res not in ("applied", "rejected"))
     try:
         await cb.message.edit_reply_markup(reply_markup=None)
@@ -300,7 +288,7 @@ async def st_reminder(message: Message, state: FSMContext, app: Any) -> None:
     when, _, text = (message.text or "").strip().partition(" ")
     dur = parse_duration(when)
     if not dur or not text.strip():
-        await message.answer(tr(s["lang"], "Формат: <code>30m текст</code>", "Format: <code>30m matn</code>"))
+        await message.answer(tr(s["lang"], "account.format_30m_tekst"))
         return
     try:
         await app.reminders.create(uid, text.strip(), int(time.time()) + dur)

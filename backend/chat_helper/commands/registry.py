@@ -1,24 +1,30 @@
 """Command Registry: every command is declared once with full metadata and a real handler."""
 from __future__ import annotations
 
+import re
+
 from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable
 
+from ..localization import has, tr
+
 Handler = Callable[[Any], Awaitable[None]]
 
-CATEGORIES: dict[str, tuple[str, str, str]] = {
-    # id: (emoji, ru, uz)
-    "afk": ("💤", "AFK", "AFK"),
-    "ai": ("🧠", "AI-ассистент", "AI yordamchi"),
-    "voice": ("🎙", "Voice Studio", "Voice Studio"),
-    "media": ("🎬", "Media Studio", "Media Studio"),
-    "games": ("🎮", "Игры", "O'yinlar"),
-    "text": ("⌨️", "Текстовые инструменты", "Matn vositalari"),
-    "profile": ("👤", "Профиль", "Profil"),
-    "autoreply": ("💬", "Автоответчик", "Avtojavob"),
-    "chat": ("🎛", "Управление чатом", "Chatni boshqarish"),
-    "system": ("⚙️", "Система", "Tizim"),
+CATEGORIES: dict[str, tuple[str, str]] = {
+    # id: (emoji, translation key)
+    "afk": ("💤", "registry.categories.afk"),
+    "ai": ("🧠", "registry.categories.ai_assistent"),
+    "voice": ("🎙", "registry.categories.voice_studio"),
+    "media": ("🎬", "registry.categories.media_studio"),
+    "games": ("🎮", "registry.categories.igry"),
+    "text": ("⌨️", "registry.categories.tekstovye_instrumenty"),
+    "profile": ("👤", "registry.categories.profil"),
+    "autoreply": ("💬", "registry.categories.avtootvetchik"),
+    "chat": ("🎛", "registry.categories.upravlenie_chatom"),
+    "system": ("⚙️", "registry.categories.sistema"),
 }
+
+_CYRILLIC = re.compile("[\u0400-\u04ff]")
 
 PLAN_RANK = {"free": 0, "plus": 1, "pro": 2, "vip": 3}
 
@@ -36,8 +42,6 @@ class CommandSpec:
     category: str
     handler: Handler
     aliases: list[str] = field(default_factory=list)
-    ru: str = ""
-    uz: str = ""
     syntax: str = ""
     examples: list[str] = field(default_factory=list)
     rights: list[str] = field(default_factory=list)       # business rights required in business chats
@@ -49,26 +53,53 @@ class CommandSpec:
     needs_reply: bool = False
     sandbox_safe: bool = False                            # can run in APK "test" mode without sending
     status: str = IMPLEMENTED
-    notes_ru: str = ""
-    notes_uz: str = ""
     module: str = ""
 
     @property
     def name(self) -> str:
         return self.id
 
+    # texts live in the localization catalogs: cmd.<id>.desc / cmd.<id>.notes
     def describe(self, lang: str) -> str:
-        return self.uz if lang == "uz" and self.uz else self.ru
+        return tr(lang, f"cmd.{self.id}.desc")
+
+    def notes(self, lang: str) -> str:
+        return tr(lang, f"cmd.{self.id}.notes") if has(f"cmd.{self.id}.notes") else ""
+
+    def syntax_for(self, lang: str) -> str:
+        return tr(lang, f"cmd.{self.id}.syntax") if has(f"cmd.{self.id}.syntax") else self.syntax
+
+    def examples_for(self, lang: str) -> list[str]:
+        if has(f"cmd.{self.id}.examples"):
+            return [x for x in tr(lang, f"cmd.{self.id}.examples").split("\n") if x]
+        return list(self.examples)
+
+    @property
+    def ru(self) -> str:
+        return self.describe("ru")
+
+    @property
+    def uz(self) -> str:
+        return self.describe("uz")
+
+    def aliases_for(self, lang: str) -> list[str]:
+        """Aliases worth showing to a user of ``lang``: Cyrillic aliases are Russian words, shown to Russian users only
+        (every alias keeps working for everyone)."""
+        if lang == "ru":
+            return list(self.aliases)
+        return [a for a in self.aliases if not _CYRILLIC.search(a)]
 
     def to_dict(self, lang: str = "ru", prefix: str = ".") -> dict[str, Any]:
         return {
-            "id": self.id, "name": prefix + self.id, "aliases": [prefix + a for a in self.aliases],
+            "id": self.id, "name": prefix + self.id, "aliases": [prefix + a for a in self.aliases_for(lang)],
+            "all_aliases": [prefix + a for a in self.aliases],
             "category": self.category, "description": self.describe(lang), "description_ru": self.ru,
-            "description_uz": self.uz, "syntax": self.syntax.replace(".", prefix, 1) if self.syntax.startswith(".") else self.syntax,
-            "examples": self.examples, "rights": self.rights, "deps": self.deps, "min_plan": self.min_plan,
+            "description_uz": self.uz,
+            "syntax": self.syntax_for(lang).replace(".", prefix, 1) if self.syntax_for(lang).startswith(".") else self.syntax_for(lang),
+            "examples": self.examples_for(lang), "rights": self.rights, "deps": self.deps, "min_plan": self.min_plan,
             "rate": {"limit": self.rate[0], "window": self.rate[1]}, "where": self.where,
             "admin_only": self.admin_only, "needs_reply": self.needs_reply, "sandbox_safe": self.sandbox_safe,
-            "status": self.status, "notes": self.notes_uz if lang == "uz" and self.notes_uz else self.notes_ru,
+            "status": self.status, "notes": self.notes(lang),
             "module": self.module or self.category,
         }
 

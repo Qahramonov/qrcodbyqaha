@@ -196,7 +196,8 @@ class MediaService:
         binary = shutil.which("espeak-ng") or shutil.which("espeak")
         if binary is None or not self.app.health.ffmpeg_ok:
             self.files.discard(d)
-            raise RuntimeError("🔊 TTS: нужен ключ OpenAI или офлайн-движок (pkg install espeak) / OpenAI kaliti yoki espeak kerak.")
+            from ..localization import tr
+            raise RuntimeError(tr(lang, "media.tts_unavailable"))
         wav = d / "tts.wav"
         voice = {"ru": "ru", "uz": "uz", "en": "en"}.get(lang, "ru")
         proc = await asyncio.create_subprocess_exec(binary, "-v", voice, "-w", str(wav), "--", text[:1000],

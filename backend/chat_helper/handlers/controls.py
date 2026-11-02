@@ -32,30 +32,27 @@ async def on_control(cb: CallbackQuery, app: Any) -> None:
     arg = parts[4] if len(parts) > 4 else ""
     card = await app.controls.card(token)
     if card is None:
-        await cb.answer(tr(lang, "⌛ Эта кнопка устарела.", "⌛ Bu tugma eskirgan."))
+        await cb.answer(tr(lang, "controls.eta_knopka_ustarela"))
         return
     if presser != card["owner_id"]:
         await app.audit.log("controls.foreign_press", actor_id=presser, actor_type="telegram", target_type="control",
                             target_id=token, module=card["module"], button=action)
-        await cb.answer(tr(lang, "⛔ Управлять этой настройкой может только владелец чата.",
-                           "⛔ Bu sozlamani faqat chat egasi boshqara oladi."), show_alert=True)
+        await cb.answer(tr(lang, "controls.upravlyat_etoy_nastroykoy_mozhet_tolko"), show_alert=True)
         return
     if card["status"] == "revoked":
-        await cb.answer(tr(lang, "🔌 Chat helper отключён от аккаунта — кнопки больше не работают. Подключите снова: /connect",
-                           "🔌 Chat helper akkauntdan uzilgan — tugmalar ishlamaydi. Qayta ulang: /connect"), show_alert=True)
+        await cb.answer(tr(lang, "controls.chat_helper_otklyuchyon_akkaunta_knopki"), show_alert=True)
         return
     if card["status"] != "active":
-        await cb.answer(tr(lang, "⌛ Это сообщение управления больше не активно.", "⌛ Bu boshqaruv xabari endi faol emas."))
+        await cb.answer(tr(lang, "controls.soobschenie_upravleniya_bolshe_aktivno"))
         return
     if card["connection_id"]:
         conn = await app.connections.get(card["connection_id"])
         if conn is None or not conn.is_enabled:
             await app.controls.close_card(token, "revoked")
-            await cb.answer(tr(lang, "🔌 Chat helper отключён от аккаунта — кнопки больше не работают. Подключите снова: /connect",
-                               "🔌 Chat helper akkauntdan uzilgan — tugmalar ishlamaydi. Qayta ulang: /connect"), show_alert=True)
+            await cb.answer(tr(lang, "controls.chat_helper_otklyuchyon_akkaunta_knopki"), show_alert=True)
             return
     if not version.isdigit() or int(version) != card["version"]:
-        await cb.answer(tr(lang, "🔄 Состояние уже изменилось — показываю актуальное.", "🔄 Holat o'zgargan — dolzarbini ko'rsataman."))
+        await cb.answer(tr(lang, "controls.sostoyanie_izmenilos_pokazyvayu_aktualnoe"))
         await edit_card(app, card)
         return
     if not await app.controls.record_action(cb.id, token, presser, action, "accepted"):
@@ -65,12 +62,11 @@ async def on_control(cb: CallbackQuery, app: Any) -> None:
         toast, view = await apply_action(app, card, action, arg)
     except Exception:
         log.exception("control action %s/%s failed", card["module"], action)
-        await cb.answer(tr(lang, "⚠️ Не удалось выполнить действие. Ошибка записана в журнал.",
-                           "⚠️ Amalni bajarib bo'lmadi. Xato jurnalga yozildi."), show_alert=True)
+        await cb.answer(tr(lang, "controls.udalos_vypolnit_deystvie_oshibka_zapisana"), show_alert=True)
         return
     if view == "__closed__":
         bc = card["connection_id"] if card["location"] == "chat" else None
-        await app.sender.edit_text(card["host_chat_id"], card["message_id"], tr(lang, "✖️ Отменено", "✖️ Bekor qilindi"), bc_id=bc)
+        await app.sender.edit_text(card["host_chat_id"], card["message_id"], tr(lang, "controls.otmeneno"), bc_id=bc)
     elif view:
         fresh = await app.controls.card(token)
         await edit_card(app, fresh or card, view)

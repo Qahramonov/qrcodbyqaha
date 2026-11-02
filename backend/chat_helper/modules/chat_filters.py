@@ -31,9 +31,9 @@ MUTE_TYPES = ("all", "text", "media", "photo", "video", "voice", "circle", "gif"
 MEDIA_KINDS = {"photo", "video", "voice", "circle", "gif", "sticker", "document", "audio"}
 NOGIF_TYPES = ("gif", "sticker", "circle")
 TYPE_TITLES = {
-    "all": ("всё", "hammasi"), "text": ("текст", "matn"), "media": ("все медиа", "barcha media"), "photo": ("фото", "rasm"),
-    "video": ("видео", "video"), "voice": ("голосовые", "ovozli"), "circle": ("кружки", "dumaloq video"), "gif": ("GIF", "GIF"),
-    "sticker": ("стикеры", "stikerlar"), "document": ("файлы", "fayllar"), "audio": ("аудио", "audio"),
+    "all": ("chat_filters.type_titles.vsyo"), "text": ("chat_filters.type_titles.tekst"), "media": ("chat_filters.type_titles.vse_media"), "photo": ("chat_filters.type_titles.foto"),
+    "video": ("chat_filters.type_titles.video"), "voice": ("chat_filters.type_titles.golosovye"), "circle": ("chat_filters.type_titles.kruzhki"), "gif": ("chat_filters.type_titles.gif"),
+    "sticker": ("chat_filters.type_titles.stikery"), "document": ("chat_filters.type_titles.fayly"), "audio": ("chat_filters.type_titles.audio"),
 }
 TYPE_ALIASES = {
     "все": "all", "всё": "all", "hammasi": "all", "текст": "text", "matn": "text", "медиа": "media", "фото": "photo", "rasm": "photo",
@@ -62,8 +62,8 @@ def message_kind(m: Message) -> str | None:
 
 
 def type_title(t: str, lang: str) -> str:
-    ru, uz = TYPE_TITLES.get(t, (t, t))
-    return tr(lang, ru, uz)
+    key = TYPE_TITLES.get(t)
+    return tr(lang, key) if key else t
 
 
 def normalize_type(word: str) -> str | None:
@@ -198,10 +198,7 @@ class FilterEngine:
         self._rights_warned[key] = time.time()
         s = await self.app.settings.all(conn.user_id)
         await self.app.sender.send_text(conn.user_id, tr(
-            s["lang"], "⚠️ Telegram не разрешил удалить входящее сообщение: у Chat helper нет права «Удаление входящих». "
-                       "Включите его: Настройки → Изм. → Автоматизация чатов → Chat helper → Сообщения.",
-            "⚠️ Telegram kiruvchi xabarni o'chirishga ruxsat bermadi: Chat helper'da «Kiruvchilarni o'chirish» huquqi yo'q. "
-            "Yoqing: Sozlamalar → Tahrirlash → Chat automation → Chat helper → Xabarlar."))
+            s["lang"], "chat_filters.telegram_razreshil_udalit_vhodyaschee_soobscheni"))
 
     async def stats(self, owner_id: int, chat_id: int | None = None, since: int | None = None) -> dict[str, int]:
         sql = "SELECT result, COUNT(*) AS n FROM mute_events WHERE owner_id=?"

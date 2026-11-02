@@ -26,23 +26,23 @@ _PENDING: dict[str, dict[str, Any]] = {}
 _MERGE: dict[tuple[int, int], list[MediaRef]] = {}
 
 ERRORS = {
-    "timeout": ("⏱ Обработка заняла слишком много времени и была остановлена.", "⏱ Ishlov berish juda uzoq davom etdi va to'xtatildi."),
-    "too many active jobs": ("⏳ У вас уже 3 задачи в работе. Дождитесь завершения или .cancel", "⏳ Sizda 3 ta vazifa bajarilmoqda. Kuting yoki .cancel"),
-    "media module is paused": ("⏸ Media Studio временно приостановлена администратором.", "⏸ Media Studio vaqtincha to'xtatilgan."),
-    "no audio stream": ("🔇 В файле нет звука.", "🔇 Faylda ovoz yo'q."),
-    "video required": ("🎞 Нужно видео.", "🎞 Video kerak."),
-    "result too large": ("📦 Результат больше 50 МБ — лимит отправки Telegram.", "📦 Natija 50 MB dan katta — Telegram cheklovi."),
+    "timeout": ("media_cmds.errors.obrabotka_zanyala_slishkom_mnogo_vremeni"),
+    "too many active jobs": ("media_cmds.errors.vas_3_zadachi_rabote_dozhdites"),
+    "media module is paused": ("media_cmds.errors.media_studio_vremenno_priostanovlena_administrat"),
+    "no audio stream": ("media_cmds.errors.fayle_net_zvuka"),
+    "video required": ("media_cmds.errors.nuzhno_video"),
+    "result too large": ("media_cmds.errors.rezultat_bolshe_50_mb_limit"),
 }
 
 
 def _err_text(ctx: CommandContext, e: Exception) -> str:
     msg = str(e)
-    for k, (ru, uz) in ERRORS.items():
+    for k, key in ERRORS.items():
         if msg.startswith(k):
-            return ctx.t(ru, uz)
+            return ctx.t(key)
     if msg.startswith("video too long"):
-        return ctx.t("🎞 Для реверса видео максимум {s} с.", "🎞 Video reversi uchun maksimum {s} s.", s=ctx.app.config.media_max_reverse_video)
-    return ctx.t("⚠️ Не удалось обработать медиа: {e}", "⚠️ Mediani qayta ishlab bo'lmadi: {e}", e=esc(msg[:160]))
+        return ctx.t("media_cmds.reversa_video_maksimum", s=ctx.app.config.media_max_reverse_video)
+    return ctx.t("media_cmds.udalos_obrabotat_media", e=esc(msg[:160]))
 
 
 def _ext(ref: MediaRef) -> str:
@@ -59,17 +59,17 @@ async def run_media(ctx: CommandContext, op: str, *, need: str = "any", av_fn: C
     if img_out_fn is not None and img_fn is None:
         img_fn = img_out_fn
     if ref.is_image and img_fn is None:
-        raise CommandError(ctx.t("Эта команда работает с аудио/видео.", "Bu buyruq audio/video bilan ishlaydi."))
+        raise CommandError(ctx.t("media_cmds.eta_komanda_rabotaet_audio_video"))
     if not ref.is_image and av_fn is None:
-        raise CommandError(ctx.t("Эта команда работает с изображениями.", "Bu buyruq rasmlar bilan ishlaydi."))
+        raise CommandError(ctx.t("media_cmds.eta_komanda_rabotaet_izobrazheniyami"))
     if not ref.is_image and not app.health.ffmpeg_ok:
-        raise CommandError(ctx.t("🎞 FFmpeg не установлен: pkg install ffmpeg", "🎞 FFmpeg o'rnatilmagan: pkg install ffmpeg"))
+        raise CommandError(ctx.t("media_cmds.ffmpeg_ustanovlen_pkg_install_ffmpeg"))
     if ctx.source != "sandbox":
         limit = await app.subs.limit(ctx.user_id, "media_jobs_day")
         ok, _ = await app.quotas.consume(f"media:{ctx.user_id}", limit)
         if not ok:
-            raise CommandError(ctx.t("📉 Дневной лимит медиа-задач ({l}) исчерпан.", "📉 Kunlik media vazifalar limiti ({l}) tugadi.", l=limit))
-    await ctx.status(ctx.t("⏳ Обработка…", "⏳ Ishlanmoqda…"))
+            raise CommandError(ctx.t("media_cmds.dnevnoy_limit_media_zadach_ischerpan", l=limit))
+    await ctx.status(ctx.t("media_cmds.obrabotka"))
     reply_to = ref.message.message_id if ref.message is not None else None
 
     async def runner(job) -> dict[str, Any]:
@@ -112,7 +112,7 @@ async def run_media(ctx: CommandContext, op: str, *, need: str = "any", av_fn: C
         raise CommandError(_err_text(ctx, e)) from None
     pos = app.media.queue.position(job)
     if pos > 1:
-        await ctx.status(ctx.t("⏳ В очереди: {p}. Отмена: {pr}cancel {j}", "⏳ Navbatda: {p}. Bekor: {pr}cancel {j}", p=pos, pr=ctx.prefix, j=job.id))
+        await ctx.status(ctx.t("media_cmds.ocheredi_otmena_cancel", p=pos, pr=ctx.prefix, j=job.id))
     if ctx.source == "sandbox":
         await job.done.wait()
 
@@ -125,7 +125,7 @@ def _num(ctx: CommandContext, default: float, lo: float, hi: float) -> float:
     except ValueError:
         raise UsageError() from None
     if not lo <= v <= hi:
-        raise UsageError(ctx.t("Значение должно быть от {a} до {b}.", "Qiymat {a} dan {b} gacha bo'lishi kerak.", a=lo, b=hi))
+        raise UsageError(ctx.t("media_cmds.znachenie_dolzhno_byt", a=lo, b=hi))
     return v
 
 
@@ -142,20 +142,17 @@ def _pending_kb(ctx: CommandContext, op: str, ref: MediaRef, options: list[tuple
 # ------------------------------------------------------------------------------------------------
 
 @registry.command("reverse", "media", aliases=["реверс", "задомнаперёд", "teskari"],
-                  ru="Развернуть голосовое, аудио, видео или кружок задом наперёд (тип сохраняется)",
-                  uz="Ovozli, audio, video yoki dumaloq videoni teskari aylantirish (turi saqlanadi)",
-                  syntax=".reverse (ответом на медиа)", examples=[".reverse"], **MEDIA)
+                  **MEDIA)
 async def cmd_reverse(ctx: CommandContext) -> None:
     await run_media(ctx, "reverse", need="av", av_fn=lambda s, k, d, **kw: ctx.app.media.av.reverse(s, k, d, **kw), label="reverse")
 
 
 @registry.command("speed", "media", aliases=["скорость", "tezlik"],
-                  ru="Изменить скорость медиа: 0.25x–5x (без числа — кнопки выбора)", uz="Media tezligini o'zgartirish: 0.25x–5x (raqamsiz — tugmalar)",
-                  syntax=".speed [0.25|0.5|0.75|1.25|1.5|2|3|4|5]", examples=[".speed 2", ".speed 0.5", ".speed"], **MEDIA)
+                  **MEDIA)
 async def cmd_speed(ctx: CommandContext) -> None:
     if not ctx.args:
         ref = require_media(ctx, av=True)
-        await ctx.answer(ctx.t("⏩ Выберите скорость:", "⏩ Tezlikni tanlang:"),
+        await ctx.answer(ctx.t("media_cmds.vyberite_skorost"),
                          markup=_pending_kb(ctx, "speed", ref, [(f"{s:g}x", f"{s:g}") for s in SPEEDS if s != 1.0]), private=ctx.is_business)
         return
     factor = _num(ctx, 2.0, 0.25, 5.0)
@@ -163,56 +160,47 @@ async def cmd_speed(ctx: CommandContext) -> None:
 
 
 @registry.command("ld", "media", aliases=["volume", "громкость", "loud", "ovoz"],
-                  ru="Усилить громкость: 0–100 (по умолчанию 25). Шкала: +0.3 дБ за шаг → 25 = +7.5 дБ (×2.4), 100 = +30 дБ",
-                  uz="Ovoz balandligini oshirish: 0–100 (standart 25). Shkala: har qadam +0.3 dB → 25 = +7.5 dB, 100 = +30 dB",
-                  syntax=".ld [0-100]", examples=[".ld", ".ld 60"], **MEDIA)
+                  **MEDIA)
 async def cmd_ld(ctx: CommandContext) -> None:
     level = _num(ctx, 25, 0, 100)
     await run_media(ctx, "volume", need="av", av_fn=lambda s, k, d, **kw: ctx.app.media.av.volume(s, k, d, level, **kw),
                     label=f"+{volume_gain_db(level)} dB")
 
 
-@registry.command("normalize", "media", aliases=["норм", "нормализация"], ru="Нормализация громкости (EBU R128)", uz="Ovozni normallashtirish (EBU R128)",
-                  syntax=".normalize", examples=[".normalize"], **MEDIA)
+@registry.command("normalize", "media", aliases=["норм", "нормализация"], **MEDIA)
 async def cmd_normalize(ctx: CommandContext) -> None:
     await run_media(ctx, "normalize", need="av", av_fn=lambda s, k, d, **kw: ctx.app.media.av.normalize(s, k, d, **kw), label="normalize")
 
 
-@registry.command("denoise", "voice", aliases=["шумодав", "clean"], ru="Очистка аудио от шума (FFT-шумоподавление)", uz="Audioni shovqindan tozalash",
-                  syntax=".denoise", examples=[".denoise"], **MEDIA)
+@registry.command("denoise", "voice", aliases=["шумодав", "clean"], **MEDIA)
 async def cmd_denoise(ctx: CommandContext) -> None:
     await run_media(ctx, "denoise", need="av", av_fn=lambda s, k, d, **kw: ctx.app.media.av.denoise(s, k, d, **kw), label="denoise")
 
 
-@registry.command("mp3", "media", aliases=["мп3", "audio"], ru="Извлечь звук в MP3", uz="Ovozni MP3 ga ajratish", syntax=".mp3", examples=[".mp3"], **MEDIA)
+@registry.command("mp3", "media", aliases=["мп3", "audio"], **MEDIA)
 async def cmd_mp3(ctx: CommandContext) -> None:
     await run_media(ctx, "mp3", need="av", av_fn=lambda s, k, d, **kw: ctx.app.media.av.to_mp3(s, k, d, **kw), label="mp3")
 
 
-@registry.command("voice", "voice", aliases=["голосовое", "войс", "ovozli"], ru="Сделать голосовое из аудио/видео", uz="Audio/videodan ovozli xabar",
-                  syntax=".voice", examples=[".voice"], **MEDIA)
+@registry.command("voice", "voice", aliases=["голосовое", "войс", "ovozli"], **MEDIA)
 async def cmd_voice(ctx: CommandContext) -> None:
     await run_media(ctx, "voice", need="av", av_fn=lambda s, k, d, **kw: ctx.app.media.av.to_voice(s, k, d, **kw), label="voice")
 
 
-@registry.command("extract", "voice", aliases=["извлечь", "голосизвидео"], ru="Извлечь голос из видео в голосовое сообщение",
-                  uz="Videodan ovozni ovozli xabar sifatida ajratish", syntax=".extract (ответом на видео)", examples=[".extract"], **MEDIA)
+@registry.command("extract", "voice", aliases=["извлечь", "голосизвидео"], **MEDIA)
 async def cmd_extract(ctx: CommandContext) -> None:
     ref = require_media(ctx, av=True)
     if not ref.has_video:
-        raise CommandError(ctx.t("🎞 Нужно видео или кружок.", "🎞 Video yoki dumaloq video kerak."))
+        raise CommandError(ctx.t("media_cmds.nuzhno_video_kruzhok"))
     await run_media(ctx, "extract", need="av", ref=ref, av_fn=lambda s, k, d, **kw: ctx.app.media.av.to_voice(s, k, d, **kw), label="extract")
 
 
-@registry.command("circle", "media", aliases=["кружок", "note", "dumaloq"], ru="Сделать видеокружок из видео (до 60 с)", uz="Videodan dumaloq video (60 s gacha)",
-                  syntax=".circle", examples=[".circle"], **MEDIA)
+@registry.command("circle", "media", aliases=["кружок", "note", "dumaloq"], **MEDIA)
 async def cmd_circle(ctx: CommandContext) -> None:
     await run_media(ctx, "circle", need="av", av_fn=lambda s, k, d, **kw: ctx.app.media.av.to_circle(s, k, d, **kw), label="circle")
 
 
-@registry.command("gif", "media", aliases=["гиф"], ru="Фото или видео (до 15 с) → GIF-анимация без звука",
-                  uz="Rasm yoki video (15 s gacha) → ovozsiz GIF animatsiya", syntax=".gif (ответом на фото или видео)",
-                  examples=[".gif"], rate=(8, 60))
+@registry.command("gif", "media", aliases=["гиф"], rate=(8, 60))
 async def cmd_gif(ctx: CommandContext) -> None:
     await run_media(ctx, "gif", need="any", av_fn=lambda s, k, d, **kw: ctx.app.media.av.to_gif(s, k, d, **kw), label="gif",
                     img_out_fn=lambda im, d: (I.zoom_gif(im, d / "animation.gif"), "animation"))
@@ -229,8 +217,7 @@ def _time(s: str) -> float:
     return vals[0] * 60 + vals[1] if len(vals) == 2 else vals[0] * 3600 + vals[1] * 60 + vals[2]
 
 
-@registry.command("trim", "media", aliases=["обрезать", "kesish"], ru="Обрезать аудио/видео по времени", uz="Audio/videoni vaqt bo'yicha kesish",
-                  syntax=".trim начало [конец]", examples=[".trim 0:05 0:20", ".trim 10"], **MEDIA)
+@registry.command("trim", "media", aliases=["обрезать", "kesish"], **MEDIA)
 async def cmd_trim(ctx: CommandContext) -> None:
     if not ctx.args:
         raise UsageError()
@@ -243,20 +230,18 @@ async def cmd_trim(ctx: CommandContext) -> None:
 
 
 @registry.command("merge", "media", aliases=["склеить", "birlashtir"],
-                  ru="Склеить файлы: ответьте .merge на каждый файл, затем .merge done (clear — очистить)",
-                  uz="Fayllarni birlashtirish: har bir faylga .merge, so'ng .merge done (clear — tozalash)",
-                  syntax=".merge | .merge done | .merge clear", examples=[".merge", ".merge done"], **MEDIA)
+                  **MEDIA)
 async def cmd_merge(ctx: CommandContext) -> None:
     key = (ctx.user_id, ctx.chat_id)
     sub = ctx.parsed.first
     buf = _MERGE.setdefault(key, [])
     if sub in ("clear", "очистить"):
         _MERGE.pop(key, None)
-        await ctx.answer(ctx.t("🧹 Список склейки очищен.", "🧹 Birlashtirish ro'yxati tozalandi."), private=ctx.is_business)
+        await ctx.answer(ctx.t("media_cmds.spisok_skleyki_ochischen"), private=ctx.is_business)
         return
     if sub in ("done", "готово", "tayyor"):
         if len(buf) < 2:
-            raise CommandError(ctx.t("Добавьте минимум 2 файла.", "Kamida 2 ta fayl qo'shing."))
+            raise CommandError(ctx.t("media_cmds.dobavte_minimum_2_fayla"))
         refs = list(buf)
         _MERGE.pop(key, None)
         app = ctx.app
@@ -270,14 +255,13 @@ async def cmd_merge(ctx: CommandContext) -> None:
         return
     ref = require_media(ctx, av=True)
     if len(buf) >= 10:
-        raise CommandError(ctx.t("Максимум 10 файлов.", "Maksimum 10 ta fayl."))
+        raise CommandError(ctx.t("media_cmds.maksimum_10_faylov"))
     buf.append(ref)
-    await ctx.answer(ctx.t("➕ Добавлено ({n}). Когда всё — {p}merge done", "➕ Qo'shildi ({n}). Tayyor bo'lganda — {p}merge done", n=len(buf), p=ctx.prefix),
+    await ctx.answer(ctx.t("media_cmds.dobavleno_kogda_vsyo_merge_done", n=len(buf), p=ctx.prefix),
                      private=ctx.is_business)
 
 
-@registry.command("compress", "media", aliases=["сжать", "siqish"], ru="Сжать фото/видео/аудио (уровень 1–3)", uz="Rasm/video/audioni siqish (1–3 daraja)",
-                  syntax=".compress [1-3]", examples=[".compress", ".compress 3"], **MEDIA)
+@registry.command("compress", "media", aliases=["сжать", "siqish"], **MEDIA)
 async def cmd_compress(ctx: CommandContext) -> None:
     level = int(_num(ctx, 2, 1, 3))
     q = {1: 85, 2: 65, 3: 45}[level]
@@ -288,8 +272,7 @@ async def cmd_compress(ctx: CommandContext) -> None:
                     img_format="jpg", label=f"q{q}")
 
 
-@registry.command("convert", "media", aliases=["конверт", "конвертировать"], ru="Конвертировать формат: png/jpg/webp/bmp/gif/ico/pdf, mp3/ogg/wav/m4a/flac, mp4/webm/gif",
-                  uz="Formatni o'zgartirish: png/jpg/webp/…, mp3/ogg/wav/…, mp4/webm/gif", syntax=".convert формат", examples=[".convert png", ".convert mp3"], **MEDIA)
+@registry.command("convert", "media", aliases=["конверт", "конвертировать"], **MEDIA)
 async def cmd_convert(ctx: CommandContext) -> None:
     if not ctx.args:
         raise UsageError()
@@ -297,7 +280,7 @@ async def cmd_convert(ctx: CommandContext) -> None:
     ref = require_media(ctx)
     if ref.is_image:
         if fmt not in ("png", "jpg", "jpeg", "webp", "bmp", "gif", "ico", "pdf"):
-            raise UsageError(ctx.t("Неподдерживаемый формат для изображения.", "Rasm uchun qo'llab-quvvatlanmaydigan format."))
+            raise UsageError(ctx.t("media_cmds.nepodderzhivaemyy_format_izobrazheniya"))
         await run_media(ctx, "convert", ref=ref, img_fn=lambda im: im, img_format="jpg" if fmt == "jpeg" else fmt, label=fmt)
         return
     await run_media(ctx, "convert", ref=ref, av_fn=lambda s, k, d, **kw: ctx.app.media.av.convert(s, k, d, fmt, **kw), label=fmt)
@@ -307,14 +290,12 @@ async def cmd_convert(ctx: CommandContext) -> None:
 # images
 # ------------------------------------------------------------------------------------------------
 
-@registry.command("ramka", "media", aliases=["рамка", "frame", "ramka_"], ru="Дизайнерская рамка: gold, luxury, diamond, neon, cyber, glass, minimal",
-                  uz="Dizayner ramka: gold, luxury, diamond, neon, cyber, glass, minimal", syntax=".ramka [стиль]",
-                  examples=[".ramka gold", ".ramka neon", ".ramka"], **IMG)
+@registry.command("ramka", "media", aliases=["рамка", "frame", "ramka_"], **IMG)
 async def cmd_ramka(ctx: CommandContext) -> None:
     style = ctx.parsed.first
     ref = require_media(ctx, image=True)
     if style not in I.FRAME_STYLES:
-        await ctx.answer(ctx.t("🖼 Выберите рамку:", "🖼 Ramkani tanlang:"),
+        await ctx.answer(ctx.t("media_cmds.vyberite_ramku"),
                          markup=_pending_kb(ctx, "ramka", ref, [(s.title(), s) for s in I.FRAME_STYLES], cols=4), private=ctx.is_business)
         return
     await run_media(ctx, "ramka", ref=ref, need="image", img_fn=lambda im: I.frame(im, style), label=style)
@@ -344,9 +325,7 @@ def parse_meme(raw: str) -> tuple[str | None, str | None]:
     return None, raw or None
 
 
-@registry.command("meme", "media", aliases=["мем"], ru="Мем с текстом сверху/снизу", uz="Yuqori/pastki matnli mem",
-                  syntax=".meme текст | .meme up текст | .meme down текст | .meme up верх | down низ",
-                  examples=[".meme Когда код заработал", ".meme up ВЕРХ | down НИЗ", ".meme up Понедельник"], **IMG)
+@registry.command("meme", "media", aliases=["мем"], **IMG)
 async def cmd_meme(ctx: CommandContext) -> None:
     top, bottom = parse_meme(ctx.raw)
     if not top and not bottom:
@@ -355,22 +334,19 @@ async def cmd_meme(ctx: CommandContext) -> None:
     await run_media(ctx, "meme", need="image", img_fn=lambda im: I.meme(im, top, bottom, fp), label="meme")
 
 
-@registry.command("blur", "media", aliases=["размыть", "xira"], ru="Размытие (радиус 1–60, по умолчанию 8)", uz="Xiralashtirish (radius 1–60)",
-                  syntax=".blur [радиус]", examples=[".blur", ".blur 20"], **IMG)
+@registry.command("blur", "media", aliases=["размыть", "xira"], **IMG)
 async def cmd_blur(ctx: CommandContext) -> None:
     r = _num(ctx, 8, 1, 60)
     await run_media(ctx, "blur", need="image", img_fn=lambda im: I.blur(im, r))
 
 
-@registry.command("pixel", "media", aliases=["пиксель", "pixelate"], ru="Пикселизация (блок 2–100)", uz="Pikselizatsiya (blok 2–100)",
-                  syntax=".pixel [размер]", examples=[".pixel", ".pixel 24"], **IMG)
+@registry.command("pixel", "media", aliases=["пиксель", "pixelate"], **IMG)
 async def cmd_pixel(ctx: CommandContext) -> None:
     n = int(_num(ctx, 12, 2, 100))
     await run_media(ctx, "pixel", need="image", img_fn=lambda im: I.pixelate(im, n))
 
 
-@registry.command("resize", "media", aliases=["размер", "o'lcham"], ru="Изменить размер: 800, 800x600, x600, 50%", uz="O'lchamni o'zgartirish: 800, 800x600, 50%",
-                  syntax=".resize размер", examples=[".resize 1080", ".resize 50%", ".resize 512x512"], **IMG)
+@registry.command("resize", "media", aliases=["размер", "o'lcham"], **IMG)
 async def cmd_resize(ctx: CommandContext) -> None:
     if not ctx.args:
         raise UsageError()
@@ -380,8 +356,7 @@ async def cmd_resize(ctx: CommandContext) -> None:
     await run_media(ctx, "resize", need="image", img_fn=lambda im: I.resize(im, spec), img_format=None)
 
 
-@registry.command("crop", "media", aliases=["кроп", "qirqish"], ru="Обрезать: пропорция 1:1, 16:9 или x,y,w,h", uz="Qirqish: nisbat 1:1, 16:9 yoki x,y,w,h",
-                  syntax=".crop 1:1 | .crop x,y,w,h", examples=[".crop 1:1", ".crop 9:16"], **IMG)
+@registry.command("crop", "media", aliases=["кроп", "qirqish"], **IMG)
 async def cmd_crop(ctx: CommandContext) -> None:
     if not ctx.args:
         raise UsageError()
@@ -389,34 +364,30 @@ async def cmd_crop(ctx: CommandContext) -> None:
     await run_media(ctx, "crop", need="image", img_fn=lambda im: I.crop(im, spec))
 
 
-@registry.command("rotate", "media", aliases=["повернуть", "aylantir"], ru="Повернуть по часовой (по умолчанию 90°)", uz="Soat yo'nalishida burish (90°)",
-                  syntax=".rotate [градусы]", examples=[".rotate", ".rotate 180"], **IMG)
+@registry.command("rotate", "media", aliases=["повернуть", "aylantir"], **IMG)
 async def cmd_rotate(ctx: CommandContext) -> None:
     deg = _num(ctx, 90, -360, 360)
     await run_media(ctx, "rotate", need="image", img_fn=lambda im: I.rotate(im, deg))
 
 
-@registry.command("mirror", "media", aliases=["зеркало", "ko'zgu"], ru="Отражение: h — горизонтально, v — вертикально", uz="Aks: h — gorizontal, v — vertikal",
-                  syntax=".mirror [h|v]", examples=[".mirror", ".mirror v"], **IMG)
+@registry.command("mirror", "media", aliases=["зеркало", "ko'zgu"], **IMG)
 async def cmd_mirror(ctx: CommandContext) -> None:
     axis = ctx.parsed.first or "h"
     await run_media(ctx, "mirror", need="image", img_fn=lambda im: I.mirror(im, axis))
 
 
-@registry.command("bw", "media", aliases=["чб", "oq_qora"], ru="Чёрно-белое фото", uz="Oq-qora rasm", syntax=".bw", examples=[".bw"], **IMG)
+@registry.command("bw", "media", aliases=["чб", "oq_qora"], **IMG)
 async def cmd_bw(ctx: CommandContext) -> None:
     await run_media(ctx, "bw", need="image", img_fn=I.bw)
 
 
-@registry.command("sepia", "media", aliases=["сепия"], ru="Эффект сепии", uz="Sepiya effekti", syntax=".sepia", examples=[".sepia"], **IMG)
+@registry.command("sepia", "media", aliases=["сепия"], **IMG)
 async def cmd_sepia(ctx: CommandContext) -> None:
     await run_media(ctx, "sepia", need="image", img_fn=I.sepia)
 
 
 @registry.command("watermark", "media", aliases=["вотермарк", "водянойзнак", "wm", "wtm"],
-                  ru="Водяной знак на фото, видео или кружок (позиция: br, bl, tr, tl, c)",
-                  uz="Rasm, video yoki dumaloq videoga suv belgisi (joylashuv: br, bl, tr, tl, c)",
-                  syntax=".wtm [позиция] текст", examples=[".wtm © Мой бренд", ".wtm c DRAFT"], **IMG)
+                  **IMG)
 async def cmd_watermark(ctx: CommandContext) -> None:
     if not ctx.raw:
         raise UsageError()
@@ -435,42 +406,36 @@ async def cmd_watermark(ctx: CommandContext) -> None:
     await run_media(ctx, "watermark", need="any", img_fn=lambda im: I.watermark(im, text[:80], pos, 170, fp), av_fn=video_wm)
 
 
-@registry.command("noise", "media", aliases=["шум", "shovqin"], ru="Эффект шума/зерна для фото (1–100)", uz="Rasm uchun shovqin effekti (1–100)",
-                  syntax=".noise [сила]", examples=[".noise", ".noise 50"], **IMG)
+@registry.command("noise", "media", aliases=["шум", "shovqin"], **IMG)
 async def cmd_noise(ctx: CommandContext) -> None:
     amt = int(_num(ctx, 25, 1, 100))
     await run_media(ctx, "noise", need="image", img_fn=lambda im: I.noise(im, amt))
 
 
-@registry.command("sharpen", "media", aliases=["резкость", "aniqlik"], ru="Повысить резкость (0.1–5)", uz="Aniqlikni oshirish (0.1–5)",
-                  syntax=".sharpen [сила]", examples=[".sharpen", ".sharpen 3"], **IMG)
+@registry.command("sharpen", "media", aliases=["резкость", "aniqlik"], **IMG)
 async def cmd_sharpen(ctx: CommandContext) -> None:
     a = _num(ctx, 1.5, 0.1, 5)
     await run_media(ctx, "sharpen", need="image", img_fn=lambda im: I.sharpen(im, a))
 
 
-@registry.command("brightness", "media", aliases=["яркость", "yorqinlik"], ru="Яркость: коэффициент 0–5 (1 = без изменений)", uz="Yorqinlik: koeffitsient 0–5",
-                  syntax=".brightness [коэф.]", examples=[".brightness 1.3", ".brightness 0.7"], **IMG)
+@registry.command("brightness", "media", aliases=["яркость", "yorqinlik"], **IMG)
 async def cmd_brightness(ctx: CommandContext) -> None:
     f = _num(ctx, 1.3, 0, 5)
     await run_media(ctx, "brightness", need="image", img_fn=lambda im: I.brightness(im, f))
 
 
-@registry.command("contrast", "media", aliases=["контраст", "kontrast"], ru="Контраст: коэффициент 0–5 (1 = без изменений)", uz="Kontrast: koeffitsient 0–5",
-                  syntax=".contrast [коэф.]", examples=[".contrast 1.4"], **IMG)
+@registry.command("contrast", "media", aliases=["контраст", "kontrast"], **IMG)
 async def cmd_contrast(ctx: CommandContext) -> None:
     f = _num(ctx, 1.4, 0, 5)
     await run_media(ctx, "contrast", need="image", img_fn=lambda im: I.contrast(im, f))
 
 
-@registry.command("sticker", "media", aliases=["стикер", "stiker"], ru="Сделать стикер из картинки (512 px WEBP)", uz="Rasmdan stiker (512 px WEBP)",
-                  syntax=".sticker", examples=[".sticker"], **IMG)
+@registry.command("sticker", "media", aliases=["стикер", "stiker"], **IMG)
 async def cmd_sticker(ctx: CommandContext) -> None:
     await run_media(ctx, "sticker", need="image", img_fn=I.sticker)
 
 
-@registry.command("finfo", "media", aliases=["fileinfo", "медиаинфо", "meta"], ru="Метаданные файла (формат, размер, длительность, кодеки)",
-                  uz="Fayl metama'lumotlari", syntax=".finfo (ответом на медиа)", examples=[".finfo"], rate=(15, 60))
+@registry.command("finfo", "media", aliases=["fileinfo", "медиаинфо", "meta"], rate=(15, 60))
 async def cmd_finfo(ctx: CommandContext) -> None:
     ref = require_media(ctx)
     app = ctx.app
@@ -498,28 +463,24 @@ async def cmd_finfo(ctx: CommandContext) -> None:
         app.media.files.discard(d)
 
 
-@registry.command("caption", "media", aliases=["подпись", "izoh"], ru="Изменить подпись вашего медиа-сообщения (ответом на него)",
-                  uz="Media xabaringiz izohini o'zgartirish (unga javob sifatida)", syntax=".caption текст | .caption -",
-                  examples=[".caption Новый текст", ".caption -"], needs_reply=True, rights=["can_reply"], rate=(15, 60))
+@registry.command("caption", "media", aliases=["подпись", "izoh"], needs_reply=True, rights=["can_reply"], rate=(15, 60))
 async def cmd_caption(ctx: CommandContext) -> None:
     r = ctx.reply
     if r is None or find_media(ctx) is None:
-        raise CommandError(ctx.t("Ответьте на своё сообщение с медиа.", "Media bilan o'z xabaringizga javob bering."))
+        raise CommandError(ctx.t("media_cmds.otvette_svoyo_soobschenie_media"))
     if ctx.is_business and (r.from_user is None or r.from_user.id != ctx.user_id) and r.sender_business_bot is None:
-        raise CommandError(ctx.t("Можно менять подпись только своих сообщений.", "Faqat o'z xabarlaringiz izohini o'zgartirish mumkin."))
+        raise CommandError(ctx.t("media_cmds.mozhno_menyat_podpis_tolko_svoih"))
     text = "" if ctx.raw.strip() == "-" else ctx.raw
     if ctx.is_business:
         res = await ctx.app.sender.edit_caption(ctx.chat_id, r.message_id, text, bc_id=ctx.bc_id)
     else:
         res = await ctx.app.sender.edit_caption(ctx.chat_id, r.message_id, text)
     if not res.ok:
-        raise CommandError(ctx.t("Не удалось изменить подпись ({k}). Telegram разрешает правку чужих бизнес-сообщений только 48 ч.",
-                                 "Izohni o'zgartirib bo'lmadi ({k}).", k=res.kind))
+        raise CommandError(ctx.t("media_cmds.udalos_izmenit_podpis_telegram_razreshaet", k=res.kind))
     await ctx.cleanup_command(fallback_text="✅")
 
 
-@registry.command("cancel", "media", aliases=["отмена", "bekor"], ru="Отменить медиа-задачу (последнюю или по ID)", uz="Media vazifani bekor qilish",
-                  syntax=".cancel [ID]", examples=[".cancel", ".cancel 42"], rate=(20, 60))
+@registry.command("cancel", "media", aliases=["отмена", "bekor"], rate=(20, 60))
 async def cmd_cancel(ctx: CommandContext) -> None:
     q = ctx.app.media.queue
     if ctx.args and ctx.args[0].isdigit():
@@ -529,7 +490,7 @@ async def cmd_cancel(ctx: CommandContext) -> None:
     ok = False
     for jid in ids:
         ok = await q.cancel(jid, ctx.user_id) or ok
-    await ctx.answer(ctx.t("🛑 Задача отменена.", "🛑 Vazifa bekor qilindi.") if ok else ctx.t("Активных задач нет.", "Faol vazifalar yo'q."),
+    await ctx.answer(ctx.t("media_cmds.zadacha_otmenena") if ok else ctx.t("media_cmds.aktivnyh_zadach_net"),
                      private=ctx.is_business)
 
 

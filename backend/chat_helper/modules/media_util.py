@@ -86,15 +86,14 @@ def require_media(ctx: CommandContext, *, image: bool | None = None, av: bool | 
     if ref is None:
         raise CommandError(p(ctx.lang, "need_media"))
     if image and not ref.is_image:
-        raise CommandError(tr(ctx.lang, "🖼 Нужна фотография или картинка.", "🖼 Rasm kerak."))
+        raise CommandError(tr(ctx.lang, "media_util.nuzhna_fotografiya_kartinka"))
     if av and not ref.is_av:
-        raise CommandError(tr(ctx.lang, "🎞 Нужно голосовое, аудио, видео или кружок.", "🎞 Ovozli xabar, audio, video yoki dumaloq video kerak."))
+        raise CommandError(tr(ctx.lang, "media_util.nuzhno_golosovoe_audio_video_kruzhok"))
     max_bytes = ctx.app.config.media_max_input_mb * 1048576
     if ref.file_size and ref.file_size > max_bytes:
-        raise CommandError(tr(ctx.lang, "📦 Файл слишком большой (лимит {m} МБ — ограничение Bot API на скачивание 20 МБ).",
-                              "📦 Fayl juda katta (limit {m} MB — Bot API yuklab olish cheklovi 20 MB).", m=ctx.app.config.media_max_input_mb))
+        raise CommandError(tr(ctx.lang, "media_util.fayl_slishkom_bolshoy_limit_mb", m=ctx.app.config.media_max_input_mb))
     if ref.duration and ref.duration > ctx.app.config.media_max_duration:
-        raise CommandError(tr(ctx.lang, "⏱ Слишком длинное медиа (лимит {s} с).", "⏱ Media juda uzun (limit {s} s).",
+        raise CommandError(tr(ctx.lang, "media_util.slishkom_dlinnoe_media_limit",
                               s=ctx.app.config.media_max_duration))
     return ref
 

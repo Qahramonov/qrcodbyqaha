@@ -4,7 +4,6 @@ from __future__ import annotations
 import asyncio
 import time
 
-import pytest
 from conftest import CONTACT, OWNER
 from fakes import biz_message, business_connection, update_business_message, update_connection
 

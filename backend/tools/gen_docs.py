@@ -12,6 +12,7 @@ sys.path.insert(0, str(ROOT / "backend"))
 from chat_helper.app import build_app  # noqa: E402
 from chat_helper.commands.registry import CATEGORIES  # noqa: E402
 from chat_helper.config import load_settings  # noqa: E402
+from chat_helper.localization import tr  # noqa: E402
 
 STATUS_RU = {"IMPLEMENTED": "✅ реализовано", "REQUIRES_API_KEY": "🔑 нужен AI-ключ", "LIMITED_BY_TELEGRAM": "⚠️ ограничено Telegram",
              "NOT_SUPPORTED": "⛔ не поддерживается Bot API", "REQUIRES_PERMISSION": "🔐 нужно право"}
@@ -23,18 +24,29 @@ def commands_md(registry) -> str:
            f"Всего команд: **{len(registry)}**. Префикс по умолчанию `.` (меняется в настройках: `.` `!` `-` `,`).", "",
            "Команды выполняет **только владелец** бизнес-аккаунта: в любом подключённом чате или в личном чате с ботом. "
            "Пробел после префикса допустим (`. afk`), регистр не важен, у команд есть русские/узбекские алиасы.", ""]
+    head = ["| Команда | Описание (RU) | Tavsif (UZ) | Синтаксис | Пример | Статус | Тариф / права |", "|---|---|---|---|---|---|---|"]
+
+    def row(s) -> str:
+        aliases = ", ".join("." + a for a in s.aliases[:4])
+        rights = ", ".join(s.rights) or "—"
+        deps = (" · deps: " + ", ".join(s.deps)) if s.deps else ""
+        return (f"| `.{s.id}`<br><sub>{aliases}</sub> | {s.ru} | {s.uz} | `{s.syntax_for('ru')}` | `{(s.examples_for('ru') or [''])[0]}` | "
+                f"{STATUS_RU.get(s.status, s.status)} | {s.min_plan}; {rights}{deps} |")
+
     for cat, specs in registry.by_category().items():
+        specs = [s for s in specs if not s.admin_only]
         if not specs:
             continue
-        emoji, ru, uz = CATEGORIES.get(cat, ("•", cat, cat))
-        out += [f"## {emoji} {ru} / {uz}", "", "| Команда | Описание (RU) | Tavsif (UZ) | Синтаксис | Пример | Статус | Тариф / права |",
-                "|---|---|---|---|---|---|---|"]
-        for s in sorted(specs, key=lambda x: x.id):
-            aliases = ", ".join("." + a for a in s.aliases[:4])
-            rights = ", ".join(s.rights) or "—"
-            deps = (" · deps: " + ", ".join(s.deps)) if s.deps else ""
-            out.append(f"| `.{s.id}`<br><sub>{aliases}</sub> | {s.ru} | {s.uz} | `{s.syntax}` | `{s.examples[0] if s.examples else ''}` | "
-                       f"{STATUS_RU.get(s.status, s.status)} | {s.min_plan}; {rights}{deps} |")
+        emoji, key = CATEGORIES.get(cat, ("•", cat))
+        out += [f"## {emoji} {tr('ru', key)} / {tr('uz', key)}", "", *head]
+        out += [row(s) for s in sorted(specs, key=lambda x: x.id)]
+        out.append("")
+    admin_specs = sorted((s for s in registry.commands.values() if s.admin_only), key=lambda x: x.id)
+    if admin_specs:
+        out += ["## 👑 Только Super Admin / faqat Super Admin", "",
+                "> Эти команды существуют только для владельца бота (`SUPER_ADMIN_ID`). Для всех остальных они невидимы: "
+                "их нет в `.help`, меню и подсказках, а вызов отвечает так же, как неизвестная команда.", "", *head]
+        out += [row(s) for s in admin_specs]
         out.append("")
     out += ["## Примечания", "",
             "- `.online` — не поддерживается: Bot API не меняет статус «в сети». Подделок не делаем.",
@@ -46,11 +58,6 @@ def commands_md(registry) -> str:
 
 
 def api_md(api) -> str:
-    rows = []
-    for r in api.routes:
-        path = getattr(r, "path", None)
-        if path is None:
-            continue
     from fastapi.openapi.utils import get_openapi
     spec = get_openapi(title=api.title, version=api.version, routes=api.routes)
     out = ["# Chat helper Control API (v1)", "",
@@ -76,11 +83,13 @@ async def main() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         cfg = load_settings(None, data_dir=Path(tmp))
         app, _ = await build_app(cfg, with_bot=False)
-        from chat_helper.api.server import create_api
-        (ROOT / "docs").mkdir(exist_ok=True)
-        (ROOT / "docs" / "COMMANDS.md").write_text(commands_md(app.registry), encoding="utf-8")
-        (ROOT / "docs" / "API.md").write_text(api_md(create_api(app)), encoding="utf-8")
-        await app.db.close()
+        try:
+            from chat_helper.api.server import create_api
+            (ROOT / "docs").mkdir(exist_ok=True)
+            (ROOT / "docs" / "COMMANDS.md").write_text(commands_md(app.registry), encoding="utf-8")
+            (ROOT / "docs" / "API.md").write_text(api_md(create_api(app)), encoding="utf-8")
+        finally:
+            await app.db.close()
     print("docs generated")
 
 

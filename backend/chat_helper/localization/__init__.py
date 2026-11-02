@@ -1,50 +1,62 @@
-"""Localization (Russian + Uzbek).
+"""Localization Manager: JSON catalogs with translation keys (``locales/<lang>.json``).
 
-Texts live next to the code that uses them via ``tr(lang, ru, uz)`` so both languages are always
-provided together. Shared phrases are defined in ``PHRASES``.
+* Code never contains user-facing text, only keys: ``tr(lang, "afk.afk_vklyuchen", d=...)``.
+* Every language is a flat ``{key: text}`` JSON file; placeholders use ``{name}`` (str.format).
+* Russian (``ru``) is the reference catalog; tests guarantee every key exists in every shipped language with the
+  same placeholders, that Uzbek texts contain no Cyrillic, and that every key used in the code exists.
+* Adding a language = copying ``ru.json`` to ``<lang>.json``, translating it and adding the code to ``LANGS``.
 """
 from __future__ import annotations
 
+import json
+import string
+from pathlib import Path
 from typing import Any
 
+LOCALES_DIR = Path(__file__).with_name("locales")
 LANGS = ("ru", "uz")
+DEFAULT_LANG = "ru"
+_catalogs: dict[str, dict[str, str]] = {}
 
 
-def tr(lang: str | None, ru: str, uz: str, **kw: Any) -> str:
-    s = uz if lang == "uz" else ru
-    return s.format(**kw) if kw else s
+def load(force: bool = False) -> dict[str, dict[str, str]]:
+    if _catalogs and not force:
+        return _catalogs
+    _catalogs.clear()
+    for path in sorted(LOCALES_DIR.glob("*.json")):
+        _catalogs[path.stem] = json.loads(path.read_text(encoding="utf-8"))
+    return _catalogs
 
 
-PHRASES: dict[str, tuple[str, str]] = {
-    "back": ("⬅️ Назад", "⬅️ Orqaga"),
-    "home": ("🏠 Главная", "🏠 Bosh sahifa"),
-    "on": ("включено", "yoqilgan"),
-    "off": ("выключено", "o'chirilgan"),
-    "yes": ("Да", "Ha"),
-    "no": ("Нет", "Yo'q"),
-    "confirm": ("✅ Подтвердить", "✅ Tasdiqlash"),
-    "cancel": ("✖️ Отмена", "✖️ Bekor qilish"),
-    "saved": ("✅ Сохранено", "✅ Saqlandi"),
-    "error": ("⚠️ Ошибка", "⚠️ Xatolik"),
-    "not_allowed": ("⛔ Недостаточно прав.", "⛔ Huquq yetarli emas."),
-    "unknown_cmd": ("❓ Неизвестная команда: {cmd}\nСписок: {prefix}help", "❓ Noma'lum buyruq: {cmd}\nRo'yxat: {prefix}help"),
-    "usage": ("ℹ️ Использование: {syntax}", "ℹ️ Foydalanish: {syntax}"),
-    "need_reply": ("↩️ Ответьте этой командой на сообщение.", "↩️ Ushbu buyruq bilan xabarga javob bering."),
-    "need_media": ("🎞 Ответьте командой на медиа (голосовое, аудио, видео, кружок или фото).",
-                   "🎞 Buyruq bilan mediaga javob bering (ovozli, audio, video, dumaloq video yoki rasm)."),
-    "rate_limited": ("⏳ Слишком часто. Попробуйте через {sec} с.", "⏳ Juda tez. {sec} soniyadan so'ng urinib ko'ring."),
-    "plan_required": ("💎 Команда доступна на тарифе {plan} и выше.", "💎 Buyruq {plan} va undan yuqori tarifda mavjud."),
-    "module_off": ("⏸ Модуль «{module}» сейчас выключен.", "⏸ «{module}» moduli hozir o'chirilgan."),
-    "emergency": ("🛑 Включён аварийный режим. Автоматизация остановлена.", "🛑 Favqulodda rejim yoqilgan. Avtomatlashtirish to'xtatildi."),
-    "requires_ai": ("🧠 AI-провайдер не настроен. Администратор должен добавить API-ключ в .env.",
-                    "🧠 AI provayderi sozlanmagan. Administrator .env faylga API kalitini qo'shishi kerak."),
-    "done": ("✅ Готово", "✅ Tayyor"),
-}
+def catalog(lang: str) -> dict[str, str]:
+    return load().get(lang, {})
+
+
+def has(key: str, lang: str = DEFAULT_LANG) -> bool:
+    return key in catalog(lang)
+
+
+def tr(lang: str | None, key: str, **kw: Any) -> str:
+    """Translate ``key`` into ``lang`` (falls back to the reference catalog, then to the key itself)."""
+    cats = load()
+    text = cats.get(lang or DEFAULT_LANG, {}).get(key)
+    if text is None:
+        text = cats.get(DEFAULT_LANG, {}).get(key, key)
+    if kw:
+        try:
+            return text.format(**kw)
+        except (KeyError, IndexError, ValueError):
+            return text
+    return text
+
+
+def placeholders(text: str) -> set[str]:
+    return {name for _, name, _, _ in string.Formatter().parse(text) if name}
 
 
 def p(lang: str | None, key: str, **kw: Any) -> str:
-    ru, uz = PHRASES.get(key, (key, key))
-    return tr(lang, ru, uz, **kw)
+    """Shared phrases (``common.*`` keys)."""
+    return tr(lang, "common." + key, **kw)
 
 
 def on_off(lang: str | None, v: bool | None) -> str:

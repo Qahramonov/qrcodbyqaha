@@ -15,12 +15,12 @@ if TYPE_CHECKING:  # pragma: no cover
     from ..core.context import AppContext
 
 SCOPES: dict[str, tuple[str, str]] = {
-    "ai": ("🧠 Настройки AI и AI-двойника", "🧠 AI va AI-egizak sozlamalari"),
-    "afk": ("💤 AFK и автоответчик", "💤 AFK va avtojavob"),
-    "commands": ("⌨️ Включение/выключение команд", "⌨️ Buyruqlarni yoqish/o'chirish"),
-    "automation": ("⚙️ Правила автоматизации", "⚙️ Avtomatlashtirish qoidalari"),
-    "diagnostics": ("🩺 Просмотр технической диагностики", "🩺 Texnik diagnostikani ko'rish"),
-    "profile": ("👤 Профиль (каждое изменение подтверждаете вы)", "👤 Profil (har bir o'zgarishni siz tasdiqlaysiz)"),
+    "ai": ("delegation.scopes.nastroyki_ai_ai_dvoynika"),
+    "afk": ("delegation.scopes.afk_avtootvetchik"),
+    "commands": ("delegation.scopes.vklyuchenie_vyklyuchenie_komand"),
+    "automation": ("delegation.scopes.pravila_avtomatizatsii"),
+    "diagnostics": ("delegation.scopes.prosmotr_tehnicheskoy_diagnostiki"),
+    "profile": ("delegation.scopes.profil_kazhdoe_izmenenie_podtverzhdaete_vy"),
 }
 # settings keys an administrator may change for each granted scope
 SCOPE_KEYS: dict[str, tuple[str, ...]] = {
@@ -110,9 +110,8 @@ class DelegationService:
         s = await self.app.settings.all(owner_id)
         lang = s["lang"]
         await self.app.sender.send_text(owner_id, tr(
-            lang, "🤝 Администратор предлагает изменить ваш профиль ({f}):\n<code>{v}</code>\nПрименить?",
-            "🤝 Administrator profilingizni o'zgartirishni taklif qilmoqda ({f}):\n<code>{v}</code>\nQo'llansinmi?", f=field, v=esc(value[:140])),
-            markup=kb([[(tr(lang, "✅ Применить", "✅ Qo'llash"), f"dlg:ok:{rid}"), (tr(lang, "✖️ Отклонить", "✖️ Rad etish"), f"dlg:no:{rid}")]]))
+            lang, "delegation.administrator_predlagaet_izmenit_vash_profil", f=field, v=esc(value[:140])),
+            markup=kb([[(tr(lang, "delegation.primenit"), f"dlg:ok:{rid}"), (tr(lang, "delegation.otklonit"), f"dlg:no:{rid}")]]))
         return rid
 
     async def decide_profile_change(self, owner_id: int, request_id: int, approve: bool) -> str:

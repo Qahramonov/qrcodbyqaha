@@ -47,7 +47,10 @@ class Pipeline:
     async def owner_name(self, conn: Conn) -> str:
         if conn.user_id not in self._owner_names:
             u = await self.app.users.get(conn.user_id)
-            self._owner_names[conn.user_id] = (u or {}).get("first_name") or "Владелец"
+            if not (u or {}).get("first_name"):
+                from ..localization import p as phrase
+                return phrase((await self.app.settings.all(conn.user_id))["lang"], "owner")
+            self._owner_names[conn.user_id] = u["first_name"]
         return self._owner_names[conn.user_id]
 
     def forget_owner_name(self, user_id: int) -> None:
@@ -223,10 +226,9 @@ class Pipeline:
         low = text.lower()
         if mode != "afk" and any(k.lower() in low for k in settings.get("handoff_keywords") or [] if k):
             await app.chats.set_owner_pause(user_id, chat_id, 60)
-            await self.send_auto(conn, chat_id, tr(lang, "🙋 Передаю ваш вопрос владельцу — {o} ответит лично.",
-                                                   "🙋 Savolingizni egasiga yetkazaman — {o} shaxsan javob beradi.", o=esc(owner)),
+            await self.send_auto(conn, chat_id, tr(lang, "pipeline.peredayu_vash_vopros_vladeltsu_otvetit", o=esc(owner)),
                                  message.message_id, "handoff")
-            await app.notifications.notify(user_id, "handoff", tr(settings["lang"], "Собеседник просит ответить лично", "Suhbatdosh shaxsan javob so'ramoqda"),
+            await app.notifications.notify(user_id, "handoff", tr(settings["lang"], "pipeline.sobesednik_prosit_otvetit_lichno"),
                                            f"{counterpart}: {clip(text, 200)}", level="warning", push=True)
             return "handoff"
 
@@ -268,8 +270,7 @@ class Pipeline:
                 self._offhours_sent[key] = time.time()
                 custom = settings.get("offhours_text")
                 txt = esc(custom) if custom else tr(
-                    lang, "🕘 Сейчас нерабочее время ({a}–{b}). {o} ответит в рабочие часы.",
-                    "🕘 Hozir ish vaqti emas ({a}–{b}). {o} ish vaqtida javob beradi.",
+                    lang, "pipeline.seychas_nerabochee_vremya_otvetit_rabochie",
                     a=settings["work_start"], b=settings["work_end"], o=esc(owner))
                 sent = await self.send_auto(conn, chat_id, fill(txt, name=esc(counterpart), owner=esc(owner), tz_name=tz_name),
                                             message.message_id, "offhours")

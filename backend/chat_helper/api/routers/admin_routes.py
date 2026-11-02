@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 
 from ...core.context import MODULES
 from ...core.logging import ring_handler
-from ...subscriptions.service import LIMIT_KEYS
+from ...subscriptions.service import LIMIT_KEYS, plan_description
 from ..deps import APIError, Page, Principal, admin, get_app, principal, super_admin
 
 router = APIRouter()
@@ -79,7 +79,7 @@ class GrantIn(BaseModel):
 async def grant(uid: int, body: GrantIn, p: Principal = Depends(super_admin), app: Any = Depends(get_app)) -> dict[str, Any]:
     sub = await app.subs.grant(uid, body.plan_id, body.days, source="admin", granted_by=p.user_id, note=body.note)
     await app.audit.log("subscription.grant", actor_id=p.user_id, actor_type="app", target_type="user", target_id=uid, plan=body.plan_id, days=body.days)
-    await app.notifications.notify(uid, "subscription", "💎 Подписка / Obuna", f"{body.plan_id.upper()} +{body.days}d", push=True)
+    await app.notifications.notify_t(uid, "subscription", "notify.subscription", body=f"{body.plan_id.upper()} +{body.days}d", push=True)
     return sub
 
 
@@ -113,7 +113,11 @@ async def user_audit(uid: int, p: Principal = Depends(admin), app: Any = Depends
 
 @router.get("/subscriptions/plans", tags=["subscriptions"])
 async def plans(p: Principal = Depends(principal), app: Any = Depends(get_app)) -> dict[str, Any]:
-    return {"items": app.subs.plans(include_inactive=p.is_super), "limit_keys": list(LIMIT_KEYS), "payments_enabled": app.payments.enabled}
+    lang = (await app.settings.all(p.user_id))["lang"]
+    # "description" is localized for the caller; "description_raw" is the stored value (a translation key or custom text)
+    items = [{**pl, "description": plan_description(pl, lang), "description_raw": pl.get("description") or ""}
+             for pl in app.subs.plans(include_inactive=p.is_super)]
+    return {"items": items, "limit_keys": list(LIMIT_KEYS), "payments_enabled": app.payments.enabled}
 
 
 @router.put("/subscriptions/plans/{plan_id}", tags=["subscriptions"])

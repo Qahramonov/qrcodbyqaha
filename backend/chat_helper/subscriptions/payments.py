@@ -39,7 +39,7 @@ class PaymentService:
                                         (uid, plan_id, plan["price_stars"], "XTR", payload, "pending", int(time.time())))
         await self.app.bot.send_invoice(
             chat_id=uid, title=f"Chat helper {plan['name']}",
-            description=tr(lang, "Подписка {n} на {d} дн. Цифровая услуга внутри Chat helper.", "{n} obunasi {d} kunga. Chat helper ichidagi raqamli xizmat.",
+            description=tr(lang, "payments.podpiska_dn_tsifrovaya_usluga_vnutri",
                            n=plan["name"], d=plan["duration_days"]),
             payload=payload, currency="XTR", prices=[LabeledPrice(label=plan["name"], amount=plan["price_stars"])])
         return pid
@@ -112,4 +112,4 @@ async def on_successful_payment(message: Message, app: "AppContext") -> None:
     sub = await app.payments.on_success(message)
     s = await app.settings.all(message.from_user.id)
     if sub:
-        await message.answer(tr(s["lang"], "🎉 Оплата получена! Тариф {p} активен.", "🎉 To'lov qabul qilindi! {p} tarifi faol.", p=sub["plan_id"].upper()))
+        await message.answer(tr(s["lang"], "payments.oplata_poluchena_tarif_aktiven", p=sub["plan_id"].upper()))

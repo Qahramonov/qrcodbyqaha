@@ -19,41 +19,41 @@ if TYPE_CHECKING:  # pragma: no cover
 log = logging.getLogger(__name__)
 
 GREETINGS = {
-    "morning": ("☀️ Доброе утро!", "☀️ Xayrli tong!"),
-    "day": ("👋 Здравствуйте!", "👋 Assalomu alaykum!"),
-    "evening": ("🌆 Добрый вечер!", "🌆 Xayrli kech!"),
-    "night": ("🌙 Доброй ночи!", "🌙 Xayrli tun!"),
+    "morning": ("afk.greetings.dobroe_utro"),
+    "day": ("afk.greetings.zdravstvuyte"),
+    "evening": ("afk.greetings.dobryy_vecher"),
+    "night": ("afk.greetings.dobroy_nochi"),
 }
 
 
 def render_afk(theme: str, lang: str, *, name: str, reason: str | None, away: int, until_ts: int | None,
                tz_name: str, part: str, kind: str = "afk") -> str:
-    g = tr(lang, *GREETINGS[part])
+    g = tr(lang, GREETINGS[part])
     dur = human_duration(away, lang)
     until = fmt_dt(until_ts, tz_name, with_date=False) if until_ts else None
     reason_e = esc(reason) if reason else None
     if kind == "sleep":
-        head = tr(lang, "🌙 <b>{name} спит</b>", "🌙 <b>{name} uxlamoqda</b>", name=esc(name))
+        head = tr(lang, "afk.spit", name=esc(name))
         lines = [g, "", head]
         if until:
-            lines.append(tr(lang, "⏰ Проснётся примерно в {u}", "⏰ Taxminan {u} da uyg'onadi", u=until))
-        lines.append(tr(lang, "📩 Ваше сообщение будет прочитано утром.", "📩 Xabaringiz ertalab o'qiladi."))
+            lines.append(tr(lang, "afk.prosnyotsya_primerno", u=until))
+        lines.append(tr(lang, "afk.vashe_soobschenie_budet_prochitano_utrom"))
         return "\n".join(lines)
     if theme == "minimal":
-        s = tr(lang, "{name} сейчас недоступен ({dur}).", "{name} hozir band ({dur}).", name=esc(name), dur=dur)
+        s = tr(lang, "afk.seychas_nedostupen", name=esc(name), dur=dur)
         if reason_e:
             s += f" {reason_e}."
-        return s + tr(lang, " Отвечу позже.", " Keyinroq javob beraman.")
+        return s + tr(lang, "afk.otvechu_pozzhe")
     if theme == "fancy":
-        rows = [tr(lang, "╭─── 💤 <b>Нет на месте</b> ───", "╭─── 💤 <b>Joyida yo'q</b> ───"),
+        rows = [tr(lang, "afk.net_meste"),
                 f"│ 👤 {esc(name)}"]
         if reason_e:
             rows.append(f"│ 📝 {reason_e}")
         rows.append(f"│ ⏳ {dur}")
         if until:
-            rows.append(tr(lang, "│ 🔙 вернётся ~{u}", "│ 🔙 ~{u} da qaytadi", u=until))
+            rows.append(tr(lang, "afk.vernyotsya", u=until))
         rows.append("╰──────────────")
-        rows.append(tr(lang, "<i>✨ Сообщение будет прочитано позже</i>", "<i>✨ Xabar keyinroq o'qiladi</i>"))
+        rows.append(tr(lang, "afk.soobschenie_budet_prochitano_pozzhe"))
         return g + "\n\n" + "\n".join(rows)
     if theme == "emoji":
         s = f"{g}\n💤💤💤\n👤 {esc(name)} → 🚶‍♂️💨\n⏳ {dur}"
@@ -61,14 +61,14 @@ def render_afk(theme: str, lang: str, *, name: str, reason: str | None, away: in
             s += f"\n📝 {reason_e}"
         return s + "\n📩✅"
     # classic
-    lines = [g, "", tr(lang, "💤 <b>{name} сейчас отсутствует.</b>", "💤 <b>{name} hozir yo'q.</b>", name=esc(name))]
+    lines = [g, "", tr(lang, "afk.seychas_otsutstvuet", name=esc(name))]
     if reason_e:
-        lines.append(tr(lang, "📝 Причина: {r}", "📝 Sabab: {r}", r=reason_e))
-    lines.append(tr(lang, "⏰ Время отсутствия: {d}", "⏰ Yo'qlik vaqti: {d}", d=dur))
+        lines.append(tr(lang, "afk.prichina", r=reason_e))
+    lines.append(tr(lang, "afk.vremya_otsutstviya", d=dur))
     if until:
-        lines.append(tr(lang, "🔙 Вернётся примерно в {u}", "🔙 Taxminan {u} da qaytadi", u=until))
+        lines.append(tr(lang, "afk.vernyotsya_primerno", u=until))
     lines.append("")
-    lines.append(tr(lang, "📩 Ваше сообщение будет прочитано позже.", "📩 Xabaringiz keyinroq o'qiladi."))
+    lines.append(tr(lang, "afk.vashe_soobschenie_budet_prochitano_pozzhe"))
     return "\n".join(lines)
 
 
@@ -163,16 +163,16 @@ class AFKService:
         return summary
 
     async def summary_text(self, user_id: int, s: dict[str, Any], lang: str) -> str:
-        by = {"manual": tr(lang, "вручную", "qo'lda"), "timer": tr(lang, "по таймеру", "taymer bo'yicha"),
-              "activity": tr(lang, "вы начали писать", "siz yozishni boshladingiz")}.get(s["ended_by"], s["ended_by"])
-        lines = [tr(lang, "👋 <b>С возвращением! AFK выключен</b> ({by})", "👋 <b>Xush kelibsiz! AFK o'chirildi</b> ({by})", by=by),
-                 tr(lang, "⏱ Вас не было: {d}", "⏱ Siz yo'q edingiz: {d}", d=human_duration(s["duration"], lang)),
-                 tr(lang, "📩 Сообщений: {m} из {c} чатов", "📩 Xabarlar: {m} ta, {c} ta chatdan", m=s["messages"], c=s["chats"]),
-                 tr(lang, "🤖 Автоответов отправлено: {r}", "🤖 Avtojavoblar yuborildi: {r}", r=s["replies"])]
+        by = {"manual": tr(lang, "afk.vruchnuyu"), "timer": tr(lang, "afk.taymeru"),
+              "activity": tr(lang, "afk.vy_nachali_pisat")}.get(s["ended_by"], s["ended_by"])
+        lines = [tr(lang, "afk.vozvrascheniem_afk_vyklyuchen", by=by),
+                 tr(lang, "afk.vas_bylo", d=human_duration(s["duration"], lang)),
+                 tr(lang, "afk.soobscheniy_chatov", m=s["messages"], c=s["chats"]),
+                 tr(lang, "afk.avtootvetov_otpravleno", r=s["replies"])]
         if s["chat_counts"]:
             top = sorted(s["chat_counts"].items(), key=lambda kv: kv[1], reverse=True)[:5]
             lines.append("")
-            lines.append(tr(lang, "Кто писал:", "Kim yozdi:"))
+            lines.append(tr(lang, "afk.kto_pisal"))
             for chat_id, n in top:
                 row = await self.app.chats.get(user_id, int(chat_id))
                 title = esc((row or {}).get("title") or chat_id)
@@ -249,25 +249,22 @@ class AFKService:
 
 def _status_text(ctx: CommandContext, sess: dict[str, Any] | None) -> str:
     if not sess:
-        return ctx.t("✅ AFK выключен. Включить: <code>{p}afk причина</code>", "✅ AFK o'chirilgan. Yoqish: <code>{p}afk sabab</code>",
+        return ctx.t("afk.afk_vyklyuchen_vklyuchit_afk_prichina",
                      p=ctx.prefix)
     tz_name = ctx.settings.get("timezone") or ctx.app.config.timezone
-    lines = [ctx.t("💤 <b>AFK включён</b>", "💤 <b>AFK yoqilgan</b>")]
+    lines = [ctx.t("afk.afk_vklyuchyon")]
     if sess.get("reason"):
-        lines.append(ctx.t("📝 Причина: {r}", "📝 Sabab: {r}", r=esc(sess["reason"])))
-    lines.append(ctx.t("⏰ Уже: {d}", "⏰ Allaqachon: {d}", d=human_duration(time.time() - sess["started_at"], ctx.lang)))
+        lines.append(ctx.t("afk.prichina", r=esc(sess["reason"])))
+    lines.append(ctx.t("afk.text", d=human_duration(time.time() - sess["started_at"], ctx.lang)))
     if sess.get("ends_at"):
-        lines.append(ctx.t("⏳ Выключится в {t}", "⏳ {t} da o'chadi", t=fmt_dt(sess["ends_at"], tz_name)))
-    lines.append(ctx.t("📩 Сообщений: {m} · ответов: {r}", "📩 Xabarlar: {m} · javoblar: {r}",
+        lines.append(ctx.t("afk.vyklyuchitsya", t=fmt_dt(sess["ends_at"], tz_name)))
+    lines.append(ctx.t("afk.soobscheniy_otvetov",
                        m=sess["messages_received"], r=sess["replies_sent"]))
     return "\n".join(lines)
 
 
 @registry.command("afk", "afk", aliases=["афк", "away"],
-                  ru="Включить режим «нет на месте» с причиной и таймером; status / time / off",
-                  uz="«Joyida yo'q» rejimini sabab va taymer bilan yoqish; status / time / off",
-                  syntax=".afk [время] [причина] | .afk status | .afk time | .afk off",
-                  examples=[".afk Занят делами", ".afk 2h Встреча", ".afk status", ".afk time"])
+                  )
 async def cmd_afk(ctx: CommandContext) -> None:
     afk: AFKService = ctx.app.afk
     sub = ctx.parsed.first
@@ -277,9 +274,9 @@ async def cmd_afk(ctx: CommandContext) -> None:
     if sub in ("time", "время", "vaqt"):
         sess = await afk.active(ctx.user_id)
         if not sess:
-            await ctx.answer(ctx.t("AFK не активен.", "AFK faol emas."))
+            await ctx.answer(ctx.t("afk.afk_aktiven"))
         else:
-            await ctx.answer(ctx.t("⏰ Вы отсутствуете {d}", "⏰ Siz {d} dan beri yo'qsiz",
+            await ctx.answer(ctx.t("afk.vy_otsutstvuete",
                                    d=human_duration(time.time() - sess["started_at"], ctx.lang, 3)))
         return
     if sub in ("off", "выкл", "stop", "o'chir"):
@@ -294,40 +291,38 @@ async def cmd_afk(ctx: CommandContext) -> None:
             args = args[1:]
     reason = " ".join(args).strip() or None
     if reason and len(reason) > 300:
-        raise UsageError(ctx.t("Причина слишком длинная (до 300 символов).", "Sabab juda uzun (300 belgigacha)."))
+        raise UsageError(ctx.t("afk.prichina_slishkom_dlinnaya_300_simvolov"))
     await afk.enable(ctx.user_id, reason, duration)
     from .controls import post_card
     if ctx.source == "sandbox":
-        await ctx.answer(ctx.t("💤 <b>AFK включён</b>", "💤 <b>AFK yoqildi</b>"))
+        await ctx.answer(ctx.t("afk.afk_vklyuchyon_2"))
         return
     await post_card(ctx.app, ctx.user_id, ctx.chat_id if ctx.is_business else ctx.user_id, "afk",
                     conn=ctx.conn if ctx.is_business else None, ctx=ctx if ctx.is_business else None)
 
 
 @registry.command("unafk", "afk", aliases=["анафк", "back", "вернулся"],
-                  ru="Выключить AFK и получить сводку пропущенного", uz="AFK'ni o'chirish va o'tkazib yuborilganlar xulosasi",
-                  syntax=".unafk", examples=[".unafk"])
+                  )
 async def cmd_unafk(ctx: CommandContext) -> None:
     summary = await ctx.app.afk.disable(ctx.user_id, notify=False, reason="manual")
     if not summary:
-        await ctx.answer(ctx.t("AFK и так выключен.", "AFK allaqachon o'chirilgan."))
+        await ctx.answer(ctx.t("afk.afk_tak_vyklyuchen"))
         return
-    await ctx.answer(ctx.t("👋 AFK выключен. Не было: {d}, сообщений: {m}.", "👋 AFK o'chirildi. Yo'q edingiz: {d}, xabarlar: {m}.",
+    await ctx.answer(ctx.t("afk.afk_vyklyuchen_bylo_soobscheniy",
                            d=human_duration(summary["duration"], ctx.lang), m=summary["messages"]))
     if ctx.is_business and summary["messages"]:
         await ctx.app.sender.send_text(ctx.user_id, await ctx.app.afk.summary_text(ctx.user_id, summary, ctx.lang))
 
 
 @registry.command("sleep", "afk", aliases=["сон", "спать", "uyqu"],
-                  ru="Ночной режим: AFK с ночным шаблоном до указанного времени", uz="Tungi rejim: belgilangan vaqtgacha tungi AFK",
-                  syntax=".sleep [ЧЧ:ММ]", examples=[".sleep", ".sleep 07:30"])
+                  )
 async def cmd_sleep(ctx: CommandContext) -> None:
     tz_name = ctx.settings.get("timezone") or ctx.app.config.timezone
     arg = ctx.parsed.arg(0)
     hm = parse_hhmm(arg) if arg else (8, 0)
     if hm is None:
-        raise UsageError(ctx.t("Время в формате ЧЧ:ММ", "Vaqt SS:DD formatida"))
+        raise UsageError(ctx.t("afk.vremya_formate_chch_mm"))
     ends = next_occurrence(hm[0], hm[1], tz_name)
-    await ctx.app.afk.enable(ctx.user_id, ctx.t("Сон", "Uyqu"), kind="sleep", ends_at=ends)
-    await ctx.answer(ctx.t("🌙 Ночной режим до {t}. Спокойной ночи!", "🌙 Tungi rejim {t} gacha. Xayrli tun!",
+    await ctx.app.afk.enable(ctx.user_id, ctx.t("afk.son"), kind="sleep", ends_at=ends)
+    await ctx.answer(ctx.t("afk.nochnoy_rezhim_spokoynoy_nochi",
                            t=fmt_dt(ends, tz_name, with_date=False)))

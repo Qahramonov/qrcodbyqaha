@@ -59,21 +59,19 @@ def _need_text(ctx: CommandContext, text: str) -> str:
     if not text:
         raise UsageError()
     if len(text) > 8000:
-        raise CommandError(ctx.t("Текст слишком длинный (макс. 8000 символов).", "Matn juda uzun (maks. 8000 belgi)."))
+        raise CommandError(ctx.t("ai_cmds.tekst_slishkom_dlinnyy_maks_8000"))
     return text
 
 
 @registry.command("ai", "ai", aliases=["gpt", "ask", "гпт", "спроси", "ии"],
-                  ru="Задать вопрос AI (можно ответом на сообщение — оно станет контекстом)",
-                  uz="AI'ga savol berish (xabarga javob sifatida — u kontekst bo'ladi)",
-                  syntax=".gpt вопрос", examples=[".gpt Придумай название для кофейни", ".ask что такое API?"], **AI_COMMON)
+                  **AI_COMMON)
 async def cmd_gpt(ctx: CommandContext) -> None:
     await ctx.require_ai()
     question = ctx.raw.strip()
     reply_text = ctx.reply_text()
     if not question and not reply_text:
         raise UsageError()
-    prompt = question or ctx.t("Ответь на это сообщение", "Bu xabarga javob ber")
+    prompt = question or ctx.t("ai_cmds.otvet_soobschenie")
     context = []
     if reply_text:
         context = [{"role": "user", "content": "Context message:\n" + wrap_untrusted(clip(reply_text, 4000))},
@@ -88,9 +86,7 @@ async def cmd_gpt(ctx: CommandContext) -> None:
 
 
 @registry.command("translate", "ai", aliases=["tr", "перевод", "переведи", "tarjima"],
-                  ru="Перевести текст или сообщение-ответ на язык (en, ru, uz, tr, de…)",
-                  uz="Matn yoki javob xabarini tarjima qilish (en, ru, uz, tr, de…)",
-                  syntax=".translate [язык] [текст]", examples=[".translate en Привет, как дела?", ".tr uz"], **AI_COMMON)
+                  **AI_COMMON)
 async def cmd_translate(ctx: CommandContext) -> None:
     args = ctx.raw.split(None, 1)
     target = _target_lang(args[0]) if args else None
@@ -116,11 +112,10 @@ async def chat_history_text(app: Any, owner: int, chat_id: int, n: int) -> str:
 async def summarize_chat(app: Any, owner: int, chat_id: int, n: int, lang: str) -> str:
     from ..localization import tr as _tr
     if not app.ai.available():
-        return _tr(lang, "🧠 AI-провайдер не настроен — пересказ недоступен.", "🧠 AI provayderi sozlanmagan — xulosa mavjud emas.")
+        return _tr(lang, "ai_cmds.sum_no_ai")
     history = await chat_history_text(app, owner, chat_id, n)
     if not history:
-        return _tr(lang, "📭 Нет сохранённых сообщений этого чата. Проверьте, что включено «Хранить историю» (меню → AI).",
-                   "📭 Bu chatning saqlangan xabarlari yo'q. «Tarixni saqlash» yoqilganini tekshiring (menyu → AI).")
+        return _tr(lang, "ai_cmds.sum_no_history")
     s = await app.settings.all(owner)
     try:
         res = await app.ai.ask(owner, wrap_untrusted(history, "conversation"), s,
@@ -129,19 +124,16 @@ async def summarize_chat(app: Any, owner: int, chat_id: int, n: int, lang: str) 
     except AIError as e:
         return ai_error_text(lang, e)
     title = (await app.chats.get(owner, chat_id) or {}).get("title") or str(chat_id)
-    return _tr(lang, "📝 <b>Пересказ чата «{t}»</b> ({n} сообщ.)\n\n{x}", "📝 <b>«{t}» chati xulosasi</b> ({n} xabar)\n\n{x}",
-               t=esc(title), n=history.count("\n") + 1, x=esc(res.text))
+    return _tr(lang, "ai_cmds.sum_result", t=esc(title), n=history.count("\n") + 1, x=esc(res.text))
 
 
 @registry.command("sum", "ai", aliases=["пересказ", "qaytaaytish"],
-                  ru="AI-пересказ последних 10–100 сообщений этого чата: темы, договорённости, вопросы, задачи — вам в личку",
-                  uz="Ushbu chatning so'nggi 10–100 xabari AI-xulosasi: mavzular, kelishuvlar, savollar, vazifalar — shaxsiy chatga",
-                  syntax=".sum [10–100]", examples=[".sum", ".sum 50"], where="business", **AI_COMMON)
+                  where="business", **AI_COMMON)
 async def cmd_sum(ctx: CommandContext) -> None:
     n = 30
     if ctx.args:
         if not ctx.parsed.first.isdigit() or not 10 <= int(ctx.parsed.first) <= 100:
-            raise UsageError(ctx.t("Число сообщений от 10 до 100.", "Xabarlar soni 10 dan 100 gacha."))
+            raise UsageError(ctx.t("ai_cmds.chislo_soobscheniy_10_100"))
         n = int(ctx.parsed.first)
     await ctx.require_ai()
     await ctx.cleanup_command(fallback_text="📝")
@@ -149,17 +141,14 @@ async def cmd_sum(ctx: CommandContext) -> None:
 
 
 @registry.command("summary", "ai", aliases=["кратко", "резюме", "xulosa"],
-                  ru="Краткое содержание текста, сообщения-ответа или недавней переписки чата",
-                  uz="Matn, javob xabari yoki so'nggi suhbatning qisqacha mazmuni",
-                  syntax=".summary [текст]", examples=[".summary (ответом на длинное сообщение)", ".summary"], **AI_COMMON)
+                  **AI_COMMON)
 async def cmd_summary(ctx: CommandContext) -> None:
     text = ctx.raw or ctx.reply_text()
     task = "summary"
     if not text and ctx.is_business:
         hist = await ctx.app.ai.memory.history(ctx.user_id, ctx.chat_id, 40)
         if not hist:
-            raise CommandError(ctx.t("Нет сохранённой истории этого чата. Ответьте командой на сообщение.",
-                                     "Bu chat tarixi saqlanmagan. Buyruq bilan xabarga javob bering."))
+            raise CommandError(ctx.t("ai_cmds.net_sohranyonnoy_istorii_etogo_chata"))
         text = "\n".join(f"{'Them' if h['role'] == 'user' else 'Assistant'}: {h['content']}" for h in hist)
         task = "summary_chat"
     out = await _run(ctx, task, _need_text(ctx, text))
@@ -167,9 +156,7 @@ async def cmd_summary(ctx: CommandContext) -> None:
 
 
 @registry.command("rewrite", "ai", aliases=["перефразируй", "rw", "qaytayoz"],
-                  ru="Переписать текст в нужном стиле: formal, friendly, short, funny, polite",
-                  uz="Matnni uslubda qayta yozish: formal, friendly, short, funny, polite",
-                  syntax=".rewrite [стиль] текст", examples=[".rewrite formal привет, скинь отчёт", ".rewrite short (ответом)"], **AI_COMMON)
+                  **AI_COMMON)
 async def cmd_rewrite(ctx: CommandContext) -> None:
     styles = {"formal": "formal and polite", "friendly": "friendly", "short": "shorter", "funny": "funny", "polite": "very polite",
               "официально": "formal and polite", "коротко": "shorter", "вежливо": "very polite", "смешно": "funny"}
@@ -181,39 +168,31 @@ async def cmd_rewrite(ctx: CommandContext) -> None:
     await ctx.answer(esc(out))
 
 
-@registry.command("grammar", "ai", aliases=["грамматика", "imlo"], ru="Проверка грамматики с объяснением исправлений",
-                  uz="Grammatikani tekshirish va tuzatishlarni tushuntirish", syntax=".grammar текст",
-                  examples=[".grammar I has a apple"], **AI_COMMON)
+@registry.command("grammar", "ai", aliases=["грамматика", "imlo"], **AI_COMMON)
 async def cmd_grammar(ctx: CommandContext) -> None:
     out = await _run(ctx, "grammar", _need_text(ctx, ctx.raw or ctx.reply_text()))
     await ctx.answer("✍️ " + esc(out))
 
 
-@registry.command("explain", "ai", aliases=["объясни", "tushuntir"], ru="Объяснить простыми словами", uz="Oddiy so'zlar bilan tushuntirish",
-                  syntax=".explain [текст]", examples=[".explain квантовая запутанность"], **AI_COMMON)
+@registry.command("explain", "ai", aliases=["объясни", "tushuntir"], **AI_COMMON)
 async def cmd_explain(ctx: CommandContext) -> None:
     out = await _run(ctx, "explain", _need_text(ctx, ctx.raw or ctx.reply_text()))
     await ctx.answer("📚 " + esc(out))
 
 
-@registry.command("code", "ai", aliases=["код", "kod"], ru="Помощь с программированием", uz="Dasturlash bo'yicha yordam",
-                  syntax=".code задача", examples=[".code функция на Python для проверки палиндрома"], min_plan="free", **AI_COMMON)
+@registry.command("code", "ai", aliases=["код", "kod"], min_plan="free", **AI_COMMON)
 async def cmd_code(ctx: CommandContext) -> None:
     out = await _run(ctx, "code", _need_text(ctx, ctx.raw or ctx.reply_text()), max_tokens=1500)
     await ctx.answer("👨‍💻 <pre>" + esc(out)[:3800] + "</pre>")
 
 
-@registry.command("analyze", "ai", aliases=["анализ", "tahlil"], ru="Анализ сообщения: намерение, тон, срочность (видите только вы)",
-                  uz="Xabar tahlili: maqsad, ohang, shoshilinchlik (faqat siz ko'rasiz)", syntax=".analyze (ответом на сообщение)",
-                  examples=[".analyze"], needs_reply=False, **AI_COMMON)
+@registry.command("analyze", "ai", aliases=["анализ", "tahlil"], needs_reply=False, **AI_COMMON)
 async def cmd_analyze(ctx: CommandContext) -> None:
     out = await _run(ctx, "analyze", _need_text(ctx, ctx.reply_text() or ctx.raw))
     await ctx.answer("🔎 " + esc(out), private=True)
 
 
-@registry.command("smart", "ai", aliases=["умно", "aqlli"], ru="AI пишет ответ вашим голосом и вставляет его вместо команды",
-                  uz="AI sizning nomingizdan javob yozadi va buyruq o'rniga qo'yadi", syntax=".smart (ответом на сообщение) [подсказка]",
-                  examples=[".smart", ".smart вежливо откажи"], where="business", needs_reply=True, **AI_COMMON)
+@registry.command("smart", "ai", aliases=["умно", "aqlli"], where="business", needs_reply=True, **AI_COMMON)
 async def cmd_smart(ctx: CommandContext) -> None:
     text = _need_text(ctx, ctx.reply_text())
     out = await _run(ctx, "smart", text, system_extra=("Owner's guidance: " + ctx.raw[:300]) if ctx.raw else "")
@@ -224,9 +203,7 @@ _HINTS: dict[str, dict[str, Any]] = {}
 
 
 @registry.command("hint", "ai", aliases=["подсказка", "варианты", "maslahat"],
-                  ru="3 варианта ответа на сообщение — придут вам в личку с кнопками «Отправить»",
-                  uz="Xabarga 3 ta javob varianti — shaxsiy chatga «Yuborish» tugmalari bilan keladi",
-                  syntax=".hint (ответом на сообщение)", examples=[".hint"], **AI_COMMON)
+                  **AI_COMMON)
 async def cmd_hint(ctx: CommandContext) -> None:
     text = _need_text(ctx, ctx.reply_text() or ctx.raw)
     out = await _run(ctx, "hint", text, max_tokens=400)
@@ -240,7 +217,7 @@ async def cmd_hint(ctx: CommandContext) -> None:
         rows = [[(f"📤 {i + 1}", f"hs:{token}:{i}") for i in range(len(options))]]
         for k in [k for k, v in _HINTS.items() if time.time() - v["ts"] > 3600]:
             _HINTS.pop(k, None)
-    body = "💡 <b>" + ctx.t("Варианты ответа", "Javob variantlari") + "</b>\n\n" + "\n\n".join(f"{i + 1}. {esc(o)}" for i, o in enumerate(options))
+    body = "💡 <b>" + ctx.t("ai_cmds.varianty_otveta") + "</b>\n\n" + "\n\n".join(f"{i + 1}. {esc(o)}" for i, o in enumerate(options))
     await ctx.answer(body, markup=kb(rows) if rows else None, private=True)
 
 
@@ -279,24 +256,19 @@ async def cb_hint_from_alert(cb: CallbackQuery, app: Any) -> None:
         await cb.message.answer(ai_error_text(s["lang"], e))
 
 
-@registry.command("remember", "ai", aliases=["запомни", "eslab"], ru="Сохранить факт о себе для AI (долгосрочная память, с вашего согласия)",
-                  uz="AI uchun o'zingiz haqingizda faktni saqlash (uzoq xotira, roziligingiz bilan)",
-                  syntax=".remember факт", examples=[".remember Я работаю дизайнером, офис открыт с 10 до 19"], rate=(20, 60), sandbox_safe=False)
+@registry.command("remember", "ai", aliases=["запомни", "eslab"], rate=(20, 60), sandbox_safe=False)
 async def cmd_remember(ctx: CommandContext) -> None:
     fact = _need_text(ctx, ctx.raw)
     limit = await ctx.app.subs.limit(ctx.user_id, "ai_memory_facts")
     if limit is not None and await ctx.app.ai.memory.count(ctx.user_id) >= limit:
-        raise CommandError(ctx.t("Лимит фактов для тарифа: {l}", "Tarif uchun faktlar limiti: {l}", l=limit))
+        raise CommandError(ctx.t("ai_cmds.limit_faktov_tarifa", l=limit))
     if not ctx.settings.get("ai_long_memory"):
         await ctx.app.settings.set(ctx.user_id, "ai_long_memory", True)
     mid = await ctx.app.ai.memory.remember(ctx.user_id, fact, ttl_days=ctx.settings.get("ai_memory_ttl_days"))
-    await ctx.answer(ctx.t("🧠 Запомнил (#{i}). Долгая память включена. Удалить: {p}forget {i}",
-                           "🧠 Eslab qoldim (#{i}). Uzoq xotira yoqildi. O'chirish: {p}forget {i}", i=mid, p=ctx.prefix), private=True)
+    await ctx.answer(ctx.t("ai_cmds.zapomnil_dolgaya_pamyat_vklyuchena_udalit", i=mid, p=ctx.prefix), private=True)
 
 
-@registry.command("forget", "ai", aliases=["забудь", "unut"], ru="Удалить факт(ы) из памяти AI: ID, текст или all",
-                  uz="AI xotirasidan fakt(lar)ni o'chirish: ID, matn yoki all", syntax=".forget ID|текст|all",
-                  examples=[".forget 3", ".forget all"], rate=(20, 60))
+@registry.command("forget", "ai", aliases=["забудь", "unut"], rate=(20, 60))
 async def cmd_forget(ctx: CommandContext) -> None:
     arg = ctx.raw.strip()
     if not arg:
@@ -308,18 +280,16 @@ async def cmd_forget(ctx: CommandContext) -> None:
         n = await mem.forget(ctx.user_id, memory_id=int(arg.lstrip("#")))
     else:
         n = await mem.forget(ctx.user_id, query=arg)
-    await ctx.answer(ctx.t("🗑 Удалено: {n}", "🗑 O'chirildi: {n}", n=n), private=True)
+    await ctx.answer(ctx.t("ai_cmds.udaleno", n=n), private=True)
 
 
-@registry.command("prompt", "ai", aliases=["промпт"], ru="Показать или задать свой системный prompt для AI (reset — сброс)",
-                  uz="AI uchun shaxsiy system prompt'ni ko'rish yoki o'rnatish (reset — tiklash)",
-                  syntax=".prompt [текст|reset]", examples=[".prompt Отвечай как вежливый менеджер студии", ".prompt reset"])
+@registry.command("prompt", "ai", aliases=["промпт"], )
 async def cmd_prompt(ctx: CommandContext) -> None:
     ai = ctx.app.ai
     prof = await ai.active_profile(ctx.user_id)
     if not ctx.raw:
-        cur = (prof or {}).get("system_prompt") or ctx.t("(не задан)", "(o'rnatilmagan)")
-        await ctx.answer(ctx.t("📝 Текущий prompt профиля «{n}»:\n<i>{p}</i>", "📝 «{n}» profilining joriy prompti:\n<i>{p}</i>",
+        cur = (prof or {}).get("system_prompt") or ctx.t("ai_cmds.zadan")
+        await ctx.answer(ctx.t("ai_cmds.tekuschiy_prompt_profilya",
                                n=esc((prof or {}).get("name") or "default"), p=esc(cur)), private=True)
         return
     value = None if ctx.raw.strip().lower() in ("reset", "сброс") else ctx.raw[:4000]
@@ -327,35 +297,30 @@ async def cmd_prompt(ctx: CommandContext) -> None:
         prof = await ai.create_profile(ctx.user_id, {"name": "Default", "system_prompt": value, "mode": ctx.settings["ai_style"]})
     else:
         await ai.update_profile(ctx.user_id, prof["id"], {"system_prompt": value})
-    await ctx.answer(ctx.t("✅ Prompt сохранён.", "✅ Prompt saqlandi."), private=True)
+    await ctx.answer(ctx.t("ai_cmds.prompt_sohranyon"), private=True)
 
 
-@registry.command("context", "ai", aliases=["контекст"], ru="Сколько контекста AI хранится для этого чата",
-                  uz="Bu chat uchun AI qancha kontekst saqlaydi", syntax=".context", examples=[".context"])
+@registry.command("context", "ai", aliases=["контекст"], )
 async def cmd_context(ctx: CommandContext) -> None:
     st = await ctx.app.ai.memory.chat_stats(ctx.user_id, ctx.chat_id)
-    await ctx.answer(ctx.t("🧩 Контекст чата: {m} сообщений · {c} символов · фактов {f}\nХранение: {r} дн. · история {h}",
-                           "🧩 Chat konteksti: {m} xabar · {c} belgi · faktlar {f}\nSaqlash: {r} kun · tarix {h}",
+    await ctx.answer(ctx.t("ai_cmds.kontekst_chata_soobscheniy_simvolov_faktov",
                            m=st.get("messages", 0), c=st.get("chars", 0), f=st.get("facts", 0),
                            r=ctx.settings["history_retention_days"], h="on" if ctx.settings["ai_store_history"] else "off"), private=True)
 
 
-@registry.command("resetai", "ai", aliases=["сбросии", "aireset"], ru="Очистить AI-контекст этого чата", uz="Bu chatning AI kontekstini tozalash",
-                  syntax=".resetai", examples=[".resetai"])
+@registry.command("resetai", "ai", aliases=["сбросии", "aireset"], )
 async def cmd_resetai(ctx: CommandContext) -> None:
     n = await ctx.app.ai.memory.clear_chat(ctx.user_id, ctx.chat_id)
-    await ctx.answer(ctx.t("🧹 Контекст очищен ({n}).", "🧹 Kontekst tozalandi ({n}).", n=n), private=True)
+    await ctx.answer(ctx.t("ai_cmds.kontekst_ochischen", n=n), private=True)
 
 
-@registry.command("vision", "ai", aliases=["зрение", "фото", "rasm"], ru="Описать фото или ответить на вопрос о нём",
-                  uz="Rasmni tasvirlash yoki u haqida savolga javob", syntax=".vision [вопрос] (ответом на фото)",
-                  examples=[".vision", ".vision что написано на вывеске?"], **AI_COMMON)
+@registry.command("vision", "ai", aliases=["зрение", "фото", "rasm"], **AI_COMMON)
 async def cmd_vision(ctx: CommandContext) -> None:
     await ctx.require_ai()
     ref = require_media(ctx, image=True)
     buf = io.BytesIO()
     await ctx.app.bot.download(ref.file_id, destination=buf)
-    q = ctx.raw or ctx.t("Опиши, что на изображении.", "Rasmda nima borligini tasvirlab ber.")
+    q = ctx.raw or ctx.t("ai_cmds.opishi_chto_izobrazhenii")
     await ctx.typing()
     try:
         res = await ctx.app.ai.ask(ctx.user_id, q, ctx.settings, images=[ImageInput(buf.getvalue(), "image/jpeg")], kind="vision")
@@ -382,16 +347,13 @@ async def _stt(ctx: CommandContext) -> str:
     return res.text
 
 
-@registry.command("stt", "voice", aliases=["текст", "расшифруй", "v2t", "matn"], ru="Голосовое/кружок/видео → текст (Speech-to-Text)",
-                  uz="Ovozli/dumaloq/video → matn (Speech-to-Text)", syntax=".stt (ответом на голосовое)", examples=[".stt"],
-                  deps=["ai_stt"], status=REQUIRES_API_KEY, rate=(10, 60))
+@registry.command("stt", "voice", aliases=["текст", "расшифруй", "v2t", "matn"], deps=["ai_stt"], status=REQUIRES_API_KEY, rate=(10, 60))
 async def cmd_stt(ctx: CommandContext) -> None:
     text = await _stt(ctx)
     await ctx.answer("🎙 " + esc(text or "—"))
 
 
-@registry.command("vtranslate", "voice", aliases=["перевестиголос", "vtr"], ru="Перевод голосового сообщения", uz="Ovozli xabarni tarjima qilish",
-                  syntax=".vtranslate [язык] (ответом на голосовое)", examples=[".vtranslate en"], deps=["ai_stt", "ai"],
+@registry.command("vtranslate", "voice", aliases=["перевестиголос", "vtr"], deps=["ai_stt", "ai"],
                   status=REQUIRES_API_KEY, rate=(10, 60))
 async def cmd_vtranslate(ctx: CommandContext) -> None:
     target = _target_lang(ctx.parsed.first) if ctx.args else None
@@ -400,9 +362,7 @@ async def cmd_vtranslate(ctx: CommandContext) -> None:
     await ctx.answer(f"🎙 <i>{esc(clip(text, 800))}</i>\n\n🌐 {esc(out)}")
 
 
-@registry.command("vreply", "voice", aliases=["ответголос"], ru="AI-ответ на голосовое сообщение (черновик вам в личку)",
-                  uz="Ovozli xabarga AI javobi (qoralama shaxsiy chatga)", syntax=".vreply (ответом на голосовое)", examples=[".vreply"],
-                  deps=["ai_stt", "ai"], status=REQUIRES_API_KEY, rate=(10, 60))
+@registry.command("vreply", "voice", aliases=["ответголос"], deps=["ai_stt", "ai"], status=REQUIRES_API_KEY, rate=(10, 60))
 async def cmd_vreply(ctx: CommandContext) -> None:
     text = await _stt(ctx)
     out = await _run(ctx, "smart", _need_text(ctx, text))
@@ -410,9 +370,7 @@ async def cmd_vreply(ctx: CommandContext) -> None:
 
 
 @registry.command("tts", "voice", aliases=["say", "скажи", "озвучь", "ayt"],
-                  ru="Текст → голосовое (OpenAI TTS или офлайн espeak-ng, если установлен)",
-                  uz="Matn → ovozli xabar (OpenAI TTS yoki o'rnatilgan bo'lsa oflayn espeak-ng)",
-                  syntax=".tts текст", examples=[".tts Привет! Перезвоню через 5 минут"], rate=(10, 60))
+                  rate=(10, 60))
 async def cmd_tts(ctx: CommandContext) -> None:
     text = _need_text(ctx, ctx.raw or ctx.reply_text())[:1000]
     await ctx.typing("record_voice")
@@ -431,35 +389,30 @@ __all__ = ["router", "BufferedInputFile"]
 
 
 @registry.command("twin", "ai", aliases=["двойник", "egizak"],
-                  ru="AI-двойник: настройки в личке; auto | manual | draft | off — режим; learn — добавить пример вашего стиля; forget — удалить примеры",
-                  uz="AI-egizak: sozlamalar shaxsiy chatda; auto | manual | draft | off — rejim; learn — uslubingiz namunasini qo'shish; forget — o'chirish",
-                  syntax=".twin [auto|manual|draft|off] | .twin learn [текст или ответом на ВАШЕ сообщение] | .twin forget",
-                  examples=[".twin", ".twin manual", ".twin learn (ответом на своё сообщение)"], rate=(20, 60))
+                  rate=(20, 60))
 async def cmd_twin(ctx: CommandContext) -> None:
     app = ctx.app
     sub = ctx.parsed.first
     modes = {"auto": "auto", "manual": "manual", "draft": "draft", "off": "disabled", "выкл": "disabled", "disabled": "disabled"}
     if sub in modes:
         await app.twin.update(ctx.user_id, mode=modes[sub])
-        await ctx.answer(ctx.t("🤖 Режим AI-двойника: {m}", "🤖 AI-egizak rejimi: {m}", m=modes[sub]), private=True)
+        await ctx.answer(ctx.t("ai_cmds.rezhim_ai_dvoynika", m=modes[sub]), private=True)
         return
     if sub in ("learn", "учись", "o'rgan"):
         text = ctx.raw.split(None, 1)[1] if len(ctx.raw.split(None, 1)) > 1 else ""
         if not text and ctx.reply is not None:
             if ctx.reply.from_user is None or ctx.reply.from_user.id != ctx.user_id:
-                raise CommandError(ctx.t("Добавлять можно только ВАШИ сообщения — ответьте на своё сообщение.",
-                                         "Faqat O'Z xabarlaringizni qo'shish mumkin — o'z xabaringizga javob bering."))
+                raise CommandError(ctx.t("ai_cmds.dobavlyat_mozhno_tolko_vashi_soobscheniya"))
             text = ctx.reply.text or ctx.reply.caption or ""
         try:
             n = await app.twin.add_example(ctx.user_id, text)
         except ValueError:
-            raise UsageError(ctx.t("Пример: 2–500 символов.", "Namuna: 2–500 belgi.")) from None
-        await ctx.answer(ctx.t("✅ Пример стиля сохранён ({n}). Удалить все: {p}twin forget",
-                               "✅ Uslub namunasi saqlandi ({n}). Hammasini o'chirish: {p}twin forget", n=n, p=ctx.prefix), private=True)
+            raise UsageError(ctx.t("ai_cmds.primer_2_500_simvolov")) from None
+        await ctx.answer(ctx.t("ai_cmds.primer_stilya_sohranyon_udalit_vse", n=n, p=ctx.prefix), private=True)
         return
     if sub in ("forget", "забудь", "unut"):
         await app.twin.clear_examples(ctx.user_id)
-        await ctx.answer(ctx.t("🗑 Примеры стиля удалены.", "🗑 Uslub namunalari o'chirildi."), private=True)
+        await ctx.answer(ctx.t("ai_cmds.primery_stilya_udaleny"), private=True)
         return
     from ..handlers.twin import screen_twin
     text, markup = await screen_twin(app, ctx.user_id, ctx.settings)

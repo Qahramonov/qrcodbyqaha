@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from ...ai.service import AIError
-from ...automation.engine import ACTIONS, AI_LABELS, CONDITIONS, MEDIA_TYPES, TEMPLATES, TRIGGERS, RuleError, install_template
+from ...automation.engine import ACTIONS, AI_LABELS, CONDITIONS, MEDIA_TYPES, RuleError, install_template, templates_for, triggers_for
 from ...services.settings import MODES
 from ..deps import APIError, Principal, get_app, principal, super_admin
 
@@ -258,8 +258,8 @@ async def tpl_delete(name: str, p: Principal = Depends(principal), app: Any = De
 # ---- automation builder ----------------------------------------------------------------------
 
 @router.get("/automation/schema", tags=["automation"])
-async def automation_schema(p: Principal = Depends(principal)) -> dict[str, Any]:
-    return {"triggers": TRIGGERS, "conditions": list(CONDITIONS), "actions": list(ACTIONS), "ai_labels": list(AI_LABELS),
+async def automation_schema(p: Principal = Depends(principal), app: Any = Depends(get_app)) -> dict[str, Any]:
+    return {"triggers": triggers_for((await app.settings.all(p.user_id))["lang"]), "conditions": list(CONDITIONS), "actions": list(ACTIONS), "ai_labels": list(AI_LABELS),
             "media_types": list(MEDIA_TYPES), "modes": list(MODES)}
 
 
@@ -310,14 +310,14 @@ async def auto_test(body: TestRuleIn, p: Principal = Depends(principal), app: An
 
 
 @router.get("/automation/templates", tags=["automation"])
-async def auto_templates(p: Principal = Depends(principal)) -> dict[str, Any]:
-    return {"items": TEMPLATES}
+async def auto_templates(p: Principal = Depends(principal), app: Any = Depends(get_app)) -> dict[str, Any]:
+    return {"items": templates_for((await app.settings.all(p.user_id))["lang"])}
 
 
 @router.post("/automation/templates/{tid}/install", tags=["automation"])
 async def auto_install(tid: str, p: Principal = Depends(principal), app: Any = Depends(get_app)) -> dict[str, Any]:
     try:
-        return {"items": await install_template(app.automation, p.user_id, tid)}
+        return {"items": await install_template(app.automation, p.user_id, tid, (await app.settings.all(p.user_id))["lang"])}
     except RuleError as e:
         raise APIError(422, "invalid_rule", str(e)) from None
 

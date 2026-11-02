@@ -108,6 +108,9 @@ class AIAutoReply:
 
     def with_disclosure(self, text: str, settings: dict[str, Any]) -> str:
         disclosure = (settings.get("ai_disclosure") or "").strip() or "🤖 AI"
+        if disclosure in ("🤖 AI", "🤖 Ответ AI-ассистента"):      # default (also the v1/v2 default) → recipient-neutral localized text
+            from ..localization import p as phrase
+            disclosure = phrase(settings.get("lang"), "ai_disclosure")
         return f"{esc(text)}\n\n<i>{esc(disclosure)}</i>"
 
     async def reply(self, conn: Conn, message: Message, settings: dict[str, Any], chat_row: dict[str, Any],
@@ -134,7 +137,7 @@ class AIAutoReply:
         except AIError as e:
             log.info("AI auto reply unavailable: %s", e.code)
             if e.code in ("quota", "user_budget"):
-                await app.notifications.notify(uid, "ai_limit", tr(settings["lang"], "AI-лимит исчерпан", "AI limiti tugadi"),
+                await app.notifications.notify(uid, "ai_limit", tr(settings["lang"], "auto.ai_limit_ischerpan"),
                                                str(e), level="warning", push=False)
             return f"ai_error:{e.code}"
         if fresh_settings.get("ai_store_history"):
@@ -163,10 +166,10 @@ class AIAutoReply:
         lang = settings["lang"]
         await app.sender.send_text(
             conn.user_id,
-            tr(lang, "✍️ <b>Черновик AI-ответа</b> для {t}\n\n💬 <i>{i}</i>\n\n🤖 {d}", "✍️ <b>AI javob qoralamasi</b> — {t}\n\n💬 <i>{i}</i>\n\n🤖 {d}",
+            tr(lang, "auto.chernovik_ai_otveta",
                t=esc(row.get("title") or chat_id), i=esc(clip(incoming, 300)), d=esc(text)),
-            markup=kb([[(tr(lang, "✅ Отправить", "✅ Yuborish"), f"draft:send:{did}"), (tr(lang, "🔄 Другой", "🔄 Boshqa"), f"draft:alt:{did}")],
-                       [(tr(lang, "❌ Отклонить", "❌ Rad etish"), f"draft:rej:{did}")]]) if buttons else None)
+            markup=kb([[(tr(lang, "auto.otpravit"), f"draft:send:{did}"), (tr(lang, "auto.drugoy"), f"draft:alt:{did}")],
+                       [(tr(lang, "auto.otklonit"), f"draft:rej:{did}")]]) if buttons else None)
         if not buttons:   # «Draft only» twin mode: a suggestion to copy, nothing can be sent from it
             await app.db.execute("UPDATE ai_drafts SET status='suggested' WHERE id=?", (did,))
         return did
@@ -233,7 +236,7 @@ class AIAutoReply:
             fname = "voice.ogg" if message.voice else "note.mp4"
             res = await app.ai.transcribe(conn.user_id, buf.getvalue(), fname, mime, int(media.duration or 0))
             row = await app.chats.get(conn.user_id, message.chat.id) or {}
-            await app.sender.send_text(conn.user_id, tr(settings["lang"], "🎙 <b>{t}</b> ({d} с):\n{x}", "🎙 <b>{t}</b> ({d} s):\n{x}",
+            await app.sender.send_text(conn.user_id, tr(settings["lang"], "auto.text",
                                                         t=esc(row.get("title") or message.chat.id), d=media.duration or 0, x=esc(res.text)))
         except Exception as e:
             log.info("auto transcription failed: %s", type(e).__name__)
@@ -261,12 +264,11 @@ class AIAutoReply:
 def _ai_error_text(lang: str, e: AIError) -> str:
     return {
         "not_configured": p(lang, "requires_ai"),
-        "quota": tr(lang, "📉 Дневной лимит AI-запросов исчерпан. Лимиты зависят от тарифа: /menu → Подписка.",
-                    "📉 Kunlik AI so'rovlar limiti tugadi. Limitlar tarifga bog'liq: /menu → Obuna."),
-        "user_budget": tr(lang, "💸 Ваш дневной AI-бюджет исчерпан, попробуйте завтра.", "💸 Kunlik AI byudjetingiz tugadi, ertaga urinib ko'ring."),
-        "global_budget": tr(lang, "💸 Общий дневной AI-бюджет исчерпан. Попробуйте завтра.", "💸 Umumiy kunlik AI byudjeti tugadi. Ertaga urinib ko'ring."),
-        "busy": tr(lang, "⏳ AI сейчас загружен, повторите через минуту.", "⏳ AI hozir band, bir daqiqadan so'ng qayta urinib ko'ring."),
-    }.get(e.code, tr(lang, "⚠️ AI-провайдер не ответил. Попробуйте позже.", "⚠️ AI provayder javob bermadi. Keyinroq urinib ko'ring."))
+        "quota": tr(lang, "auto.dnevnoy_limit_ai_zaprosov_ischerpan"),
+        "user_budget": tr(lang, "auto.vash_dnevnoy_ai_byudzhet_ischerpan"),
+        "global_budget": tr(lang, "auto.obschiy_dnevnoy_ai_byudzhet_ischerpan"),
+        "busy": tr(lang, "auto.ai_seychas_zagruzhen_povtorite_cherez"),
+    }.get(e.code, tr(lang, "auto.ai_provayder_otvetil_poprobuyte_pozzhe"))
 
 
 ai_error_text = _ai_error_text

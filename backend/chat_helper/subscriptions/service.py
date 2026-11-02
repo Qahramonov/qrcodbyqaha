@@ -16,23 +16,40 @@ LIMIT_KEYS = ("ai_requests_day", "media_jobs_day", "max_media_mb", "autoreply_ru
 
 DEFAULT_PLANS: list[dict[str, Any]] = [
     {"id": "free", "name": "Free", "price_stars": 0, "duration_days": 0, "sort": 0,
-     "description": "Базовые команды, AFK, автоответы, медиа и игры с лимитами",
+     "description": "plan.free.desc",
      "limits": {"ai_requests_day": 20, "media_jobs_day": 15, "max_media_mb": 20, "autoreply_rules": 10,
                 "automation_rules": 3, "custom_commands": 3, "ai_memory_facts": 20, "ai_profiles": 2, "stt_minutes_day": 5}},
     {"id": "plus", "name": "Plus", "price_stars": 150, "duration_days": 30, "sort": 1,
-     "description": "Больше AI и медиа, AI-режим автоответчика",
+     "description": "plan.plus.desc",
      "limits": {"ai_requests_day": 100, "media_jobs_day": 60, "max_media_mb": 20, "autoreply_rules": 40,
                 "automation_rules": 15, "custom_commands": 15, "ai_memory_facts": 100, "ai_profiles": 5, "stt_minutes_day": 30}},
     {"id": "pro", "name": "Pro", "price_stars": 350, "duration_days": 30, "sort": 2,
-     "description": "Профессиональные лимиты, Hybrid-режим, сравнение моделей",
+     "description": "plan.pro.desc",
      "limits": {"ai_requests_day": 400, "media_jobs_day": 200, "max_media_mb": 20, "autoreply_rules": 150,
                 "automation_rules": 50, "custom_commands": 50, "ai_memory_facts": 500, "ai_profiles": 15, "stt_minutes_day": 120}},
     {"id": "vip", "name": "VIP", "price_stars": 800, "duration_days": 30, "sort": 3,
-     "description": "Максимальные лимиты и приоритет",
+     "description": "plan.vip.desc",
      "limits": {"ai_requests_day": 1500, "media_jobs_day": 600, "max_media_mb": 20, "autoreply_rules": UNLIMITED,
                 "automation_rules": UNLIMITED, "custom_commands": UNLIMITED, "ai_memory_facts": 2000, "ai_profiles": 50,
                 "stt_minutes_day": 480}},
 ]
+
+
+def plan_description(plan: dict[str, Any], lang: str | None) -> str:
+    """Localized plan description.
+
+    Built-in plans store a translation key (``plan.<id>.desc``); installs seeded before v3 stored the Russian
+    default text, which equals the ``ru`` catalog entry and is localized too. Text customized by the
+    Super Admin is shown as written.
+    """
+    from ..localization import has, tr
+    d = str(plan.get("description") or "").strip()
+    key = f"plan.{plan.get('id')}.desc"
+    if has(d):
+        return tr(lang, d)
+    if not d or (has(key) and d == tr("ru", key)):
+        return tr(lang, key) if has(key) else ""
+    return d
 
 
 class SubscriptionService:
@@ -176,8 +193,8 @@ class SubscriptionService:
             await self.db.execute("UPDATE subscriptions SET status='expired' WHERE id=?", (r["id"],))
             self.invalidate(r["user_id"])
             if self.notifications:
-                await self.notifications.notify(r["user_id"], "subscription_expired", "Подписка закончилась / Obuna tugadi",
-                                                "Тариф переключён на Free.", level="warning", push=True)
+                await self.notifications.notify_t(r["user_id"], "subscription_expired", "notify.subscription_expired",
+                                                  "notify.plan_switched_free", level="warning", push=True)
         return [r["user_id"] for r in rows]
 
     async def expiring_soon(self, within_days: int = 3) -> list[dict[str, Any]]:

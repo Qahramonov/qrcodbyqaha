@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any
 from aiogram.types import InlineKeyboardMarkup, Message
 
 from ..database.db import dumps, loads
+from ..localization import tr
 from ..security.sanitize import esc
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -65,7 +66,7 @@ class Game:
         return False
 
     async def timeout(self, eng: "GameEngine", s: Session) -> None:
-        await eng.edit(s, s.state.get("last_text", "") + "\n\n⌛ " + eng.t(s, "Время вышло — игра завершена.", "Vaqt tugadi — o'yin yakunlandi."), None)
+        await eng.edit(s, s.state.get("last_text", "") + "\n\n⌛ " + eng.t(s, "engine.vremya_vyshlo_igra_zavershena"), None)
         await eng.finish(s, None, None, draw=True, score={"reason": "timeout"})
 
 
@@ -81,9 +82,8 @@ class GameEngine:
         self.games[game.id] = game
 
     @staticmethod
-    def t(s: Session, ru: str, uz: str, **kw: Any) -> str:
-        txt = uz if s.lang == "uz" else ru
-        return txt.format(**kw) if kw else txt
+    def t(s: Session, key: str, **kw: Any) -> str:
+        return tr(s.lang, key, **kw)
 
     # ---- lifecycle ---------------------------------------------------------------------
     async def create(self, game: str, *, owner_id: int, conn_id: str | None, chat_id: int, lang: str,
@@ -167,7 +167,7 @@ class GameEngine:
             await self.save(s)
             return res.message_id
         if s.conn_id:
-            await self.app.sender.send_text(s.owner_id, self.t(s, "🎮 Не удалось начать игру в чате: {k}", "🎮 Chatda o'yinni boshlab bo'lmadi: {k}", k=res.kind))
+            await self.app.sender.send_text(s.owner_id, self.t(s, "engine.udalos_nachat_igru_chate", k=res.kind))
         await self.finish(s, None, None, draw=True, score={"reason": "send_failed"})
         return None
 
@@ -216,7 +216,7 @@ class GameEngine:
         game = self.games[s.game]
         allowed = uid in s.players or (action in ("accept", "decline") and uid == s.state.get("invitee"))
         if not allowed:
-            return self.t(s, "Это не ваша игра 🙂", "Bu sizning o'yiningiz emas 🙂")
+            return self.t(s, "engine.vasha_igra")
         async with self.locks[sid]:
             return await game.callback(self, s, uid, action, arg)
 
@@ -268,7 +268,7 @@ class GameEngine:
             return n > 0
         if owner_id is not None and s.owner_id != owner_id:
             return False
-        await self.edit(s, s.state.get("last_text", "") + "\n\n🛑 " + self.t(s, "Игра остановлена.", "O'yin to'xtatildi."), None)
+        await self.edit(s, s.state.get("last_text", "") + "\n\n🛑 " + self.t(s, "engine.igra_ostanovlena"), None)
         await self.finish(s, None, None, draw=True, score={"reason": "ended"})
         return True
 

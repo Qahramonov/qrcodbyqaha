@@ -20,16 +20,7 @@ if TYPE_CHECKING:  # pragma: no cover
 
 log = logging.getLogger(__name__)
 
-TRIGGERS = {
-    "message": "Любое входящее сообщение / Har qanday kiruvchi xabar",
-    "keyword": "Ключевое слово / Kalit so'z",
-    "time": "Время / Vaqt",
-    "media": "Тип медиа / Media turi",
-    "contact": "Выбранный контакт / Tanlangan kontakt",
-    "new_chat": "Новый чат / Yangi chat",
-    "ai_class": "AI-классификация / AI tasnifi",
-    "no_reply": "Нет ответа владельца N минут / Egasi N daqiqa javob bermadi",
-}
+TRIGGERS = {k: f"automation.trigger.{k}" for k in ("message", "keyword", "time", "media", "contact", "new_chat", "ai_class", "no_reply")}
 CONDITIONS = ("time_window", "weekday", "mode", "chat_tag", "not_chat_tag", "afk")
 ACTIONS = ("reply", "reply_template", "ai_reply", "set_mode", "afk_on", "afk_off", "notify", "tag", "timer", "remind", "handoff",
            "mark_read", "set_priority")
@@ -391,7 +382,7 @@ class AutomationEngine:
                     done.append("remind")
                 elif t == "handoff":
                     await app.chats.set_owner_pause(uid, chat_id, 60)
-                    await app.notifications.notify(uid, "handoff", tr(settings["lang"], "Передача владельцу", "Egaga topshirish"),
+                    await app.notifications.notify(uid, "handoff", tr(settings["lang"], "engine.peredacha_vladeltsu"),
                                                    f"{(chat_row or {}).get('title') or chat_id}", level="warning", push=True)
                     done.append("handoff")
                 elif t == "mark_read":
@@ -495,40 +486,67 @@ class AutomationEngine:
                            chat_row=chat_row, actions=p.get("actions") or [])
 
 
+def _k(tid: str, part: str) -> str:
+    return f"automation.tpl.{tid}.{part}"
+
+
+# Texts are translation keys; they are rendered in the owner's language when the template is listed or installed.
 TEMPLATES: list[dict[str, Any]] = [
-    {"id": "night_afk", "title": "🌙 Ночной AFK / Tungi AFK", "description": "AFK в 23:00, выключение в 08:00",
-     "rules": [{"name": "Ночь: AFK", "trigger": {"type": "time", "at": "23:00"}, "actions": [{"type": "afk_on", "reason": "Сплю 😴"}]},
-               {"name": "Утро: снять AFK", "trigger": {"type": "time", "at": "08:00"}, "actions": [{"type": "afk_off"}]}]},
-    {"id": "price_reply", "title": "💰 Ответ на «цена» / Narx", "description": "Автоответ на вопросы о цене",
-     "rules": [{"name": "Цена", "trigger": {"type": "keyword", "keywords": ["цена", "прайс", "стоимость", "narx", "price"], "match": "contains"},
-                "actions": [{"type": "reply", "text": "Здравствуйте, {name}! Актуальные цены пришлю в ближайшее время 🙌"}], "cooldown_sec": 3600}]},
-    {"id": "urgent_alert", "title": "❗️ Срочные сообщения / Shoshilinch", "description": "Уведомление и приоритет",
-     "rules": [{"name": "Срочно", "trigger": {"type": "keyword", "keywords": ["срочно", "urgent", "shoshilinch", "asap"], "match": "contains"},
-                "actions": [{"type": "notify", "text": "Срочное сообщение!"}, {"type": "set_priority", "value": 3}], "cooldown_sec": 600}]},
-    {"id": "no_reply_reminder", "title": "⏰ Напомнить ответить / Javob eslatmasi", "description": "Если не ответили 60 минут",
-     "rules": [{"name": "Нет ответа 60 мин", "trigger": {"type": "no_reply", "minutes": 60}, "actions": [{"type": "notify", "text": "Вы не ответили больше часа"}]}]},
-    {"id": "voice_notice", "title": "🎙 Голосовые / Ovozli", "description": "Уведомлять о голосовых",
-     "rules": [{"name": "Голосовое", "trigger": {"type": "media", "types": ["voice", "video_note"]}, "actions": [{"type": "notify", "text": "Новое голосовое"}],
-                "cooldown_sec": 300}]},
-    {"id": "weekend", "title": "🏖 Выходные / Dam olish", "description": "AFK в субботу, бизнес-режим в понедельник",
-     "rules": [{"name": "Суббота", "trigger": {"type": "time", "at": "10:00", "days": [6]}, "actions": [{"type": "afk_on", "reason": "Выходной"}]},
-               {"name": "Понедельник", "trigger": {"type": "time", "at": "09:00", "days": [1]}, "actions": [{"type": "afk_off"}, {"type": "set_mode", "mode": "business"}]}]},
-    {"id": "new_chat_welcome", "title": "👋 Новые собеседники / Yangi suhbatdoshlar", "description": "Приветствие и тег new",
-     "rules": [{"name": "Новый чат", "trigger": {"type": "new_chat"}, "actions": [{"type": "reply", "text": "Здравствуйте, {name}! Спасибо за сообщение, скоро отвечу."},
-                                                                               {"type": "tag", "tag": "new"}]}]},
-    {"id": "ai_questions", "title": "🧠 AI отвечает на вопросы / AI savollarga", "description": "AI-ответ, если AI распознал вопрос",
-     "rules": [{"name": "Вопросы → AI", "trigger": {"type": "ai_class", "label": "question"}, "actions": [{"type": "ai_reply"}], "cooldown_sec": 120}]},
-    {"id": "order_handoff", "title": "🛒 Заказы владельцу / Buyurtmalar", "description": "Передать владельцу и уведомить",
-     "rules": [{"name": "Заказ", "trigger": {"type": "keyword", "keywords": ["заказ", "купить", "order", "buyurtma"], "match": "contains"},
-                "actions": [{"type": "reply", "text": "Спасибо! Передаю ваш заказ владельцу 🙌"}, {"type": "handoff"}], "cooldown_sec": 1800}]},
+    {"id": "night_afk", "title": _k("night_afk", "title"), "description": _k("night_afk", "desc"),
+     "rules": [{"name": _k("night_afk", "r1"), "trigger": {"type": "time", "at": "23:00"}, "actions": [{"type": "afk_on", "reason": _k("night_afk", "reason")}]},
+               {"name": _k("night_afk", "r2"), "trigger": {"type": "time", "at": "08:00"}, "actions": [{"type": "afk_off"}]}]},
+    {"id": "price_reply", "title": _k("price_reply", "title"), "description": _k("price_reply", "desc"),
+     "rules": [{"name": _k("price_reply", "r1"), "trigger": {"type": "keyword", "keywords": ["цена", "прайс", "стоимость", "narx", "price"], "match": "contains"},
+                "actions": [{"type": "reply", "text": _k("price_reply", "text")}], "cooldown_sec": 3600}]},
+    {"id": "urgent_alert", "title": _k("urgent_alert", "title"), "description": _k("urgent_alert", "desc"),
+     "rules": [{"name": _k("urgent_alert", "r1"), "trigger": {"type": "keyword", "keywords": ["срочно", "urgent", "shoshilinch", "asap"], "match": "contains"},
+                "actions": [{"type": "notify", "text": _k("urgent_alert", "text")}, {"type": "set_priority", "value": 3}], "cooldown_sec": 600}]},
+    {"id": "no_reply_reminder", "title": _k("no_reply_reminder", "title"), "description": _k("no_reply_reminder", "desc"),
+     "rules": [{"name": _k("no_reply_reminder", "r1"), "trigger": {"type": "no_reply", "minutes": 60},
+                "actions": [{"type": "notify", "text": _k("no_reply_reminder", "text")}]}]},
+    {"id": "voice_notice", "title": _k("voice_notice", "title"), "description": _k("voice_notice", "desc"),
+     "rules": [{"name": _k("voice_notice", "r1"), "trigger": {"type": "media", "types": ["voice", "video_note"]},
+                "actions": [{"type": "notify", "text": _k("voice_notice", "text")}], "cooldown_sec": 300}]},
+    {"id": "weekend", "title": _k("weekend", "title"), "description": _k("weekend", "desc"),
+     "rules": [{"name": _k("weekend", "r1"), "trigger": {"type": "time", "at": "10:00", "days": [6]}, "actions": [{"type": "afk_on", "reason": _k("weekend", "reason")}]},
+               {"name": _k("weekend", "r2"), "trigger": {"type": "time", "at": "09:00", "days": [1]},
+                "actions": [{"type": "afk_off"}, {"type": "set_mode", "mode": "business"}]}]},
+    {"id": "new_chat_welcome", "title": _k("new_chat_welcome", "title"), "description": _k("new_chat_welcome", "desc"),
+     "rules": [{"name": _k("new_chat_welcome", "r1"), "trigger": {"type": "new_chat"},
+                "actions": [{"type": "reply", "text": _k("new_chat_welcome", "text")}, {"type": "tag", "tag": "new"}]}]},
+    {"id": "ai_questions", "title": _k("ai_questions", "title"), "description": _k("ai_questions", "desc"),
+     "rules": [{"name": _k("ai_questions", "r1"), "trigger": {"type": "ai_class", "label": "question"}, "actions": [{"type": "ai_reply"}], "cooldown_sec": 120}]},
+    {"id": "order_handoff", "title": _k("order_handoff", "title"), "description": _k("order_handoff", "desc"),
+     "rules": [{"name": _k("order_handoff", "r1"), "trigger": {"type": "keyword", "keywords": ["заказ", "купить", "order", "buyurtma"], "match": "contains"},
+                "actions": [{"type": "reply", "text": _k("order_handoff", "text")}, {"type": "handoff"}], "cooldown_sec": 1800}]},
 ]
+_TEXT_FIELDS = ("title", "description", "name", "text", "reason")
 
 
-async def install_template(engine: AutomationEngine, user_id: int, template_id: str) -> list[dict[str, Any]]:
+def localize(obj: Any, lang: str) -> Any:
+    """Deep copy of a template/rule with every translation-key text rendered in ``lang``."""
+    from ..localization import has, tr
+    if isinstance(obj, dict):
+        return {k: (tr(lang, v) if k in _TEXT_FIELDS and isinstance(v, str) and has(v) else localize(v, lang)) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [localize(x, lang) for x in obj]
+    return obj
+
+
+def templates_for(lang: str) -> list[dict[str, Any]]:
+    return localize(TEMPLATES, lang)
+
+
+def triggers_for(lang: str) -> dict[str, str]:
+    from ..localization import tr
+    return {k: tr(lang, v) for k, v in TRIGGERS.items()}
+
+
+async def install_template(engine: AutomationEngine, user_id: int, template_id: str, lang: str = "ru") -> list[dict[str, Any]]:
     tpl = next((t for t in TEMPLATES if t["id"] == template_id), None)
     if tpl is None:
         raise RuleError("unknown template")
     out = []
-    for r in tpl["rules"]:
+    for r in localize(tpl["rules"], lang):
         out.append(await engine.create(user_id, {**r, "template_id": template_id}))
     return out

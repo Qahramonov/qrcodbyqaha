@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any
 from ..commands.context import CommandContext, CommandError, UsageError
 from ..commands.parser import split_pipe
 from ..commands.registry import registry
-from ..core.timeutil import fmt_dt, human_duration, in_time_window, local_dt, parse_duration
+from ..core.timeutil import human_duration, in_time_window, local_dt, parse_duration
 from ..database.db import dumps, loads
 from ..localization import on_off, tr
 from ..security.sanitize import clip, esc
@@ -34,18 +34,18 @@ MODE_ALIASES = {
 }
 
 MODE_TITLES = {
-    "manual": ("✋ Ручной — только команды", "✋ Qo'lda — faqat buyruqlar"),
-    "auto": ("⚡️ Авто — правила и шаблоны", "⚡️ Avto — qoidalar va shablonlar"),
-    "ai": ("🧠 AI — ответы ассистента", "🧠 AI — yordamchi javoblari"),
-    "afk": ("💤 AFK — сообщение об отсутствии", "💤 AFK — yo'qlik haqida xabar"),
-    "silent": ("🔕 Тихий — никаких автоответов", "🔕 Tinch — avtojavoblarsiz"),
-    "business": ("💼 Бизнес — рабочие часы + правила", "💼 Biznes — ish vaqti + qoidalar"),
-    "hybrid": ("🔀 Гибрид — правила, затем AI", "🔀 Gibrid — qoidalar, so'ng AI"),
+    "manual": ("autoreply.mode_titles.ruchnoy_tolko_komandy"),
+    "auto": ("autoreply.mode_titles.avto_pravila_shablony"),
+    "ai": ("autoreply.mode_titles.ai_otvety_assistenta"),
+    "afk": ("autoreply.mode_titles.afk_soobschenie_ob_otsutstvii"),
+    "silent": ("autoreply.mode_titles.tihiy_nikakih_avtootvetov"),
+    "business": ("autoreply.mode_titles.biznes_rabochie_chasy_pravila"),
+    "hybrid": ("autoreply.mode_titles.gibrid_pravila_zatem_ai"),
 }
 
 
 def mode_title(mode: str, lang: str) -> str:
-    return tr(lang, *MODE_TITLES.get(mode, (mode, mode)))
+    return tr(lang, MODE_TITLES[mode]) if mode in MODE_TITLES else mode
 
 
 def fill(template: str, *, name: str, owner: str, tz_name: str) -> str:
@@ -249,44 +249,38 @@ class AutoReplyService:
 # ------------------------------------------------------------------------------------------------
 
 @registry.command("auto", "autoreply", aliases=["режим", "mode", "rejim"],
-                  ru="Показать или сменить режим автоответчика (manual/auto/ai/afk/silent/business/hybrid)",
-                  uz="Avtojavob rejimini ko'rish yoki o'zgartirish", syntax=".auto [режим]",
-                  examples=[".auto", ".auto hybrid", ".auto тихий"], sandbox_safe=False)
+                  sandbox_safe=False)
 async def cmd_auto(ctx: CommandContext) -> None:
     if not ctx.args:
         cur = ctx.settings["mode"]
-        lines = [ctx.t("💬 <b>Режим автоответчика</b>", "💬 <b>Avtojavob rejimi</b>"), ""]
+        lines = [ctx.t("autoreply.rezhim_avtootvetchika"), ""]
         for m in MODES:
             lines.append(("▶️ " if m == cur else "▫️ ") + mode_title(m, ctx.lang) + f"  <code>{ctx.prefix}auto {m}</code>")
         await ctx.answer("\n".join(lines), private=ctx.is_business)
         return
     mode = MODE_ALIASES.get(ctx.parsed.first)
     if not mode:
-        raise UsageError(ctx.t("Неизвестный режим.", "Noma'lum rejim."))
+        raise UsageError(ctx.t("autoreply.neizvestnyy_rezhim"))
     await ctx.app.autoreply.set_mode(ctx.user_id, mode)
     if ctx.is_business:
         from .controls import post_card
         await post_card(ctx.app, ctx.user_id, ctx.chat_id, "auto", conn=ctx.conn, ctx=ctx)
         return
-    await ctx.answer(ctx.t("✅ Режим: {m}", "✅ Rejim: {m}", m=mode_title(mode, ctx.lang)))
+    await ctx.answer(ctx.t("autoreply.rezhim", m=mode_title(mode, ctx.lang)))
 
 
 @registry.command("reply", "autoreply", aliases=["ответ", "rule", "javob"],
-                  ru="Правила автоответа по ключевым словам: add / list / del / on / off",
-                  uz="Kalit so'zlar bo'yicha avtojavob qoidalari: add / list / del / on / off",
-                  syntax=".reply add слова | ответ  ·  .reply list  ·  .reply del ID",
-                  examples=[".reply add цена, прайс | Прайс-лист: example.com/price", ".reply list", ".reply del 3"])
+                  )
 async def cmd_reply(ctx: CommandContext) -> None:
     svc: AutoReplyService = ctx.app.autoreply
     sub = ctx.parsed.first
     if sub in ("", "list", "список", "ro'yxat"):
         rules = await svc.rules(ctx.user_id)
         if not rules:
-            await ctx.answer(ctx.t("Правил пока нет. Добавить: <code>{p}reply add привет | Здравствуйте!</code>",
-                                   "Qoidalar yo'q. Qo'shish: <code>{p}reply add salom | Assalomu alaykum!</code>", p=ctx.prefix),
+            await ctx.answer(ctx.t("autoreply.pravil_poka_net_dobavit_reply", p=ctx.prefix),
                              private=ctx.is_business)
             return
-        lines = [ctx.t("💬 <b>Правила автоответа</b>", "💬 <b>Avtojavob qoidalari</b>")]
+        lines = [ctx.t("autoreply.pravila_avtootveta")]
         for r in rules[:40]:
             st = "🟢" if r["enabled"] else "⚪️"
             lines.append(f"{st} <b>#{r['id']}</b> [{r['trigger_type']}] {esc(clip(r['pattern'] or '', 40))} → "
@@ -303,8 +297,7 @@ async def cmd_reply(ctx: CommandContext) -> None:
                                                     "match_mode": "contains", "cooldown_sec": ctx.settings["autoreply_cooldown_sec"]})
         except ValueError as e:
             raise CommandError(f"⚠️ {esc(str(e))}") from None
-        await ctx.answer(ctx.t("✅ Правило #{id} добавлено. Работает в режимах auto / business / hybrid.",
-                               "✅ #{id} qoida qo'shildi. auto / business / hybrid rejimlarida ishlaydi.", id=rule["id"]),
+        await ctx.answer(ctx.t("autoreply.pravilo_dobavleno_rabotaet_rezhimah_auto", id=rule["id"]),
                          private=ctx.is_business)
         return
     if sub in ("del", "delete", "удалить", "o'chir", "on", "off"):
@@ -316,19 +309,18 @@ async def cmd_reply(ctx: CommandContext) -> None:
         else:
             ok = await svc.delete_rule(ctx.user_id, rid)
         if not ok:
-            raise CommandError(ctx.t("Правило не найдено.", "Qoida topilmadi."))
+            raise CommandError(ctx.t("autoreply.pravilo_naydeno"))
         await ctx.answer("✅", private=ctx.is_business)
         return
     raise UsageError()
 
 
 @registry.command("welcome", "autoreply", aliases=["приветствие", "salomlash"],
-                  ru="Приветствие для новых собеседников: текст / on / off", uz="Yangi suhbatdoshlar uchun salomlashish",
-                  syntax=".welcome [текст | on | off]", examples=[".welcome Привет, {name}! Я скоро отвечу.", ".welcome off"])
+                  )
 async def cmd_welcome(ctx: CommandContext) -> None:
     s = ctx.app.settings
     if not ctx.args:
-        await ctx.answer(ctx.t("👋 Приветствие: {st}\n{txt}", "👋 Salomlashish: {st}\n{txt}",
+        await ctx.answer(ctx.t("autoreply.privetstvie",
                                st=on_off(ctx.lang, ctx.settings["welcome_enabled"]),
                                txt=esc(ctx.settings["welcome_text"] or "—")), private=ctx.is_business)
         return
@@ -336,24 +328,20 @@ async def cmd_welcome(ctx: CommandContext) -> None:
         await s.set(ctx.user_id, "welcome_enabled", ctx.parsed.first in ("on", "вкл"))
     else:
         await s.update(ctx.user_id, {"welcome_text": ctx.raw[:1000], "welcome_enabled": True})
-    await ctx.answer(ctx.t("✅ Приветствие сохранено. Плейсхолдеры: {name}, {owner}, {time}.",
-                           "✅ Salomlashish saqlandi. O'rinbosarlar: {name}, {owner}, {time}."), private=ctx.is_business)
+    await ctx.answer(ctx.t("autoreply.privetstvie_sohraneno_pleysholdery"), private=ctx.is_business)
 
 
 @registry.command("work", "autoreply", aliases=["работа", "ish", "hours"],
-                  ru="Рабочие часы и бизнес-режим: on / off / 9-18 / текст вне часов",
-                  uz="Ish vaqti va biznes rejim: on / off / 9-18 / ish vaqtidan tashqari matn",
-                  syntax=".work [on|off|ЧЧ:ММ-ЧЧ:ММ|text ...]", examples=[".work 09:00-18:00", ".work on", ".work text Сейчас нерабочее время, отвечу утром"])
+                  )
 async def cmd_work(ctx: CommandContext) -> None:
     sub = ctx.parsed.first
     s = ctx.app.settings
     if not sub:
         st = ctx.app.autoreply.is_work_time(ctx.settings)
-        await ctx.answer(ctx.t("💼 Рабочие часы: {a}–{b}, дни {d}\nСейчас: {now}\nРежим: {m}",
-                               "💼 Ish vaqti: {a}–{b}, kunlar {d}\nHozir: {now}\nRejim: {m}",
+        await ctx.answer(ctx.t("autoreply.rabochie_chasy_dni_seychas_rezhim",
                                a=ctx.settings["work_start"], b=ctx.settings["work_end"],
                                d=",".join(map(str, ctx.settings["work_days"])),
-                               now=ctx.t("рабочее время", "ish vaqti") if st else ctx.t("нерабочее время", "ish vaqtidan tashqari"),
+                               now=ctx.t("autoreply.rabochee_vremya") if st else ctx.t("autoreply.nerabochee_vremya"),
                                m=mode_title(ctx.settings["mode"], ctx.lang)), private=ctx.is_business)
         return
     if sub in ("on", "вкл"):
@@ -379,45 +367,41 @@ async def _chat_target(ctx: CommandContext) -> int:
         return ctx.chat_id
     if ctx.args and ctx.args[-1].lstrip("-").isdigit():
         return int(ctx.args[-1])
-    raise CommandError(ctx.t("Используйте команду в нужном чате или укажите ID чата.", "Buyruqni kerakli chatda ishlating yoki chat ID'sini kiriting."))
+    raise CommandError(ctx.t("autoreply.ispolzuyte_komandu_nuzhnom_chate_ukazhite"))
 
 
 @registry.command("ignore", "autoreply", aliases=["игнор", "blacklist"],
-                  ru="Не отвечать автоматически в этом чате (чёрный список)", uz="Bu chatda avtomatik javob bermaslik (qora ro'yxat)",
-                  syntax=".ignore [chat_id]", examples=[".ignore"])
+                  )
 async def cmd_ignore(ctx: CommandContext) -> None:
     chat_id = await _chat_target(ctx)
     await ctx.app.chats.touch(ctx.user_id, chat_id)
     await ctx.app.chats.update(ctx.user_id, chat_id, {"ignored": True, "whitelisted": False})
-    await ctx.answer(ctx.t("🚫 Чат в чёрном списке: автоответы, AI и AFK здесь отключены.",
-                           "🚫 Chat qora ro'yxatda: avtojavob, AI va AFK bu yerda o'chirildi."), private=True)
+    await ctx.answer(ctx.t("autoreply.chat_chyornom_spiske_avtootvety_ai"), private=True)
 
 
 @registry.command("allow", "autoreply", aliases=["разрешить", "whitelist", "ruxsat"],
-                  ru="Разрешить автоответы в этом чате (белый список)", uz="Bu chatda avtojavobga ruxsat (oq ro'yxat)",
-                  syntax=".allow [chat_id]", examples=[".allow"])
+                  )
 async def cmd_allow(ctx: CommandContext) -> None:
     chat_id = await _chat_target(ctx)
     await ctx.app.chats.touch(ctx.user_id, chat_id)
     await ctx.app.chats.update(ctx.user_id, chat_id, {"ignored": False, "whitelisted": True})
-    await ctx.answer(ctx.t("✅ Чат в белом списке.", "✅ Chat oq ro'yxatda."), private=True)
+    await ctx.answer(ctx.t("autoreply.chat_belom_spiske"), private=True)
 
 
 @registry.command("pause", "autoreply", aliases=["пауза", "to'xtat"],
-                  ru="Приостановить всю автоматизацию (автоответы, AI, AFK-ответы)", uz="Barcha avtomatlashtirishni to'xtatish",
-                  syntax=".pause [время]", examples=[".pause", ".pause 1h"])
+                  )
 async def cmd_pause(ctx: CommandContext) -> None:
     await ctx.app.settings.set(ctx.user_id, "automation_paused", True)
     dur = parse_duration(ctx.parsed.first) if ctx.args else None
     if dur:
         await ctx.app.scheduler.add(ctx.user_id, "resume_automation", {}, int(time.time()) + dur,
                                     dedup_key=f"resume:{ctx.user_id}")
-    await ctx.answer(ctx.t("⏸ Автоматизация на паузе{d}. Продолжить: {p}resume", "⏸ Avtomatlashtirish to'xtatildi{d}. Davom: {p}resume",
+    await ctx.answer(ctx.t("autoreply.avtomatizatsiya_pauze_prodolzhit_resume",
                            d=(" · " + human_duration(dur, ctx.lang)) if dur else "", p=ctx.prefix), private=ctx.is_business)
 
 
 @registry.command("resume", "autoreply", aliases=["продолжить", "davom"],
-                  ru="Возобновить автоматизацию", uz="Avtomatlashtirishni davom ettirish", syntax=".resume", examples=[".resume"])
+                  )
 async def cmd_resume(ctx: CommandContext) -> None:
     await ctx.app.settings.set(ctx.user_id, "automation_paused", False)
-    await ctx.answer(ctx.t("▶️ Автоматизация возобновлена.", "▶️ Avtomatlashtirish davom etmoqda."), private=ctx.is_business)
+    await ctx.answer(ctx.t("autoreply.avtomatizatsiya_vozobnovlena"), private=ctx.is_business)

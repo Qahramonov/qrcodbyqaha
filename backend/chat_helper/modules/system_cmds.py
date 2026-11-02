@@ -25,44 +25,41 @@ router = Router(name="system_cmds")
 SYS = dict(rate=(20, 60))
 
 
-@registry.command("help", "system", aliases=["помощь", "h", "yordam", "start_help"], ru="Список команд по категориям или справка по команде",
-                  uz="Buyruqlar ro'yxati yoki buyruq bo'yicha yordam", syntax=".help [команда]", examples=[".help", ".help speed"], sandbox_safe=True, **SYS)
+@registry.command("help", "system", aliases=["помощь", "h", "yordam", "start_help"], sandbox_safe=True, **SYS)
 async def cmd_help(ctx: CommandContext) -> None:
     pre = ctx.prefix
     if ctx.args:
         spec = ctx.app.registry.resolve(ctx.args[0].lstrip(pre).lstrip("./"))
         if spec is None:
-            raise CommandError(ctx.t("Команда не найдена.", "Buyruq topilmadi."))
+            raise CommandError(ctx.t("system_cmds.komanda_naydena"))
         d = spec.to_dict(ctx.lang, pre)
         lines = [f"<b>{esc(d['name'])}</b> — {esc(d['description'])}", f"<code>{esc(d['syntax'])}</code>"]
         if d["aliases"]:
-            lines.append(ctx.t("Алиасы: ", "Taxalluslar: ") + esc(", ".join(d["aliases"])))
+            lines.append(ctx.t("system_cmds.aliasy") + esc(", ".join(d["aliases"])))
         lines += [f"• <code>{esc(e.replace('.', pre, 1))}</code>" for e in d["examples"][:3]]
         if d["notes"]:
             lines.append("ℹ️ " + esc(d["notes"]))
         await ctx.answer("\n".join(lines), private=ctx.is_business)
         return
-    lines = [ctx.t("📖 <b>Chat helper — команды</b> (префикс <code>{p}</code>)", "📖 <b>Chat helper — buyruqlar</b> (prefiks <code>{p}</code>)", p=pre)]
+    lines = [ctx.t("system_cmds.chat_helper_komandy_prefiks", p=pre)]
     for cat, specs in ctx.app.registry.by_category().items():
         if not specs:
             continue
-        emoji, ru, uz = CATEGORIES.get(cat, ("•", cat, cat))
+        emoji, key = CATEGORIES.get(cat, ("•", None))
         names = " ".join(f"{pre}{s.id}" for s in sorted(specs, key=lambda x: x.id))
-        lines.append(f"\n{emoji} <b>{ctx.t(ru, uz)}</b>\n<code>{esc(names)}</code>")
-    lines.append(ctx.t("\nПодробно: <code>{p}help команда</code> · меню: /menu", "\nBatafsil: <code>{p}help buyruq</code> · menyu: /menu", p=pre))
+        lines.append(f"\n{emoji} <b>{ctx.t(key) if key else cat}</b>\n<code>{esc(names)}</code>")
+    lines.append(ctx.t("system_cmds.podrobno_help_komanda_menyu_menu", p=pre))
     await ctx.answer("\n".join(lines), private=ctx.is_business)
 
 
-@registry.command("commands", "system", aliases=["команды", "buyruqlar", "cmds"], ru="Компактный список всех команд", uz="Barcha buyruqlarning qisqa ro'yxati",
-                  syntax=".commands", examples=[".commands"], sandbox_safe=True, **SYS)
+@registry.command("commands", "system", aliases=["команды", "buyruqlar", "cmds"], sandbox_safe=True, **SYS)
 async def cmd_commands(ctx: CommandContext) -> None:
     names = sorted(ctx.app.registry.commands)
-    await ctx.answer(ctx.t("⌨️ Команд: {n}\n", "⌨️ Buyruqlar: {n}\n", n=len(names)) + "<code>" + esc(" ".join(ctx.prefix + n for n in names)) + "</code>",
+    await ctx.answer(ctx.t("system_cmds.komand", n=len(names)) + "<code>" + esc(" ".join(ctx.prefix + n for n in names)) + "</code>",
                      private=ctx.is_business)
 
 
-@registry.command("menu", "system", aliases=["меню", "menyu"], ru="Открыть меню Chat helper (в личке с ботом)", uz="Chat helper menyusini ochish",
-                  syntax=".menu", examples=[".menu"], **SYS)
+@registry.command("menu", "system", aliases=["меню", "menyu"], **SYS)
 async def cmd_menu(ctx: CommandContext) -> None:
     from ..handlers.panel import screen_home
     text, markup = await screen_home(ctx.app, ctx.user_id, ctx.settings)
@@ -70,32 +67,30 @@ async def cmd_menu(ctx: CommandContext) -> None:
     await ctx.cleanup_command(fallback_text="📋")
 
 
-@registry.command("settings", "system", aliases=["настройки", "sozlamalar"], ru="Текущие настройки", uz="Joriy sozlamalar", syntax=".settings",
-                  examples=[".settings"], sandbox_safe=True, **SYS)
+@registry.command("settings", "system", aliases=["настройки", "sozlamalar"], sandbox_safe=True, **SYS)
 async def cmd_settings(ctx: CommandContext) -> None:
     s = ctx.settings
-    lines = [ctx.t("⚙️ <b>Настройки</b>", "⚙️ <b>Sozlamalar</b>"),
-             f"🌐 {s['lang']} · {ctx.t('префикс', 'prefiks')} <code>{esc(s['prefix'])}</code> · 🕒 {esc(s['timezone'])}",
+    lines = [ctx.t("system_cmds.nastroyki"),
+             f"🌐 {s['lang']} · {ctx.t('system_cmds.prefiks')} <code>{esc(s['prefix'])}</code> · 🕒 {esc(s['timezone'])}",
              f"💬 {mode_title(s['mode'], ctx.lang)}",
-             f"⏸ {ctx.t('пауза автоматики', 'avtomatika pauzasi')}: {on_off(ctx.lang, s['automation_paused'])}",
-             f"🧠 AI: {s['ai_style']} · {ctx.t('подтверждение', 'tasdiq')} {on_off(ctx.lang, s['ai_confirm'])}",
-             f"🗑 {ctx.t('удалять команды', 'buyruqlarni o`chirish')}: {on_off(ctx.lang, s['delete_commands'])}",
-             ctx.t("Изменить: /menu → Настройки или приложение Chat helper Control.", "O'zgartirish: /menu → Sozlamalar yoki Chat helper Control ilovasi.")]
+             f"⏸ {ctx.t('system_cmds.pauza_avtomatiki')}: {on_off(ctx.lang, s['automation_paused'])}",
+             f"🧠 AI: {s['ai_style']} · {ctx.t('system_cmds.podtverzhdenie')} {on_off(ctx.lang, s['ai_confirm'])}",
+             f"🗑 {ctx.t('system_cmds.udalyat_komandy')}: {on_off(ctx.lang, s['delete_commands'])}",
+             ctx.t("system_cmds.izmenit_menu_nastroyki_prilozhenie_chat")]
     await ctx.answer("\n".join(lines), private=ctx.is_business)
 
 
-@registry.command("status", "system", aliases=["статус", "holat"], ru="Статус подключения, режима и модулей", uz="Ulanish, rejim va modullar holati",
-                  syntax=".status", examples=[".status"], **SYS)
+@registry.command("status", "system", aliases=["статус", "holat"], **SYS)
 async def cmd_status(ctx: CommandContext) -> None:
     app = ctx.app
     conn = ctx.conn or await app.connections.primary_for_user(ctx.user_id)
     afk = await app.afk.active(ctx.user_id)
-    lines = [ctx.t("📡 <b>Статус Chat helper</b>", "📡 <b>Chat helper holati</b>"),
-             "🔗 " + (status_title(conn.status, ctx.lang) if conn else ctx.t("не подключено", "ulanmagan")),
+    lines = [ctx.t("system_cmds.status_chat_helper"),
+             "🔗 " + (status_title(conn.status, ctx.lang) if conn else ctx.t("system_cmds.podklyucheno")),
              "💬 " + mode_title(ctx.settings["mode"], ctx.lang),
-             "💤 AFK: " + (human_duration(time.time() - afk["started_at"], ctx.lang) if afk else ctx.t("выкл.", "o'chiq")),
+             "💤 AFK: " + (human_duration(time.time() - afk["started_at"], ctx.lang) if afk else ctx.t("system_cmds.vykl")),
              f"🧠 AI: {'✅' if app.ai.available() else '—'} · 🎞 FFmpeg: {'✅' if app.health.ffmpeg_ok else '—'}",
-             f"🎬 {ctx.t('очередь медиа', 'media navbati')}: {app.media.queue.status()['queued']}",
+             f"🎬 {ctx.t('system_cmds.ochered_media')}: {app.media.queue.status()['queued']}",
              f"💎 {ctx.plan.upper()} · ⏱ {human_duration(app.uptime, ctx.lang)}"]
     if app.runtime.emergency_stop:
         lines.append("🛑 EMERGENCY STOP")
@@ -104,35 +99,28 @@ async def cmd_status(ctx: CommandContext) -> None:
     await ctx.answer("\n".join(lines), private=ctx.is_business)
 
 
-@registry.command("ping", "system", aliases=["пинг"], ru="Задержка до Telegram API и время отклика бота", uz="Telegram API kechikishi",
-                  syntax=".ping", examples=[".ping"], **SYS)
+@registry.command("ping", "system", aliases=["пинг"], **SYS)
 async def cmd_ping(ctx: CommandContext) -> None:
     t0 = time.monotonic()
     tg = await ctx.app.health.check_telegram()
     api_ms = int((time.monotonic() - t0) * 1000)
     lag = ""
     if ctx.message is not None and ctx.message.date:
-        lag = f" · {ctx.t('доставка', 'yetkazish')} ~{max(0, int(time.time() - ctx.message.date.timestamp()))} s"
+        lag = f" · {ctx.t('system_cmds.dostavka')} ~{max(0, int(time.time() - ctx.message.date.timestamp()))} s"
     await ctx.answer(f"🏓 Pong! Telegram API: <b>{api_ms} ms</b>{'' if tg.get('ok') else ' ⚠️'}{lag}")
 
 
-@registry.command("uptime", "system", aliases=["аптайм"], ru="Время работы backend", uz="Backend ishlash vaqti", syntax=".uptime", examples=[".uptime"],
-                  sandbox_safe=True, **SYS)
+@registry.command("uptime", "system", aliases=["аптайм"], sandbox_safe=True, **SYS)
 async def cmd_uptime(ctx: CommandContext) -> None:
     await ctx.answer(f"⏱ {human_duration(ctx.app.uptime, ctx.lang, 3)} · v{__version__}")
 
 
-@registry.command("about", "system", aliases=["оботе", "haqida"], ru="О Chat helper", uz="Chat helper haqida", syntax=".about", examples=[".about"],
-                  sandbox_safe=True, **SYS)
+@registry.command("about", "system", aliases=["оботе", "haqida"], sandbox_safe=True, **SYS)
 async def cmd_about(ctx: CommandContext) -> None:
-    await ctx.answer(ctx.t("✨ <b>Chat helper</b> v{v}\nTelegram Business-автоматизация: AFK, AI, автоответы, Media Studio, игры.\n"
-                           "Работает через официальный Bot API (Telegram «Автоматизация чатов», Secretary Mode). Управление: Chat helper Control (Android).",
-                           "✨ <b>Chat helper</b> v{v}\nTelegram Business avtomatlashtirish: AFK, AI, avtojavoblar, Media Studio, o'yinlar.\n"
-                           "Rasmiy Bot API orqali ishlaydi. Boshqaruv: Chat helper Control (Android).", v=__version__), private=ctx.is_business)
+    await ctx.answer(ctx.t("system_cmds.chat_helper_telegram_business_avtomatizatsiya", v=__version__), private=ctx.is_business)
 
 
-@registry.command("logs", "system", aliases=["логи"], ru="Последние предупреждения и ошибки (только администратор)", uz="So'nggi xatolar (faqat admin)",
-                  syntax=".logs [N]", examples=[".logs", ".logs 40"], admin_only=True, **SYS)
+@registry.command("logs", "system", aliases=["логи"], admin_only=True, **SYS)
 async def cmd_logs(ctx: CommandContext) -> None:
     n = int(ctx.args[0]) if ctx.args and ctx.args[0].isdigit() else 20
     rows = ring_handler.query(level="WARNING", limit=min(n, 60))
@@ -140,8 +128,7 @@ async def cmd_logs(ctx: CommandContext) -> None:
     await ctx.answer("<pre>" + esc(text[-3800:]) + "</pre>", private=True)
 
 
-@registry.command("clear", "system", aliases=["очистить", "tozala"], ru="Очистить сохранённый AI-контекст и превью этого чата (all — всех чатов)",
-                  uz="Ushbu chatning AI konteksti va ko'rinishlarini tozalash (all — barchasi)", syntax=".clear [all]", examples=[".clear", ".clear all"], **SYS)
+@registry.command("clear", "system", aliases=["очистить", "tozala"], **SYS)
 async def cmd_clear(ctx: CommandContext) -> None:
     if ctx.parsed.first == "all":
         n = await ctx.app.ai.memory.clear_all(ctx.user_id)
@@ -149,16 +136,15 @@ async def cmd_clear(ctx: CommandContext) -> None:
     else:
         n = await ctx.app.ai.memory.clear_chat(ctx.user_id, ctx.chat_id)
         await ctx.app.db.execute("UPDATE chat_settings SET last_preview=NULL WHERE user_id=? AND chat_id=?", (ctx.user_id, ctx.chat_id))
-    await ctx.answer(ctx.t("🧹 Очищено записей: {n}", "🧹 Tozalandi: {n}", n=n), private=True)
+    await ctx.answer(ctx.t("system_cmds.ochischeno_zapisey", n=n), private=True)
 
 
-@registry.command("export", "system", aliases=["экспорт", "eksport"], ru="Экспорт ваших данных (JSON в личку)", uz="Ma'lumotlaringizni eksport (JSON shaxsiy chatga)",
-                  syntax=".export", examples=[".export"], rate=(3, 3600))
+@registry.command("export", "system", aliases=["экспорт", "eksport"], rate=(3, 3600))
 async def cmd_export(ctx: CommandContext) -> None:
     data = await ctx.app.backups.export_user(ctx.user_id)
     blob = json.dumps(data, ensure_ascii=False, indent=1, default=str).encode()
     await ctx.app.bot.send_document(ctx.user_id, BufferedInputFile(blob, f"chat_helper_export_{ctx.user_id}.json"),
-                                    caption=ctx.t("📦 Ваши данные", "📦 Ma'lumotlaringiz"))
+                                    caption=ctx.t("system_cmds.vashi_dannye"))
     await ctx.app.audit.log("privacy.export", actor_id=ctx.user_id, target_type="user", target_id=ctx.user_id)
     await ctx.cleanup_command(fallback_text="📦")
 
@@ -166,16 +152,14 @@ async def cmd_export(ctx: CommandContext) -> None:
 _BACKUP_CONFIRM: dict[int, float] = {}
 
 
-@registry.command("backup", "system", aliases=["бэкап", "zaxira"], ru="Резервная копия базы (супер-админ, с подтверждением); для остальных — экспорт данных",
-                  uz="Bazaning zaxira nusxasi (super-admin, tasdiq bilan)", syntax=".backup", examples=[".backup"], rate=(3, 600))
+@registry.command("backup", "system", aliases=["бэкап", "zaxira"], rate=(3, 600))
 async def cmd_backup(ctx: CommandContext) -> None:
     if not ctx.is_super:
         await cmd_export(ctx)
         return
     _BACKUP_CONFIRM[ctx.user_id] = time.time()
-    await ctx.answer(ctx.t("🗄 Создать резервную копию базы и прислать файл сюда? Файл содержит данные всех пользователей — храните его безопасно.",
-                           "🗄 Baza zaxira nusxasini yaratib, faylni shu yerga yuboraymi? Faylda barcha foydalanuvchilar ma'lumotlari bor."),
-                     markup=kb([[("✅ " + ctx.t("Создать", "Yaratish"), "sysbk:ok"), ("✖️", "sysbk:no")]]), private=True)
+    await ctx.answer(ctx.t("system_cmds.sozdat_rezervnuyu_kopiyu_bazy_prislat"),
+                     markup=kb([[("✅ " + ctx.t("system_cmds.sozdat"), "sysbk:ok"), ("✖️", "sysbk:no")]]), private=True)
 
 
 @router.callback_query(F.data.startswith("sysbk:"))
@@ -193,8 +177,7 @@ async def cb_backup(cb: CallbackQuery, app: Any) -> None:
     await app.audit.log("system.backup_downloaded", actor_id=uid, target_type="backup", target_id=path.name)
 
 
-@registry.command("lang", "system", aliases=["язык", "til"], ru="Язык интерфейса: ru или uz", uz="Interfeys tili: ru yoki uz", syntax=".lang ru|uz",
-                  examples=[".lang uz"], **SYS)
+@registry.command("lang", "system", aliases=["язык", "til"], **SYS)
 async def cmd_lang(ctx: CommandContext) -> None:
     lang = ctx.parsed.first
     if lang not in ("ru", "uz"):
@@ -204,8 +187,7 @@ async def cmd_lang(ctx: CommandContext) -> None:
     await ctx.answer("🇷🇺 Русский ✅" if lang == "ru" else "🇺🇿 O'zbekcha ✅", private=ctx.is_business)
 
 
-@registry.command("theme", "system", aliases=["тема", "mavzu"], ru="Стиль сообщений бота: classic, minimal, fancy, emoji", uz="Bot xabarlari uslubi",
-                  syntax=".theme classic|minimal|fancy|emoji", examples=[".theme fancy"], **SYS)
+@registry.command("theme", "system", aliases=["тема", "mavzu"], **SYS)
 async def cmd_theme(ctx: CommandContext) -> None:
     t = ctx.parsed.first
     if t not in ("classic", "minimal", "fancy", "emoji"):
@@ -214,75 +196,62 @@ async def cmd_theme(ctx: CommandContext) -> None:
     await ctx.answer(f"🎨 {t} ✅", private=ctx.is_business)
 
 
-@registry.command("privacy", "system", aliases=["приватность", "maxfiylik"], ru="Что хранится и как удалить данные", uz="Nima saqlanadi va qanday o'chirish",
-                  syntax=".privacy", examples=[".privacy"], sandbox_safe=True, **SYS)
+@registry.command("privacy", "system", aliases=["приватность", "maxfiylik"], sandbox_safe=True, **SYS)
 async def cmd_privacy(ctx: CommandContext) -> None:
     s = ctx.settings
-    await ctx.answer(ctx.t("🔐 <b>Приватность</b>\n• История для AI: {h} (хранение {d} дн.)\n• Превью сообщений: {pv}\n• Долгая память: {m}\n"
-                           "• Переписка целиком не хранится; администратор не видит ваши чаты.\n• {p}export — экспорт · /menu → Приватность — удаление.",
-                           "🔐 <b>Maxfiylik</b>\n• AI uchun tarix: {h} ({d} kun)\n• Xabar ko'rinishi: {pv}\n• Uzoq xotira: {m}\n"
-                           "• Yozishmalar to'liq saqlanmaydi; administrator chatlaringizni ko'rmaydi.\n• {p}export — eksport · /menu → Maxfiylik — o'chirish.",
+    await ctx.answer(ctx.t("system_cmds.privatnost_istoriya_ai_hranenie_dn",
                            h=on_off(ctx.lang, s["ai_store_history"]), d=s["history_retention_days"], pv=on_off(ctx.lang, s["store_previews"]),
                            m=on_off(ctx.lang, s["ai_long_memory"]), p=ctx.prefix), private=ctx.is_business)
 
 
-@registry.command("limits", "system", aliases=["лимиты", "limitlar"], ru="Лимиты тарифа и использование сегодня", uz="Tarif limitlari va bugungi foydalanish",
-                  syntax=".limits", examples=[".limits"], **SYS)
+@registry.command("limits", "system", aliases=["лимиты", "limitlar"], **SYS)
 async def cmd_limits(ctx: CommandContext) -> None:
     app = ctx.app
     lim = await app.subs.limits(ctx.user_id)
     used_ai = await app.quotas.used(f"ai:{ctx.user_id}")
     used_media = await app.quotas.used(f"media:{ctx.user_id}")
     f = lambda v: "∞" if v == -1 else str(v)  # noqa: E731
-    await ctx.answer(ctx.t("📏 <b>Лимиты ({p})</b>\n🧠 AI: {ua}/{la} в день\n🎬 Медиа: {um}/{lm} в день\n📦 Файл: до {mb} МБ\n💬 Правил: {r} · ⚙️ автоматизаций: {a}",
-                           "📏 <b>Limitlar ({p})</b>\n🧠 AI: {ua}/{la} kuniga\n🎬 Media: {um}/{lm} kuniga\n📦 Fayl: {mb} MB gacha\n💬 Qoidalar: {r} · ⚙️ avtomatlashtirish: {a}",
+    await ctx.answer(ctx.t("system_cmds.limity_ai_den_media_den",
                            p=ctx.plan.upper(), ua=used_ai, la=f(lim["ai_requests_day"]), um=used_media, lm=f(lim["media_jobs_day"]),
                            mb=app.config.media_max_input_mb, r=f(lim["autoreply_rules"]), a=f(lim["automation_rules"])), private=ctx.is_business)
 
 
-@registry.command("stats", "system", aliases=["статистика", "statistika"], ru="Ваша статистика за сегодня и 7 дней", uz="Bugungi va 7 kunlik statistika",
-                  syntax=".stats", examples=[".stats"], **SYS)
+@registry.command("stats", "system", aliases=["статистика", "statistika"], **SYS)
 async def cmd_stats(ctx: CommandContext) -> None:
     from ..handlers.panel import screen_stats
     text, _ = await screen_stats(ctx.app, ctx.user_id, ctx.settings)
     await ctx.answer(text, private=ctx.is_business)
 
 
-@registry.command("inbox", "system", aliases=["входящие", "kiruvchi"], ru="Smart Inbox: кто ждёт ответа (ai — с AI-приоритетами)",
-                  uz="Smart Inbox: kim javob kutmoqda (ai — AI ustuvorliklari bilan)", syntax=".inbox [ai]", examples=[".inbox", ".inbox ai"], **SYS)
+@registry.command("inbox", "system", aliases=["входящие", "kiruvchi"], **SYS)
 async def cmd_inbox(ctx: CommandContext) -> None:
     text = await ctx.app.inbox.digest_text(ctx.user_id, ctx.lang, use_ai=ctx.parsed.first == "ai")
     await ctx.answer(text, private=True)
 
 
-@registry.command("support", "system", aliases=["поддержка", "yordam_so'rov"], ru="Написать администратору Chat helper", uz="Chat helper administratoriga yozish",
-                  syntax=".support текст", examples=[".support Не работает .speed"], rate=(3, 3600))
+@registry.command("support", "system", aliases=["поддержка", "yordam_so'rov"], rate=(3, 3600))
 async def cmd_support(ctx: CommandContext) -> None:
     if not ctx.raw:
         raise UsageError()
     await ctx.app.support_message(ctx.user_id, ctx.raw)
-    await ctx.answer(ctx.t("✅ Отправлено администратору.", "✅ Administratorga yuborildi."), private=True)
+    await ctx.answer(ctx.t("system_cmds.otpravleno_administratoru"), private=True)
 
 
 @registry.command("timer", "system", aliases=["таймер", "taymer"],
-                  ru="Сообщение, которое удалится через время (или ответом — удалить ваше сообщение). Не защищённые «исчезающие» сообщения",
-                  uz="Vaqt o'tib o'chadigan xabar (yoki javob — xabaringizni o'chirish). Himoyalangan «yo'qoladigan» xabar emas",
-                  syntax=".timer время [текст]", examples=[".timer 30s Секретный код 1234", ".timer 10m (ответом на своё сообщение)"],
                   where="business", rights=["can_reply"], status=LIMITED_BY_TELEGRAM, rate=(10, 60),
-                  notes_ru="Удаляет только то, что разрешено Bot API: сообщения бота (право «Удалять сообщения бота») или ваши (право «Удалять все»). Собеседник может успеть сохранить содержимое.",
-                  notes_uz="Faqat Bot API ruxsat bergan xabarlarni o'chiradi. Suhbatdosh mazmunni saqlab qolishi mumkin.")
+                  )
 async def cmd_timer(ctx: CommandContext) -> None:
     if not ctx.args:
         raise UsageError()
     dur = parse_duration(ctx.args[0])
     if not dur or not 5 <= dur <= 7 * 86400:
-        raise UsageError(ctx.t("Время от 5 секунд до 7 дней, например 30s, 10m, 2h.", "Vaqt 5 soniyadan 7 kungacha, masalan 30s, 10m, 2h."))
+        raise UsageError(ctx.t("system_cmds.vremya_5_sekund_7_dney"))
     text = ctx.raw.split(None, 1)[1] if len(ctx.raw.split(None, 1)) > 1 else ""
     conn = ctx.conn
     run_at = int(time.time()) + dur
     if text:
         if not conn.can("can_delete_sent_messages") and not conn.can("can_delete_all_messages"):
-            raise CommandError(ctx.t("🔐 Нужно право «Удалять сообщения» для бота.", "🔐 Botga «Xabarlarni o'chirish» huquqi kerak."))
+            raise CommandError(ctx.t("system_cmds.nuzhno_pravo_udalyat_soobscheniya_bota"))
         mid = await ctx.answer(f"⏳ {esc(text)}\n<i>🕒 {human_duration(dur, ctx.lang)}</i>")
         if mid:
             await ctx.app.scheduler.add(ctx.user_id, "timer_delete", {"conn": conn.id, "chat_id": ctx.chat_id, "ids": [mid]}, run_at)
@@ -292,9 +261,9 @@ async def cmd_timer(ctx: CommandContext) -> None:
     own = ctx.reply.from_user is not None and ctx.reply.from_user.id == ctx.user_id
     need = "can_delete_all_messages" if own and ctx.reply.sender_business_bot is None else "can_delete_sent_messages"
     if not conn.can(need) and not conn.can("can_delete_all_messages"):
-        raise CommandError(ctx.t("🔐 Не хватает права на удаление этого сообщения.", "🔐 Bu xabarni o'chirish huquqi yetarli emas."))
+        raise CommandError(ctx.t("system_cmds.hvataet_prava_udalenie_etogo_soobscheniya"))
     if not own and ctx.reply.sender_business_bot is None:
-        raise CommandError(ctx.t("Можно ставить таймер только на свои сообщения.", "Faqat o'z xabarlaringizga taymer qo'yish mumkin."))
+        raise CommandError(ctx.t("system_cmds.mozhno_stavit_taymer_tolko_svoi"))
     await ctx.app.scheduler.add(ctx.user_id, "timer_delete", {"conn": conn.id, "chat_id": ctx.chat_id, "ids": [ctx.reply.message_id]}, run_at)
     await ctx.cleanup_command(fallback_text=f"⏳ {human_duration(dur, ctx.lang)}")
     if not ctx.command_deleted:
@@ -309,12 +278,7 @@ _ACTIVE_MAD: dict[tuple[int, int], asyncio.Task] = {}
 
 
 @registry.command("mad", "system", aliases=["action", "печатает", "актив"],
-                  ru="Короткая контролируемая серия статусов «печатает… / записывает… / отправляет фото…» (до 60 с); stop — отмена. "
-                     "Это не «онлайн»",
-                  uz="Qisqa nazoratli holatlar seriyasi «yozmoqda… / yozib olmoqda… / rasm yubormoqda…» (60 s gacha); stop — bekor. "
-                     "Bu «onlayn» emas",
-                  syntax=".mad [секунды 5–60] [typing|voice|video|photo|doc|sticker…] | .mad stop",
-                  examples=[".mad", ".mad 20", ".mad 30 voice photo", ".mad stop"], where="business", rights=["can_reply"], rate=(4, 60))
+                  where="business", rights=["can_reply"], rate=(4, 60))
 async def cmd_mad(ctx: CommandContext) -> None:
     key = (ctx.user_id, ctx.chat_id)
     old = _ACTIVE_MAD.pop(key, None)
@@ -352,27 +316,24 @@ def _parse_when(ctx: CommandContext) -> tuple[int, str]:
         raise UsageError()
     dur = parse_duration(ctx.args[0])
     if not dur or not 30 <= dur <= 365 * 86400:
-        raise UsageError(ctx.t("Время от 30 секунд до года: 10m, 2h, 1d.", "Vaqt 30 soniyadan bir yilgacha: 10m, 2h, 1d."))
+        raise UsageError(ctx.t("system_cmds.vremya_30_sekund_goda_10m"))
     return int(time.time()) + dur, ctx.raw.split(None, 1)[1]
 
 
 async def _reminder_list(ctx: CommandContext) -> None:
     rows = await ctx.app.reminders.list(ctx.user_id)
     tz_name = ctx.settings.get("timezone") or ctx.app.config.timezone
-    lines = [ctx.t("⏰ <b>Напоминания</b>", "⏰ <b>Eslatmalar</b>")]
+    lines = [ctx.t("system_cmds.napominaniya")]
     for r in rows:
-        where = ctx.t("в чат", "chatga") if r["kind"] == "chat" else ctx.t("в личку", "shaxsiyga")
+        where = ctx.t("system_cmds.chat") if r["kind"] == "chat" else ctx.t("system_cmds.lichku")
         lines.append(f"#{r['id']} · {fmt_dt(r['run_at'], tz_name)} · {where} · {esc(clip(r['text'], 50))}")
     if not rows:
-        lines.append(ctx.t("Нет активных напоминаний.", "Faol eslatmalar yo'q."))
-    lines.append(ctx.t("Отменить: <code>{p}remind del ID</code>", "Bekor qilish: <code>{p}remind del ID</code>", p=ctx.prefix))
+        lines.append(ctx.t("system_cmds.net_aktivnyh_napominaniy"))
+    lines.append(ctx.t("system_cmds.otmenit_remind_del_id", p=ctx.prefix))
     await ctx.answer("\n".join(lines), private=True)
 
 
-@registry.command("remind", "system", aliases=["напомни", "eslat"], ru="Личное напоминание в личку с ботом; list — список, del ID — отменить",
-                  uz="Shaxsiy eslatma bot bilan chatga; list — ro'yxat, del ID — bekor qilish",
-                  syntax=".remind время текст | .remind list | .remind del ID",
-                  examples=[".remind 30m позвонить маме", ".remind 1d оплатить интернет", ".remind list"], rate=(10, 60))
+@registry.command("remind", "system", aliases=["напомни", "eslat"], rate=(10, 60))
 async def cmd_remind(ctx: CommandContext) -> None:
     sub = ctx.parsed.first
     if sub in ("list", "список", "ro'yxat"):
@@ -381,44 +342,40 @@ async def cmd_remind(ctx: CommandContext) -> None:
     if sub in ("del", "cancel", "удалить", "o'chir"):
         rid = ctx.args[1] if len(ctx.args) > 1 else ""
         ok = rid.isdigit() and await ctx.app.reminders.cancel(ctx.user_id, int(rid))
-        await ctx.answer(ctx.t("🗑 Отменено", "🗑 Bekor qilindi") if ok else ctx.t("Не найдено", "Topilmadi"), private=True)
+        await ctx.answer(ctx.t("system_cmds.otmeneno") if ok else ctx.t("system_cmds.naydeno"), private=True)
         return
     run_at, text = _parse_when(ctx)
     try:
         await ctx.app.reminders.create(ctx.user_id, text, run_at, kind="dm")
     except ValueError as e:
-        raise CommandError(ctx.t("Не удалось создать напоминание: {e}", "Eslatma yaratib bo'lmadi: {e}", e=esc(str(e)))) from None
+        raise CommandError(ctx.t("system_cmds.udalos_sozdat_napominanie", e=esc(str(e)))) from None
     tz_name = ctx.settings.get("timezone") or ctx.app.config.timezone
-    await ctx.answer(ctx.t("⏰ Напомню в {t}", "⏰ {t} da eslataman", t=fmt_dt(run_at, tz_name)), private=True)
+    await ctx.answer(ctx.t("system_cmds.napomnyu", t=fmt_dt(run_at, tz_name)), private=True)
 
 
 @registry.command("remindf", "system", aliases=["напомнивчат", "eslatchat"],
-                  ru="Напоминание в этот чат в указанное время (от вашего имени; нужно право «Ответы» и окно 24 ч Telegram)",
-                  uz="Belgilangan vaqtda shu chatga eslatma (sizning nomingizdan; «Javob berish» huquqi va Telegram 24 soat oynasi kerak)",
-                  syntax=".remindf время текст", examples=[".remindf 1h Не забудь документы!"], where="business",
+                  where="business",
                   rights=["can_reply"], status=LIMITED_BY_TELEGRAM, rate=(10, 60))
 async def cmd_remindf(ctx: CommandContext) -> None:
     run_at, text = _parse_when(ctx)
     try:
         await ctx.app.reminders.create(ctx.user_id, text, run_at, kind="chat", chat_id=ctx.chat_id, connection_id=ctx.conn.id)
     except ValueError as e:
-        raise CommandError(ctx.t("Не удалось создать напоминание: {e}", "Eslatma yaratib bo'lmadi: {e}", e=esc(str(e)))) from None
+        raise CommandError(ctx.t("system_cmds.udalos_sozdat_napominanie", e=esc(str(e)))) from None
     tz_name = ctx.settings.get("timezone") or ctx.app.config.timezone
     await ctx.cleanup_command(fallback_text="⏰")
-    await ctx.app.sender.send_text(ctx.user_id, ctx.t("⏰ Напоминание для чата «{c}» — {t}", "⏰ «{c}» chati uchun eslatma — {t}",
+    await ctx.app.sender.send_text(ctx.user_id, ctx.t("system_cmds.napominanie_chata",
                                                       c=esc(clip((await ctx.app.chats.get(ctx.user_id, ctx.chat_id) or {}).get("title") or "", 40)),
                                                       t=fmt_dt(run_at, tz_name)))
 
 
-@registry.command("tpl", "autoreply", aliases=["шаблон", "template", "shablon"], ru="Шаблоны ответов: save имя | текст, имя (вставить), list, del",
-                  uz="Javob shablonlari: save nom | matn, nom (qo'yish), list, del", syntax=".tpl save имя | текст · .tpl имя · .tpl list · .tpl del имя",
-                  examples=[".tpl save прайс | Наш прайс: …", ".tpl прайс"], **SYS)
+@registry.command("tpl", "autoreply", aliases=["шаблон", "template", "shablon"], **SYS)
 async def cmd_tpl(ctx: CommandContext) -> None:
     db = ctx.app.db
     sub = ctx.parsed.first
     if sub in ("", "list", "список"):
         rows = await db.fetchall("SELECT name, text FROM reply_templates WHERE user_id=? ORDER BY name", (ctx.user_id,))
-        body = "\n".join(f"• <b>{esc(r['name'])}</b>: {esc(clip(r['text'], 60))}" for r in rows) or ctx.t("Шаблонов нет.", "Shablonlar yo'q.")
+        body = "\n".join(f"• <b>{esc(r['name'])}</b>: {esc(clip(r['text'], 60))}" for r in rows) or ctx.t("system_cmds.shablonov_net")
         await ctx.answer("📑 " + body, private=ctx.is_business)
         return
     if sub in ("save", "сохранить", "add"):
@@ -427,7 +384,7 @@ async def cmd_tpl(ctx: CommandContext) -> None:
             raise UsageError()
         n = await db.fetchval("SELECT COUNT(*) FROM reply_templates WHERE user_id=?", (ctx.user_id,), 0)
         if n >= 100:
-            raise CommandError(ctx.t("Максимум 100 шаблонов.", "Maksimum 100 shablon."))
+            raise CommandError(ctx.t("system_cmds.maksimum_100_shablonov"))
         await db.execute("INSERT INTO reply_templates(user_id, name, text, created_at) VALUES (?,?,?,?) ON CONFLICT(user_id, name) DO UPDATE SET text=excluded.text",
                          (ctx.user_id, parts[0][:40].lower(), "|".join(parts[1:])[:3000], int(time.time())))
         await ctx.answer("✅", private=ctx.is_business)
@@ -439,18 +396,16 @@ async def cmd_tpl(ctx: CommandContext) -> None:
         return
     row = await db.fetchone("SELECT text FROM reply_templates WHERE user_id=? AND name=?", (ctx.user_id, ctx.raw.strip().lower()))
     if not row:
-        raise CommandError(ctx.t("Шаблон не найден.", "Shablon topilmadi."))
+        raise CommandError(ctx.t("system_cmds.shablon_nayden"))
     await ctx.answer(esc(row["text"]))
 
 
-@registry.command("fav", "system", aliases=["избранное", "sevimli"], ru="Избранные команды для меню «⚡ Быстрые команды»: .fav команда1 команда2 … (без аргументов — показать)",
-                  uz="«⚡ Tezkor buyruqlar» menyusi uchun sevimli buyruqlar: .fav buyruq1 buyruq2 … (argumentsiz — ko'rsatish)",
-                  syntax=".fav [команды…] | .fav reset", examples=[".fav afk mute ai sum", ".fav reset"], sandbox_safe=True, rate=(10, 60))
+@registry.command("fav", "system", aliases=["избранное", "sevimli"], sandbox_safe=True, rate=(10, 60))
 async def cmd_fav(ctx: CommandContext) -> None:
     from ..handlers.account import QUICK_DEFAULT
     if ctx.parsed.first == "reset":
         await ctx.app.settings.set(ctx.user_id, "favorite_commands", [])
-        await ctx.answer(ctx.t("⭐ Избранное сброшено.", "⭐ Sevimlilar tiklandi."), private=ctx.is_business)
+        await ctx.answer(ctx.t("system_cmds.izbrannoe_sbrosheno"), private=ctx.is_business)
         return
     if not ctx.args:
         fav = ctx.settings.get("favorite_commands") or QUICK_DEFAULT
@@ -464,5 +419,5 @@ async def cmd_fav(ctx: CommandContext) -> None:
     await ctx.app.settings.set(ctx.user_id, "favorite_commands", ids)
     msg = "⭐ " + " ".join(f"<code>{ctx.prefix}{c}</code>" for c in ids)
     if unknown:
-        msg += "\n" + ctx.t("Не найдены: {u}", "Topilmadi: {u}", u=esc(", ".join(unknown)))
+        msg += "\n" + ctx.t("system_cmds.naydeny", u=esc(", ".join(unknown)))
     await ctx.answer(msg, private=ctx.is_business)

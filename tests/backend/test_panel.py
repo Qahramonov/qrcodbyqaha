@@ -4,7 +4,6 @@ from __future__ import annotations
 import datetime as dt
 import itertools
 
-import pytest
 from aiogram.types import CallbackQuery, Chat, Message, Update, User
 from conftest import OWNER, USER2
 from fakes import business_connection, private_message, update_connection

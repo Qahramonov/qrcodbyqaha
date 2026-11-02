@@ -30,7 +30,7 @@ router.callback_query.middleware(PanelGate())
 
 
 def _onoff(lang: str, v: bool) -> str:
-    return tr(lang, "🟢 вкл", "🟢 yoq") if v else tr(lang, "⚪️ выкл", "⚪️ o'ch")
+    return tr(lang, "chatmgr.vkl") if v else tr(lang, "chatmgr.vykl")
 
 
 async def chat_panel(app: Any, owner: int, chat_id: int) -> tuple[str, Any]:
@@ -38,7 +38,7 @@ async def chat_panel(app: Any, owner: int, chat_id: int) -> tuple[str, Any]:
     lang, tz = s["lang"], s.get("timezone") or app.config.timezone
     row = await app.chats.get(owner, chat_id)
     if row is None:
-        return tr(lang, "Чат не найден.", "Chat topilmadi."), kb([[(tr(lang, "◀️ К списку чатов", "◀️ Chatlar ro'yxati"), "m:chats")]])
+        return tr(lang, "chatmgr.chat_nayden"), kb([[(tr(lang, "chatmgr.spisku_chatov"), "m:chats")]])
     acc = await access(app, owner)
     ctl = app.controls
     states = {m: await ctl.is_on(owner, chat_id, m) for m in ("mute", "protect", "nogif", "nomute")}
@@ -47,31 +47,31 @@ async def chat_panel(app: Any, owner: int, chat_id: int) -> tuple[str, Any]:
     afk = await app.afk.active(owner)
     ai_on = s["mode"] in ("ai", "hybrid") and row.get("ai_enabled") != 0
     name = esc(clip(row.get("title") or str(chat_id), 40)) + (f" (@{esc(row['username'])})" if row.get("username") else "")
-    t = lambda ru, uz, **kw: tr(lang, ru, uz, **kw)  # noqa: E731
-    lines = [t("💬 <b>Управление чатом</b>", "💬 <b>Chatni boshqarish</b>"), "",
-             t("👤 Собеседник: {n}", "👤 Suhbatdosh: {n}", n=name),
-             t("🔗 Подключение: {v}", "🔗 Ulanish: {v}", v=t("🟢 активно", "🟢 faol") if acc.connected else t("⚫️ отключено", "⚫️ uzilgan")),
-             t("🧠 AI: {v}", "🧠 AI: {v}", v=_onoff(lang, ai_on) + (f" · {mode_title(s['mode'], lang)}" if s["mode"] in ("ai", "hybrid") else "")),
-             t("💤 AFK: {v} · в этом чате: {c}", "💤 AFK: {v} · bu chatda: {c}", v=_onoff(lang, bool(afk)),
-               c=t("отвечать", "javob berish") if row.get("afk_enabled") != 0 else t("молчать", "jim turish")),
-             t("🔕 Mute: {v}", "🔕 Mute: {v}", v=_onoff(lang, states["mute"]) + (
-                 (" · " + (t("до {x}", "{x} gacha", x=fmt_dt(mute["until_at"], tz, with_date=False)) if mute.get("until_at")
-                           else t("бессрочно", "muddatsiz")) + t(" · удалено {d}", " · o'chirildi {d}", d=mute["state"].get("deleted", 0)))
+    t = lambda key, **kw: tr(lang, key, **kw)  # noqa: E731
+    lines = [t("chatmgr.upravlenie_chatom"), "",
+             t("chatmgr.sobesednik", n=name),
+             t("chatmgr.podklyuchenie", v=t("chatmgr.aktivno") if acc.connected else t("chatmgr.otklyucheno")),
+             t("chatmgr.ai", v=_onoff(lang, ai_on) + (f" · {mode_title(s['mode'], lang)}" if s["mode"] in ("ai", "hybrid") else "")),
+             t("chatmgr.afk_etom_chate", v=_onoff(lang, bool(afk)),
+               c=t("chatmgr.otvechat") if row.get("afk_enabled") != 0 else t("chatmgr.molchat")),
+             t("chatmgr.mute", v=_onoff(lang, states["mute"]) + (
+                 (" · " + (t("chatmgr.text", x=fmt_dt(mute["until_at"], tz, with_date=False)) if mute.get("until_at")
+                           else t("chatmgr.bessrochno")) + t("chatmgr.udaleno", d=mute["state"].get("deleted", 0)))
                  if states["mute"] and mute else "")),
-             t("🛡 Protect: {v}", "🛡 Protect: {v}", v=_onoff(lang, states["protect"])),
-             t("🚫 GIF/стикеры: {v} · 🧹 Слова: {w}", "🚫 GIF/stikerlar: {v} · 🧹 So'zlar: {w}", v=_onoff(lang, states["nogif"]),
+             t("chatmgr.protect", v=_onoff(lang, states["protect"])),
+             t("chatmgr.gif_stikery_slova", v=_onoff(lang, states["nogif"]),
                w=(_onoff(lang, states["nomute"]) + f" ({len(words)})")),
-             t("🎬 Media: {v}", "🎬 Media: {v}", v=_onoff(lang, bool(s.get("media_enabled", True))))]
+             t("chatmgr.media", v=_onoff(lang, bool(s.get("media_enabled", True))))]
     if row.get("muted_until") and row["muted_until"] > time.time():
-        lines.append(t("🤫 Без автоответов ещё {d}", "🤫 Avtojavobsiz yana {d}", d=human_duration(row["muted_until"] - time.time(), lang)))
+        lines.append(t("chatmgr.bez_avtootvetov_eschyo", d=human_duration(row["muted_until"] - time.time(), lang)))
     c = f"ch:{chat_id}"
-    rows = [[(t("🧠 AI {x}", "🧠 AI {x}", x="⏹" if ai_on else "▶️"), f"{c}:ai"), (t("🔕 Mute {x}", "🔕 Mute {x}", x="⏹" if states["mute"] else "▶️"), f"{c}:mute")],
-            [(t("🛡 Protect {x}", "🛡 Protect {x}", x="⏹" if states["protect"] else "▶️"), f"{c}:protect"),
-             (t("💤 AFK тут {x}", "💤 AFK bu yerda {x}", x="⏹" if row.get("afk_enabled") != 0 else "▶️"), f"{c}:afk")],
-            [(t("🚫 GIF/стикеры {x}", "🚫 GIF/stiker {x}", x="⏹" if states["nogif"] else "▶️"), f"{c}:nogif"),
-             (t("🧹 Слова", "🧹 So'zlar"), f"{c}:words")],
-            [(t("⚡ Быстрые команды", "⚡ Tezkor buyruqlar"), f"{c}:quick"), (t("⚙️ Расширенные", "⚙️ Kengaytirilgan"), f"{c}:adv")],
-            [(t("◀️ Мои чаты", "◀️ Chatlarim"), "m:chats"), (t("🏠 Меню", "🏠 Menyu"), "m:home")]]
+    rows = [[(t("chatmgr.ai_2", x="⏹" if ai_on else "▶️"), f"{c}:ai"), (t("chatmgr.mute_2", x="⏹" if states["mute"] else "▶️"), f"{c}:mute")],
+            [(t("chatmgr.protect_2", x="⏹" if states["protect"] else "▶️"), f"{c}:protect"),
+             (t("chatmgr.afk_tut", x="⏹" if row.get("afk_enabled") != 0 else "▶️"), f"{c}:afk")],
+            [(t("chatmgr.gif_stikery", x="⏹" if states["nogif"] else "▶️"), f"{c}:nogif"),
+             (t("chatmgr.slova"), f"{c}:words")],
+            [(t("chatmgr.bystrye_komandy"), f"{c}:quick"), (t("chatmgr.rasshirennye"), f"{c}:adv")],
+            [(t("chatmgr.moi_chaty_2"), "m:chats"), (t("chatmgr.menyu"), "m:home")]]
     return "\n".join(lines), kb(rows)
 
 
@@ -85,10 +85,9 @@ async def screen_chats(app: Any, uid: int, s: dict[str, Any], page: int = 0) -> 
     lang = s["lang"]
     data = await app.chats.list(uid, sort="recent", page=1, page_size=200)
     items = data["items"]
-    lines = [tr(lang, "💬 <b>Мои чаты</b>", "💬 <b>Chatlarim</b>"), ""]
+    lines = [tr(lang, "chatmgr.moi_chaty"), ""]
     if not items:
-        lines.append(tr(lang, "Пока нет чатов. Они появятся, когда в подключённых чатах будут новые сообщения.",
-                        "Hozircha chatlar yo'q. Ulangan chatlarda yangi xabarlar paydo bo'lganda ko'rinadi."))
+        lines.append(tr(lang, "chatmgr.poka_net_chatov_oni_poyavyatsya"))
     chunk, page, pages = paginate(items, int(page), 8)
     rows = []
     for r in chunk:
@@ -100,7 +99,7 @@ async def screen_chats(app: Any, uid: int, s: dict[str, Any], page: int = 0) -> 
         rows.append([(label, f"ch:{r['chat_id']}:open")])
     if pages > 1:
         rows.append(pager("m:chats", page, pages))
-    rows.append([(tr(lang, "⬅️ Назад", "⬅️ Orqaga"), "m:home")])
+    rows.append([(tr(lang, "chatmgr.nazad"), "m:home")])
     return "\n".join(lines), kb(rows)
 
 
@@ -119,10 +118,7 @@ async def open_from_deeplink(app: Any, uid: int, payload: str, message: Message)
     await app.audit.log("chat_context.deeplink", actor_id=uid, actor_type="telegram", target_type="chat", target_id=chat_id,
                         verified=row is not None)
     if row is None:
-        text = tr(lang, "🔍 Не удалось подтвердить этот чат: Chat helper ещё не видел в нём сообщений после подключения. "
-                        "Выберите чат из списка или напишите в нём любое сообщение и откройте панель снова.",
-                  "🔍 Bu chatni tasdiqlab bo'lmadi: Chat helper ulangandan keyin unda xabar ko'rmagan. "
-                  "Ro'yxatdan chat tanlang yoki unga xabar yozib, panelni qayta oching.")
+        text = tr(lang, "chatmgr.udalos_podtverdit_etot_chat_chat")
         _, markup = await screen_chats(app, uid, s)
         await message.answer(text, reply_markup=markup)
         return
@@ -136,7 +132,7 @@ async def cb_chat(cb: CallbackQuery, app: Any) -> None:
     uid = await ensure_user(app, cb)
     s = await app.settings.all(uid)
     lang = s["lang"]
-    t = lambda ru, uz, **kw: tr(lang, ru, uz, **kw)  # noqa: E731
+    t = lambda key, **kw: tr(lang, key, **kw)  # noqa: E731
     parts = (cb.data or "").split(":")
     if len(parts) < 3 or not parts[1].lstrip("-").isdigit():
         await cb.answer()
@@ -145,14 +141,14 @@ async def cb_chat(cb: CallbackQuery, app: Any) -> None:
     arg = parts[3] if len(parts) > 3 else ""
     row = await app.chats.get(uid, chat_id)          # ownership: only chats of this owner exist for him
     if row is None:
-        await cb.answer(t("Чат не найден.", "Chat topilmadi."), show_alert=True)
+        await cb.answer(t("chatmgr.chat_nayden"), show_alert=True)
         return
     acc = await access(app, uid)
     conn = acc.conn
     toast = ""
     if action == "ai":
         if s["mode"] not in ("ai", "hybrid"):
-            await cb.answer(t("Сначала включите режим AI или Hybrid: меню → Автоответчик.", "Avval AI yoki Hybrid rejimini yoqing: menyu → Avtojavob."),
+            await cb.answer(t("chatmgr.snachala_vklyuchite_rezhim_ai_hybrid"),
                             show_alert=True)
             return
         await app.chats.update(uid, chat_id, {"ai_enabled": row.get("ai_enabled") == 0})
@@ -163,8 +159,7 @@ async def cb_chat(cb: CallbackQuery, app: Any) -> None:
     elif action in ("protect", "nogif"):
         on = not await app.controls.is_on(uid, chat_id, action)
         if action == "nogif" and on and not (conn and conn.can("can_delete_all_messages")):
-            await cb.answer(t("🔐 Нужно право «Удаление входящих» в настройках Автоматизации чатов.",
-                              "🔐 Chat automation sozlamalarida «Kiruvchilarni o'chirish» huquqi kerak."), show_alert=True)
+            await cb.answer(t("chatmgr.nuzhno_pravo_udalenie_vhodyaschih_nastroykah"), show_alert=True)
             return
         await app.controls.set(uid, chat_id, action, on, connection_id=conn.id if conn else None)
         await refresh_cards(app, uid, chat_id, action)
@@ -172,42 +167,38 @@ async def cb_chat(cb: CallbackQuery, app: Any) -> None:
     elif action == "mute":
         if await app.controls.is_on(uid, chat_id, "mute"):
             await set_mute(app, uid, chat_id, False)
-            toast = t("🔓 Mute отключён", "🔓 Mute o'chirildi")
+            toast = t("chatmgr.mute_otklyuchyon")
         else:
             if not (conn and conn.can("can_delete_all_messages")):
-                await cb.answer(t("🔐 Для Mute нужно право «Удаление входящих» в настройках Автоматизации чатов.",
-                                  "🔐 Mute uchun Chat automation sozlamalarida «Kiruvchilarni o'chirish» huquqi kerak."), show_alert=True)
+                await cb.answer(t("chatmgr.mute_nuzhno_pravo_udalenie_vhodyaschih"), show_alert=True)
                 return
             if not s.get("mute_confirmed") and arg != "ok":
-                text = t("⚠️ <b>Включить Mute?</b>\nНовые входящие сообщения в этом чате будут удаляться у обеих сторон (если Telegram разрешает). "
-                         "Удаление необратимо; ваши сообщения и старая переписка не затрагиваются.",
-                         "⚠️ <b>Mute yoqilsinmi?</b>\nUshbu chatdagi yangi kiruvchi xabarlar ikkala tomonda o'chiriladi (Telegram ruxsat bersa). "
-                         "O'chirish qaytarilmaydi; sizning xabarlaringiz va eski yozishmalar o'zgarmaydi.")
-                markup = kb([[(t("✅ Включить", "✅ Yoqish"), f"ch:{chat_id}:mute:ok")],
-                             [(t("✅ Включить и не спрашивать", "✅ Yoqish va so'ramaslik"), f"ch:{chat_id}:muteall:ok")],
-                             [(t("✖️ Отмена", "✖️ Bekor qilish"), f"ch:{chat_id}:open")]])
+                text = t("chatmgr.vklyuchit_mute_novye_vhodyaschie_soobscheniya")
+                markup = kb([[(t("chatmgr.vklyuchit"), f"ch:{chat_id}:mute:ok")],
+                             [(t("chatmgr.vklyuchit_sprashivat"), f"ch:{chat_id}:muteall:ok")],
+                             [(t("chatmgr.otmena"), f"ch:{chat_id}:open")]])
                 await cb.answer()
                 await render(cb.message, text, markup)
                 return
             await set_mute(app, uid, chat_id, True, conn_id=conn.id if conn else None)
             await app.controls.update_state(uid, chat_id, "mute", confirmed_at=int(time.time()))
-            toast = t("🔕 Mute включён", "🔕 Mute yoqildi")
+            toast = t("chatmgr.mute_vklyuchyon")
     elif action == "muteall":
         await app.settings.set(uid, "mute_confirmed", True)
         await set_mute(app, uid, chat_id, True, conn_id=conn.id if conn else None)
-        toast = t("🔕 Mute включён", "🔕 Mute yoqildi")
+        toast = t("chatmgr.mute_vklyuchyon")
     elif action == "words":
         words = ((await app.controls.get(uid, chat_id, "nomute")) or {}).get("state", {}).get("words") or []
-        text = "\n".join([t("🧹 <b>Фильтр слов</b>", "🧹 <b>So'z filtri</b>"),
-                          t("Входящие сообщения с этими словами удаляются.", "Ushbu so'zli kiruvchi xabarlar o'chiriladi."), "",
-                          ("• " + ", ".join(esc(w) for w in words)) if words else t("Слов пока нет.", "Hozircha so'z yo'q."), "",
-                          t("Добавить: в этом чате напишите <code>{p}nomute add слово</code>", "Qo'shish: shu chatda <code>{p}nomute add so'z</code> yozing",
+        text = "\n".join([t("chatmgr.filtr_slov"),
+                          t("chatmgr.vhodyaschie_soobscheniya_etimi_slovami_udalyayut"), "",
+                          ("• " + ", ".join(esc(w) for w in words)) if words else t("chatmgr.slov_poka_net"), "",
+                          t("chatmgr.dobavit_etom_chate_napishite_nomute",
                             p=s["prefix"])])
         on = await app.controls.is_on(uid, chat_id, "nomute")
-        rows = [[((t("⏹ Выключить фильтр", "⏹ Filtrni o'chirish") if on else t("▶️ Включить фильтр", "▶️ Filtrni yoqish")), f"ch:{chat_id}:nomute")]]
+        rows = [[((t("chatmgr.vyklyuchit_filtr") if on else t("chatmgr.vklyuchit_filtr")), f"ch:{chat_id}:nomute")]]
         if words:
-            rows.append([(t("🗑 Очистить слова", "🗑 So'zlarni tozalash"), f"ch:{chat_id}:wclear")])
-        rows.append([(t("◀️ Назад", "◀️ Orqaga"), f"ch:{chat_id}:open")])
+            rows.append([(t("chatmgr.ochistit_slova"), f"ch:{chat_id}:wclear")])
+        rows.append([(t("chatmgr.nazad_2"), f"ch:{chat_id}:open")])
         await cb.answer()
         await render(cb.message, text, kb(rows))
         return
@@ -215,7 +206,7 @@ async def cb_chat(cb: CallbackQuery, app: Any) -> None:
         words = ((await app.controls.get(uid, chat_id, "nomute")) or {}).get("state", {}).get("words") or []
         on = not await app.controls.is_on(uid, chat_id, "nomute")
         if on and not words:
-            await cb.answer(t("Сначала добавьте слова командой .nomute add", "Avval .nomute add bilan so'z qo'shing"), show_alert=True)
+            await cb.answer(t("chatmgr.snachala_dobavte_slova_komandoy_nomute"), show_alert=True)
             return
         await app.controls.set(uid, chat_id, "nomute", on, connection_id=conn.id if conn else None)
         await refresh_cards(app, uid, chat_id, "nomute")
@@ -225,11 +216,11 @@ async def cb_chat(cb: CallbackQuery, app: Any) -> None:
         await refresh_cards(app, uid, chat_id, "nomute")
         toast = "🗑"
     elif action == "quick":
-        text = t("⚡ <b>Быстрые действия для чата</b>", "⚡ <b>Chat uchun tezkor amallar</b>")
-        rows = [[(t("📝 Пересказ последних 30 сообщений", "📝 So'nggi 30 xabar xulosasi"), f"ch:{chat_id}:q:sum")],
-                [(t("🔕 Mute на 1 час", "🔕 1 soatga Mute"), f"ch:{chat_id}:q:mute1h"), (t("🎲 Кубик в чат", "🎲 Chatga zar"), f"ch:{chat_id}:q:dice")],
-                [(t("🧹 Сбросить AI-контекст", "🧹 AI kontekstini tozalash"), f"ch:{chat_id}:q:resetai")],
-                [(t("◀️ Назад", "◀️ Orqaga"), f"ch:{chat_id}:open")]]
+        text = t("chatmgr.bystrye_deystviya_chata")
+        rows = [[(t("chatmgr.pereskaz_poslednih_30_soobscheniy"), f"ch:{chat_id}:q:sum")],
+                [(t("chatmgr.mute_1_chas"), f"ch:{chat_id}:q:mute1h"), (t("chatmgr.kubik_chat"), f"ch:{chat_id}:q:dice")],
+                [(t("chatmgr.sbrosit_ai_kontekst"), f"ch:{chat_id}:q:resetai")],
+                [(t("chatmgr.nazad_2"), f"ch:{chat_id}:open")]]
         await cb.answer()
         await render(cb.message, text, kb(rows))
         return
@@ -238,15 +229,15 @@ async def cb_chat(cb: CallbackQuery, app: Any) -> None:
         if toast is None:
             return await cb.answer()
     elif action == "adv":
-        text = "\n".join([t("⚙️ <b>Расширенные настройки чата</b>", "⚙️ <b>Chatning kengaytirilgan sozlamalari</b>"), "",
-                          t("Язык ответов: {l}", "Javob tili: {l}", l=(row.get("language") or t("как в настройках", "sozlamalardagidek")).upper()),
-                          t("Лимит автоответов в день: {n}", "Kunlik avtojavob limiti: {n}", n=row.get("reply_limit") or s["max_auto_replies_per_chat_day"]),
-                          t("Игнорировать чат: {v}", "Chatni e'tiborsiz qoldirish: {v}", v=_onoff(lang, bool(row.get("ignored"))))])
+        text = "\n".join([t("chatmgr.rasshirennye_nastroyki_chata"), "",
+                          t("chatmgr.yazyk_otvetov", l=(row.get("language") or t("chatmgr.kak_nastroykah")).upper()),
+                          t("chatmgr.limit_avtootvetov_den", n=row.get("reply_limit") or s["max_auto_replies_per_chat_day"]),
+                          t("chatmgr.ignorirovat_chat", v=_onoff(lang, bool(row.get("ignored"))))])
         c = f"ch:{chat_id}"
-        rows = [[("RU", f"{c}:lang:ru"), ("UZ", f"{c}:lang:uz"), (t("Авто", "Avto"), f"{c}:lang:auto")],
-                [("5/" + t("день", "kun"), f"{c}:limit:5"), ("20", f"{c}:limit:20"), ("50", f"{c}:limit:50")],
-                [(t("🙈 Игнор вкл/выкл", "🙈 E'tiborsiz yoq/o'ch"), f"{c}:ignore")],
-                [(t("◀️ Назад", "◀️ Orqaga"), f"{c}:open")]]
+        rows = [[("RU", f"{c}:lang:ru"), ("UZ", f"{c}:lang:uz"), (t("chatmgr.avto"), f"{c}:lang:auto")],
+                [("5/" + t("chatmgr.den"), f"{c}:limit:5"), ("20", f"{c}:limit:20"), ("50", f"{c}:limit:50")],
+                [(t("chatmgr.ignor_vkl_vykl"), f"{c}:ignore")],
+                [(t("chatmgr.nazad_2"), f"{c}:open")]]
         await cb.answer()
         await render(cb.message, text, kb(rows))
         return
@@ -268,16 +259,16 @@ async def _quick(app: Any, uid: int, chat_id: int, what: str, conn: Any, s: dict
     lang = s["lang"]
     if what == "mute1h":
         if not (conn and conn.can("can_delete_all_messages")):
-            return tr(lang, "🔐 Нужно право «Удаление входящих»", "🔐 «Kiruvchilarni o'chirish» huquqi kerak")
+            return tr(lang, "chatmgr.nuzhno_pravo_udalenie_vhodyaschih")
         if not s.get("mute_confirmed"):
-            return tr(lang, "Сначала включите Mute кнопкой выше и подтвердите", "Avval yuqoridagi tugma bilan Mute'ni yoqib, tasdiqlang")
+            return tr(lang, "chatmgr.snachala_vklyuchite_mute_knopkoy_vyshe")
         await set_mute(app, uid, chat_id, True, until_for=3600, conn_id=conn.id)
-        return tr(lang, "🔕 Mute на 1 час", "🔕 1 soatga Mute")
+        return tr(lang, "chatmgr.mute_1_chas")
     if what == "dice":
         if not (conn and conn.can("can_reply")):
-            return tr(lang, "🔐 Нет права «Ответы на сообщения»", "🔐 «Javob berish» huquqi yo'q")
+            return tr(lang, "chatmgr.net_prava_otvety_soobscheniya")
         res = await app.sender.send_dice(chat_id, "🎲", bc_id=conn.id)
-        return "🎲" if res.ok else tr(lang, "Не удалось ({k})", "Bo'lmadi ({k})", k=res.kind)
+        return "🎲" if res.ok else tr(lang, "chatmgr.udalos", k=res.kind)
     if what == "resetai":
         await app.ai.memory.clear_chat(uid, chat_id)
         return "🧹"

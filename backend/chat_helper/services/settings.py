@@ -51,7 +51,7 @@ SCHEMA: dict[str, tuple[str, Any, Any]] = {
     "ai_confirm": ("bool", False, None),
     "ai_debounce_sec": ("int", 6, (0, 60)),
     "ai_reply_limit_per_chat_day": ("int", 30, (1, 500)),
-    "ai_disclosure": ("str", "🤖 Ответ AI-ассистента", 120),
+    "ai_disclosure": ("str", "🤖 AI", 120),   # "🤖 AI" = localized default (common.ai_disclosure)
     "ai_store_history": ("bool", True, None),
     "ai_context_messages": ("int", 12, (0, 40)),
     "ai_long_memory": ("bool", False, None),

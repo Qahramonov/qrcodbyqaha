@@ -35,7 +35,7 @@ def test_registry_aliases(env=None):
     assert registry.resolve("r").id == "r" and registry.resolve("mad").id == "mad" and registry.resolve("re").id == "re"
     assert len(registry) >= 130
     for spec in registry.commands.values():
-        assert spec.handler is not None and spec.ru and spec.uz and spec.syntax and spec.examples, spec.id
+        assert spec.handler is not None and spec.ru and spec.uz and spec.syntax_for("ru") and spec.examples_for("uz"), spec.id
 
 
 async def connect(env, conn_id="bc1", owner=OWNER, **rights):

@@ -16,7 +16,7 @@
 
 | Команда | Описание (RU) | Tavsif (UZ) | Синтаксис | Пример | Статус | Тариф / права |
 |---|---|---|---|---|---|---|
-| `.ai`<br><sub>.gpt, .ask, .гпт, .спроси</sub> | Задать вопрос AI (можно ответом на сообщение — оно станет контекстом) | AI'ga savol berish (xabarga javob sifatida — u kontekst bo'ladi) | `.gpt вопрос` | `.gpt Придумай название для кофейни` | 🔑 нужен AI-ключ | free; — · deps: ai |
+| `.ai`<br><sub>.gpt, .ask, .гпт, .спроси</sub> | Задать вопрос AI (можно ответом на сообщение — оно станет контекстом) | AI'ga savol berish (xabarga javob sifatida — u kontekst bo'ladi) | `.gpt вопрос` | `.ai Придумай название для кофейни` | 🔑 нужен AI-ключ | free; — · deps: ai |
 | `.analyze`<br><sub>.анализ, .tahlil</sub> | Анализ сообщения: намерение, тон, срочность (видите только вы) | Xabar tahlili: maqsad, ohang, shoshilinchlik (faqat siz ko'rasiz) | `.analyze (ответом на сообщение)` | `.analyze` | 🔑 нужен AI-ключ | free; — · deps: ai |
 | `.code`<br><sub>.код, .kod</sub> | Помощь с программированием | Dasturlash bo'yicha yordam | `.code задача` | `.code функция на Python для проверки палиндрома` | 🔑 нужен AI-ключ | free; — · deps: ai |
 | `.context`<br><sub>.контекст</sub> | Сколько контекста AI хранится для этого чата | Bu chat uchun AI qancha kontekst saqlaydi | `.context` | `.context` | ✅ реализовано | free; — |
@@ -199,7 +199,6 @@
 | `.info`<br><sub>.инфо, .whois, .kim</sub> | Сведения о пользователе (ответом на сообщение или о собеседнике): имя, username, ID, bio и фото, если доступны боту | Foydalanuvchi haqida ma'lumot (xabarga javob yoki suhbatdosh): ism, username, ID, bio va rasm, agar botga ochiq bo'lsa | `.info (ответом на сообщение)` | `.info` | ✅ реализовано | free; — |
 | `.lang`<br><sub>.язык, .til</sub> | Язык интерфейса: ru или uz | Interfeys tili: ru yoki uz | `.lang ru|uz` | `.lang uz` | ✅ реализовано | free; — |
 | `.limits`<br><sub>.лимиты, .limitlar</sub> | Лимиты тарифа и использование сегодня | Tarif limitlari va bugungi foydalanish | `.limits` | `.limits` | ✅ реализовано | free; — |
-| `.logs`<br><sub>.логи</sub> | Последние предупреждения и ошибки (только администратор) | So'nggi xatolar (faqat admin) | `.logs [N]` | `.logs` | ✅ реализовано | free; — |
 | `.mad`<br><sub>.action, .печатает, .актив</sub> | Короткая контролируемая серия статусов «печатает… / записывает… / отправляет фото…» (до 60 с); stop — отмена. Это не «онлайн» | Qisqa nazoratli holatlar seriyasi «yozmoqda… / yozib olmoqda… / rasm yubormoqda…» (60 s gacha); stop — bekor. Bu «onlayn» emas | `.mad [секунды 5–60] [typing|voice|video|photo|doc|sticker…] | .mad stop` | `.mad` | ✅ реализовано | free; can_reply |
 | `.menu`<br><sub>.меню, .menyu</sub> | Открыть меню Chat helper (в личке с ботом) | Chat helper menyusini ochish | `.menu` | `.menu` | ✅ реализовано | free; — |
 | `.ping`<br><sub>.пинг</sub> | Задержка до Telegram API и время отклика бота | Telegram API kechikishi | `.ping` | `.ping` | ✅ реализовано | free; — |
@@ -213,6 +212,14 @@
 | `.theme`<br><sub>.тема, .mavzu</sub> | Стиль сообщений бота: classic, minimal, fancy, emoji | Bot xabarlari uslubi | `.theme classic|minimal|fancy|emoji` | `.theme fancy` | ✅ реализовано | free; — |
 | `.timer`<br><sub>.таймер, .taymer</sub> | Сообщение, которое удалится через время (или ответом — удалить ваше сообщение). Не защищённые «исчезающие» сообщения | Vaqt o'tib o'chadigan xabar (yoki javob — xabaringizni o'chirish). Himoyalangan «yo'qoladigan» xabar emas | `.timer время [текст]` | `.timer 30s Секретный код 1234` | ⚠️ ограничено Telegram | free; can_reply |
 | `.uptime`<br><sub>.аптайм</sub> | Время работы backend | Backend ishlash vaqti | `.uptime` | `.uptime` | ✅ реализовано | free; — |
+
+## 👑 Только Super Admin / faqat Super Admin
+
+> Эти команды существуют только для владельца бота (`SUPER_ADMIN_ID`). Для всех остальных они невидимы: их нет в `.help`, меню и подсказках, а вызов отвечает так же, как неизвестная команда.
+
+| Команда | Описание (RU) | Tavsif (UZ) | Синтаксис | Пример | Статус | Тариф / права |
+|---|---|---|---|---|---|---|
+| `.logs`<br><sub>.логи</sub> | Последние предупреждения и ошибки (только администратор) | So'nggi xatolar (faqat admin) | `.logs [N]` | `.logs` | ✅ реализовано | free; — |
 
 ## Примечания
 

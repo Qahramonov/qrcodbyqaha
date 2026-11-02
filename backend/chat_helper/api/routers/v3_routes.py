@@ -16,6 +16,7 @@ from ...modules.animations import SPEEDS, TYPE_TITLES, frames_preview
 from ...modules.chat_filters import MUTE_TYPES, NOGIF_TYPES
 from ...modules.controls import refresh_cards, set_mute
 from ...services.delegation import SCOPES
+from ...localization import tr
 from ...services.settings import ANIM_TYPES
 from ..deps import APIError, Principal, get_app, principal, super_admin
 
@@ -204,7 +205,7 @@ async def twin_preview(body: TextIn, p: Principal = Depends(principal), app: Any
 async def animations(p: Principal = Depends(principal), app: Any = Depends(get_app)) -> dict[str, Any]:
     s = await app.settings.all(p.user_id)
     lang = s["lang"]
-    return {"types": [{"id": k, "title": TYPE_TITLES[k][1 if lang == "uz" else 0]} for k in ANIM_TYPES],
+    return {"types": [{"id": k, "title": tr(lang, TYPE_TITLES[k])} for k in ANIM_TYPES],
             "speeds": [{"id": k, "interval_sec": v[0], "frames": v[1]} for k, v in SPEEDS.items()],
             "defaults": {"type": s["anim_type"], "speed": s["anim_speed"], "repeats": s["anim_repeats"]},
             "recent": await app.db.fetchall("SELECT kind, speed, frames, status, created_at FROM animation_jobs WHERE owner_id=? "
@@ -285,7 +286,7 @@ async def permissions(p: Principal = Depends(principal), app: Any = Depends(get_
         rep = inspect(c.rights, c.is_enabled, lang, c.paused)
         out.append({"connection_id": c.id, "status": c.status, "status_title": rep["status_title"], "is_enabled": c.is_enabled,
                     "last_update": (snap or {}).get("created_at") or c.connected_at,
-                    "rights": [{"right": r, "title": RIGHT_TITLES[r][1 if lang == "uz" else 0], "granted": bool(c.rights.get(r)),
+                    "rights": [{"right": r, "title": tr(lang, RIGHT_TITLES[r]), "granted": bool(c.rights.get(r)),
                                 "commands": deps.get(r, [])} for r in RIGHT_FLAGS],
                     "capabilities": rep["capabilities"], "advice": rep["advice"]})
     return {"connections": out}
@@ -296,7 +297,7 @@ async def permissions(p: Principal = Depends(principal), app: Any = Depends(get_
 async def delegation(p: Principal = Depends(principal), app: Any = Depends(get_app)) -> dict[str, Any]:
     s = await app.settings.all(p.user_id)
     g = await app.delegation.grants(p.user_id)
-    return {"scopes": [{"scope": k, "title": v[1 if s["lang"] == "uz" else 0], "granted": bool(g.get(k, {}).get("active")),
+    return {"scopes": [{"scope": k, "title": tr(s["lang"], v), "granted": bool(g.get(k, {}).get("active")),
                         "expires_at": g.get(k, {}).get("expires_at")} for k, v in SCOPES.items()],
             "history": await app.delegation.history(p.user_id, 30)}
 

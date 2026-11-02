@@ -40,16 +40,16 @@ TYPE_ALIASES = {
 SPEED_ALIASES = {"slow": "slow", "медленно": "slow", "normal": "normal", "обычно": "normal", "turbo": "turbo", "турбо": "turbo",
                  "sekin": "slow", "tez": "turbo"}
 TYPE_TITLES = {
-    "typewriter": ("⌨️ Печатная машинка", "⌨️ Yozuv mashinkasi"), "fast": ("⚡ Быстрая печать", "⚡ Tez yozish"),
-    "reverse": ("⏪ Обратная печать", "⏪ Teskari yozish"), "wave": ("🌊 Волна", "🌊 To'lqin"), "glitch": ("👾 Глитч", "👾 Glitch"),
-    "matrix": ("🟩 Матрица", "🟩 Matritsa"), "dots": ("⏳ Точки загрузки", "⏳ Yuklanish nuqtalari"),
-    "progress": ("📶 Прогресс-бар", "📶 Progress"), "countdown": ("🔢 Обратный отсчёт", "🔢 Teskari sanoq"),
-    "pulse": ("💗 Пульс эмодзи", "💗 Emoji puls"), "heart": ("❤️ Сердечки", "❤️ Yuraklar"), "slide": ("➡️ Выезд текста", "➡️ Siljish"),
-    "rainbow": ("🌈 Радуга", "🌈 Kamalak"), "counter": ("🔟 Цифровой счётчик", "🔟 Raqamli hisoblagich"),
-    "reveal": ("✨ Плавное появление", "✨ Silliq paydo bo'lish"), "custom": ("🎞 Свои кадры", "🎞 O'z kadrlarim"),
+    "typewriter": ("animations.type_titles.pechatnaya_mashinka"), "fast": ("animations.type_titles.bystraya_pechat"),
+    "reverse": ("animations.type_titles.obratnaya_pechat"), "wave": ("animations.type_titles.volna"), "glitch": ("animations.type_titles.glitch"),
+    "matrix": ("animations.type_titles.matritsa"), "dots": ("animations.type_titles.tochki_zagruzki"),
+    "progress": ("animations.type_titles.progress_bar"), "countdown": ("animations.type_titles.obratnyy_otschyot"),
+    "pulse": ("animations.type_titles.puls_emodzi"), "heart": ("animations.type_titles.serdechki"), "slide": ("animations.type_titles.vyezd_teksta"),
+    "rainbow": ("animations.type_titles.raduga"), "counter": ("animations.type_titles.tsifrovoy_schyotchik"),
+    "reveal": ("animations.type_titles.plavnoe_poyavlenie"), "custom": ("animations.type_titles.svoi_kadry"),
 }
-SPEED_TITLES = {"slow": ("🐢 Медленно", "🐢 Sekin"), "normal": ("🚶 Обычно", "🚶 O'rtacha"), "fast": ("🏃 Быстро", "🏃 Tez"),
-                "turbo": ("🚀 Турбо", "🚀 Turbo")}
+SPEED_TITLES = {"slow": ("animations.speed_titles.medlenno"), "normal": ("animations.speed_titles.obychno"), "fast": ("animations.speed_titles.bystro"),
+                "turbo": ("animations.speed_titles.turbo")}
 GLITCH = "#$%&@!?▒░▓█<>/\\*"
 MATRIX = "01アイウエオカキクケコサシスセソﾊﾐﾋｰｳｼﾅﾓﾆｻﾜﾂｵﾘｱﾎﾃﾏｹﾒｴｶｷﾑﾕﾗｾﾈｽﾀﾇﾍ"
 MAX_PARALLEL = 3
@@ -206,11 +206,6 @@ def stop_animation(owner_id: int, chat_id: int) -> bool:
 
 # ---- command ---------------------------------------------------------------------------------------------------------
 @registry.command("a", "system", aliases=["анимация", "anim", "animatsiya"],
-                  ru="Анимация текста: 16 типов (typewriter, fast, reverse, wave, glitch, matrix, dots, progress, countdown, pulse, heart, "
-                     "slide, rainbow, counter, reveal, custom) и скорости slow/normal/turbo; stop — отменить; без текста — студия анимаций",
-                  uz="Matn animatsiyasi: 16 tur va slow/normal/turbo tezliklari; stop — bekor qilish; matnsiz — animatsiya studiyasi",
-                  syntax=".a [тип] [скорость] текст | .a custom кадр1 | кадр2 | итог | .a stop",
-                  examples=[".a Привет!", ".a glitch Система взломана", ".a turbo wave Ура!", ".a progress Загрузка", ".a stop"],
                   rights=["can_reply"], rate=(6, 60))
 async def cmd_a(ctx: CommandContext) -> None:
     app = ctx.app
@@ -218,7 +213,7 @@ async def cmd_a(ctx: CommandContext) -> None:
         stopped = stop_animation(ctx.user_id, ctx.chat_id)
         await ctx.cleanup_command(fallback_text="⏹")
         if not stopped:
-            await app.sender.send_text(ctx.user_id, ctx.t("Активной анимации в этом чате нет.", "Bu chatda faol animatsiya yo'q."))
+            await app.sender.send_text(ctx.user_id, ctx.t("animations.aktivnoy_animatsii_etom_chate_net"))
         return
     if not ctx.raw.strip():
         await send_studio(app, ctx.user_id)
@@ -226,10 +221,9 @@ async def cmd_a(ctx: CommandContext) -> None:
         return
     kind, speed, text, custom = parse_args(ctx.raw.strip(), ctx.settings)
     if not text or len(text) > 600:
-        raise UsageError(ctx.t("Нужен текст до 600 символов.", "600 belgigacha matn kerak."))
+        raise UsageError(ctx.t("animations.nuzhen_tekst_600_simvolov"))
     if kind == "custom" and len(custom) < 2:
-        raise UsageError(ctx.t("Для custom укажите кадры через «|», последний — итоговый текст.",
-                               "custom uchun kadrlarni «|» bilan yozing, oxirgisi — yakuniy matn."))
+        raise UsageError(ctx.t("animations.custom_ukazhite_kadry_cherez_posledniy"))
     if ctx.source == "sandbox":
         ctx.outputs.append({"type": "frames", "text": " ⟶ ".join(frames_for(kind, text, SPEEDS[speed][1], custom=custom))})
         return
@@ -240,7 +234,7 @@ async def cmd_a(ctx: CommandContext) -> None:
     else:  # in the bot DM the bot animates its own message
         res = await app.sender.send_text(ctx.user_id, "…")
         if not res.ok:
-            raise CommandError(ctx.t("Не удалось начать анимацию.", "Animatsiyani boshlab bo'lmadi."))
+            raise CommandError(ctx.t("animations.udalos_nachat_animatsiyu"))
         mid, chat_id, bc = res.message_id, ctx.user_id, None
     ctx._edited_in_place = True
     await run_animation(app, owner_id=ctx.user_id, chat_id=chat_id, message_id=mid, bc_id=bc, kind=kind, speed=speed, text=text,
@@ -249,18 +243,17 @@ async def cmd_a(ctx: CommandContext) -> None:
 
 # ---- Animation Studio (bot DM) ------------------------------------------------------------------------------------------
 def studio(lang: str, s: dict[str, Any]) -> tuple[str, Any]:
-    t = lambda ru, uz, **kw: tr(lang, ru, uz, **kw)  # noqa: E731
-    text = "\n".join([t("🎞 <b>Студия анимаций</b>", "🎞 <b>Animatsiya studiyasi</b>"),
-                      t("Тип по умолчанию: {k} · скорость: {s} · повторы: {r}", "Standart tur: {k} · tezlik: {s} · takror: {r}",
-                        k=tr(lang, *TYPE_TITLES[s["anim_type"]]), s=tr(lang, *SPEED_TITLES[s["anim_speed"]]), r=s["anim_repeats"]),
-                      "", t("В чате: <code>{p}a текст</code> или <code>{p}a glitch текст</code>. Остановить: <code>{p}a stop</code>.",
-                            "Chatda: <code>{p}a matn</code> yoki <code>{p}a glitch matn</code>. To'xtatish: <code>{p}a stop</code>.", p=s["prefix"])])
-    types = [(("✅ " if k == s["anim_type"] else "") + tr(lang, *TYPE_TITLES[k]), f"an:t:{k}") for k in ANIM_TYPES]
+    t = lambda key, **kw: tr(lang, key, **kw)  # noqa: E731
+    text = "\n".join([t("animations.studiya_animatsiy"),
+                      t("animations.tip_umolchaniyu_skorost_povtory",
+                        k=tr(lang, TYPE_TITLES[s["anim_type"]]), s=tr(lang, SPEED_TITLES[s["anim_speed"]]), r=s["anim_repeats"]),
+                      "", t("animations.chate_tekst_glitch_tekst_ostanovit", p=s["prefix"])])
+    types = [(("✅ " if k == s["anim_type"] else "") + tr(lang, TYPE_TITLES[k]), f"an:t:{k}") for k in ANIM_TYPES]
     rows = [types[i:i + 2] for i in range(0, len(types), 2)]
-    rows.append([(("✅ " if k == s["anim_speed"] else "") + tr(lang, *SPEED_TITLES[k]), f"an:s:{k}") for k in SPEEDS])
+    rows.append([(("✅ " if k == s["anim_speed"] else "") + tr(lang, SPEED_TITLES[k]), f"an:s:{k}") for k in SPEEDS])
     rows.append([(("✅ " if r == s["anim_repeats"] else "") + f"🔁 {r}", f"an:r:{r}") for r in (1, 2, 3)])
-    rows.append([(t("▶️ Предпросмотр", "▶️ Ko'rib chiqish"), "an:preview")])
-    rows.append([(t("⬅️ Меню", "⬅️ Menyu"), "m:home")])
+    rows.append([(t("animations.predprosmotr"), "an:preview")])
+    rows.append([(t("animations.menyu"), "m:home")])
     return text, kb(rows)
 
 
@@ -287,7 +280,7 @@ async def cb_studio(cb: CallbackQuery, app: Any) -> None:
     elif len(parts) >= 2 and parts[1] == "preview":
         await cb.answer("▶️")
         s = await app.settings.all(uid)
-        demo = tr(s["lang"], "Chat helper ✨ анимация", "Chat helper ✨ animatsiya")
+        demo = tr(s["lang"], "animations.chat_helper_animatsiya")
         if s["anim_type"] == "counter":
             demo = "2026"
         res = await app.sender.send_text(uid, "…")

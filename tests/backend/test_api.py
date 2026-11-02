@@ -1,7 +1,6 @@
 """REST API for the Android app: pairing auth, token expiry/refresh/revoke, RBAC, data isolation, validation, errors."""
 from __future__ import annotations
 
-import time
 
 import httpx
 import pytest

@@ -31,10 +31,10 @@ class TW(StatesGroup):
     test = State()
 
 
-MODE_TITLES = {"auto": ("🤖 Auto — отвечает сам (с пометкой AI)", "🤖 Auto — o'zi javob beradi (AI belgisi bilan)"),
-               "manual": ("✋ Manual — черновик с кнопкой «Отправить»", "✋ Manual — «Yuborish» tugmali qoralama"),
-               "draft": ("📝 Draft — только подсказка, без отправки", "📝 Draft — faqat maslahat, yuborilmaydi"),
-               "disabled": ("⏸ Выключен", "⏸ O'chirilgan")}
+MODE_TITLES = {"auto": ("twin.mode_titles.auto_otvechaet_sam_pometkoy_ai"),
+               "manual": ("twin.mode_titles.manual_chernovik_knopkoy_otpravit"),
+               "draft": ("twin.mode_titles.draft_tolko_podskazka_bez_otpravki"),
+               "disabled": ("twin.mode_titles.vyklyuchen")}
 
 
 def _bar(v: int) -> str:
@@ -46,52 +46,46 @@ def _bar(v: int) -> str:
 async def screen_twin(app: Any, uid: int, s: dict[str, Any]) -> tuple[str, Any]:
     lang = s["lang"]
     p = await app.twin.get(uid)
-    t = lambda ru, uz, **kw: tr(lang, ru, uz, **kw)  # noqa: E731
-    lines = [t("🤖 <b>AI-двойник</b>", "🤖 <b>AI-egizak</b>"),
-             t("Отвечает в ваших чатах в вашем стиле, когда включён режим AI или Hybrid. Автоответы всегда помечаются как AI.",
-               "AI yoki Hybrid rejimi yoqilganda chatlaringizda sizning uslubingizda javob beradi. Avtojavoblar doim AI deb belgilanadi."), "",
-             t("Режим: {m}", "Rejim: {m}", m=tr(lang, *MODE_TITLES[p["mode"]])),
-             t("Имя: {n} · язык: {l} · образ: {p}", "Ism: {n} · til: {l} · obraz: {p}", n=esc(p["name"] or "—"), l=p["language"], p=p["persona"]),
-             t("Стиль: {s} · длина: {d}", "Uslub: {s} · uzunlik: {d}", s=p["style"], d=p["length"]),
-             t("Формальность {a} · юмор {b}", "Rasmiylik {a} · hazil {b}", a=_bar(p["formality"]), b=_bar(p["humor"])),
-             t("Эмодзи {a} · сленг {b} · фильтр мата: {f}", "Emoji {a} · sleng {b} · so'kinish filtri: {f}", a=_bar(p["emoji"]), b=_bar(p["slang"]),
+    t = lambda key, **kw: tr(lang, key, **kw)  # noqa: E731
+    lines = [t("twin.ai_dvoynik"),
+             t("twin.otvechaet_vashih_chatah_vashem_stile"), "",
+             t("twin.rezhim", m=tr(lang, MODE_TITLES[p["mode"]])),
+             t("twin.imya_yazyk_obraz", n=esc(p["name"] or "—"), l=p["language"], p=p["persona"]),
+             t("twin.stil_dlina", s=p["style"], d=p["length"]),
+             t("twin.formalnost_yumor", a=_bar(p["formality"]), b=_bar(p["humor"])),
+             t("twin.emodzi_sleng_filtr_mata", a=_bar(p["emoji"]), b=_bar(p["slang"]),
                f="✅" if p["profanity_filter"] else "❌"),
-             t("Задержка ответа: {d} с · часы: {h}", "Javob kechikishi: {d} s · soatlar: {h}", d=p["reply_delay_sec"],
-               h=(f"{p['active_from']}–{p['active_to']}" if p["active_from"] else t("всегда", "doim"))),
-             t("Примеры вашего стиля: {n} (только добровольно добавленные)", "Uslubingiz namunalari: {n} (faqat ixtiyoriy qo'shilgan)",
+             t("twin.zaderzhka_otveta_chasy", d=p["reply_delay_sec"],
+               h=(f"{p['active_from']}–{p['active_to']}" if p["active_from"] else t("twin.vsegda"))),
+             t("twin.primery_vashego_stilya_tolko_dobrovolno",
                n=len(p["examples"]))]
     if p.get("manner"):
-        lines.append(t("Манера: {m}", "Uslub tavsifi: {m}", m=esc(clip(p["manner"], 80))))
+        lines.append(t("twin.manera", m=esc(clip(p["manner"], 80))))
     if s["mode"] not in ("ai", "hybrid"):
-        lines += ["", t("ℹ️ Сейчас режим автоответчика «{m}» — двойник начнёт отвечать в режимах AI или Hybrid.",
-                        "ℹ️ Hozir avtojavob rejimi «{m}» — egizak AI yoki Hybrid rejimlarida javob beradi.", m=s["mode"])]
+        lines += ["", t("twin.seychas_rezhim_avtootvetchika_dvoynik_nachnyot", m=s["mode"])]
     rows = [[(("✅ " if p["mode"] == m else "") + {"auto": "🤖 Auto", "manual": "✋ Manual", "draft": "📝 Draft", "disabled": "⏸ Off"}[m],
               f"tw:mode:{m}") for m in MODES],
-            [(t("🎭 Стиль", "🎭 Uslub"), "tw:cycle:style"), (t("📏 Длина", "📏 Uzunlik"), "tw:cycle:length"),
-             (t("👤 Образ", "👤 Obraz"), "tw:cycle:persona")],
-            [(t("Формальность −", "Rasmiylik −"), "tw:dec:formality"), (t("Формальность +", "Rasmiylik +"), "tw:inc:formality")],
-            [(t("Юмор −", "Hazil −"), "tw:dec:humor"), (t("Юмор +", "Hazil +"), "tw:inc:humor")],
-            [(t("Эмодзи −", "Emoji −"), "tw:dec:emoji"), (t("Эмодзи +", "Emoji +"), "tw:inc:emoji")],
-            [(t("Сленг −", "Sleng −"), "tw:dec:slang"), (t("Сленг +", "Sleng +"), "tw:inc:slang")],
-            [(t("🤬 Фильтр мата", "🤬 So'kinish filtri"), "tw:toggle:profanity_filter"), (t("⏱ Задержка", "⏱ Kechikish"), "tw:cycle:delay")],
-            [(t("🏷 Имя", "🏷 Ism"), "tw:ask:name"), (t("🗣 Манера", "🗣 Uslub tavsifi"), "tw:ask:manner"), (t("🕘 Часы", "🕘 Soatlar"), "tw:ask:hours")],
-            [(t("📝 Свой промпт", "📝 O'z prompti"), "tw:ask:prompt"), (t("➕ Пример стиля", "➕ Uslub namunasi"), "tw:ask:example")],
-            [(t("🧪 Проверить ответ", "🧪 Javobni sinash"), "tw:ask:test"), (t("🗑 Удалить примеры", "🗑 Namunalarni o'chirish"), "tw:clear")],
-            [(t("⬅️ AI", "⬅️ AI"), "m:ai"), (t("🏠 Меню", "🏠 Menyu"), "m:home")]]
+            [(t("twin.stil"), "tw:cycle:style"), (t("twin.dlina"), "tw:cycle:length"),
+             (t("twin.obraz"), "tw:cycle:persona")],
+            [(t("twin.formalnost"), "tw:dec:formality"), (t("twin.formalnost_2"), "tw:inc:formality")],
+            [(t("twin.yumor"), "tw:dec:humor"), (t("twin.yumor_2"), "tw:inc:humor")],
+            [(t("twin.emodzi"), "tw:dec:emoji"), (t("twin.emodzi_2"), "tw:inc:emoji")],
+            [(t("twin.sleng"), "tw:dec:slang"), (t("twin.sleng_2"), "tw:inc:slang")],
+            [(t("twin.filtr_mata"), "tw:toggle:profanity_filter"), (t("twin.zaderzhka"), "tw:cycle:delay")],
+            [(t("twin.imya"), "tw:ask:name"), (t("twin.manera_2"), "tw:ask:manner"), (t("twin.chasy"), "tw:ask:hours")],
+            [(t("twin.svoy_prompt"), "tw:ask:prompt"), (t("twin.primer_stilya"), "tw:ask:example")],
+            [(t("twin.proverit_otvet"), "tw:ask:test"), (t("twin.udalit_primery"), "tw:clear")],
+            [(t("twin.ai"), "m:ai"), (t("twin.menyu"), "m:home")]]
     return "\n".join(lines), kb(rows)
 
 
 PROMPTS = {
-    "name": ("🏷 Как зовут двойника? (до 60 символов, «-» — убрать)", "🏷 Egizakning ismi? (60 belgigacha, «-» — olib tashlash)"),
-    "manner": ("🗣 Опишите свою манеру общения (например: «коротко, на ты, без официоза»). «-» — убрать.",
-               "🗣 Muloqot uslubingizni tasvirlang (masalan: «qisqa, sen deb, rasmiyatsiz»). «-» — olib tashlash."),
-    "prompt": ("📝 Пришлите свои инструкции для двойника (до 2000 символов). «-» — убрать.",
-               "📝 Egizak uchun ko'rsatmalaringizni yuboring (2000 belgigacha). «-» — olib tashlash."),
-    "hours": ("🕘 Часы работы двойника в формате 09:00-21:00. «-» — всегда.", "🕘 Egizak ish soatlari 09:00-21:00 formatida. «-» — doim."),
-    "example": ("➕ Пришлите пример того, как вы обычно пишете (ваше собственное сообщение). Он будет использоваться только как образец стиля.",
-                "➕ Odatda qanday yozishingiz namunasini yuboring (o'z xabaringiz). U faqat uslub namunasi sifatida ishlatiladi."),
-    "test": ("🧪 Напишите сообщение, как будто вам пишет собеседник, — покажу ответ двойника (ничего не отправляется).",
-             "🧪 Suhbatdosh yozgandek xabar yozing — egizak javobini ko'rsataman (hech narsa yuborilmaydi)."),
+    "name": ("twin.prompts.kak_zovut_dvoynika_60_simvolov"),
+    "manner": ("twin.prompts.opishite_svoyu_maneru_obscheniya_naprimer"),
+    "prompt": ("twin.prompts.prishlite_svoi_instruktsii_dvoynika_2000"),
+    "hours": ("twin.prompts.chasy_raboty_dvoynika_formate_09"),
+    "example": ("twin.prompts.prishlite_primer_togo_kak_vy"),
+    "test": ("twin.prompts.napishite_soobschenie_kak_budto_vam"),
 }
 
 
@@ -123,11 +117,11 @@ async def cb_twin(cb: CallbackQuery, state: FSMContext, app: Any) -> None:
             await app.twin.clear_examples(uid)
         elif action == "ask" and arg in PROMPTS:
             if arg == "test" and not app.ai.available():
-                await cb.answer(tr(lang, "🧠 AI-провайдер не настроен.", "🧠 AI provayderi sozlanmagan."), show_alert=True)
+                await cb.answer(tr(lang, "twin.ai_provayder_nastroen"), show_alert=True)
                 return
             await state.set_state(getattr(TW, arg))
             await cb.answer()
-            await cb.message.answer(tr(lang, *PROMPTS[arg]) + "\n" + tr(lang, "Отмена: /cancel", "Bekor qilish: /cancel"))
+            await cb.message.answer(tr(lang, PROMPTS[arg]) + "\n" + tr(lang, "twin.otmena_cancel"))
             return
     except ValueError as e:
         await cb.answer(str(e), show_alert=True)
@@ -174,7 +168,7 @@ async def st_hours(message: Message, state: FSMContext, app: Any) -> None:
             a, _, b = txt.replace("–", "-").partition("-")
             await app.twin.update(uid, active_from=a.strip(), active_to=b.strip())
     except ValueError:
-        await message.answer(tr(s["lang"], "Формат: 09:00-21:00", "Format: 09:00-21:00"))
+        await message.answer(tr(s["lang"], "twin.format_09_00_21_00"))
         return
     await _finish(app, uid, message, state)
 
@@ -186,9 +180,9 @@ async def st_example(message: Message, state: FSMContext, app: Any) -> None:
     try:
         n = await app.twin.add_example(uid, message.text)
     except ValueError:
-        await message.answer(tr(s["lang"], "Пример должен быть от 2 до 500 символов.", "Namuna 2 dan 500 belgigacha bo'lishi kerak."))
+        await message.answer(tr(s["lang"], "twin.primer_dolzhen_byt_2_500"))
         return
-    await message.answer(tr(s["lang"], "✅ Пример сохранён ({n}).", "✅ Namuna saqlandi ({n}).", n=n))
+    await message.answer(tr(s["lang"], "twin.primer_sohranyon", n=n))
     await _finish(app, uid, message, state)
 
 
@@ -202,8 +196,8 @@ async def st_test(message: Message, state: FSMContext, app: Any) -> None:
     except AIError as e:
         from ..ai.auto import ai_error_text
         out = ai_error_text(s["lang"], e)
-    await message.answer(tr(s["lang"], "🧪 Двойник ответил бы так:\n\n{o}", "🧪 Egizak shunday javob berardi:\n\n{o}", o=esc(out)),
-                         reply_markup=kb([[(tr(s["lang"], "⬅️ К настройкам", "⬅️ Sozlamalarga"), "m:twin")]]))
+    await message.answer(tr(s["lang"], "twin.dvoynik_otvetil_by_tak", o=esc(out)),
+                         reply_markup=kb([[(tr(s["lang"], "twin.nastroykam"), "m:twin")]]))
 
 
 async def _render_twin(app: Any, uid: int, target: Message) -> None:  # used by the .twin command

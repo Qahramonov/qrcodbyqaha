@@ -1,7 +1,6 @@
 """Telegram Business engine: connections, rights, isolation, incoming/outgoing routing, loops, duplicates, 24h errors."""
 from __future__ import annotations
 
-import pytest
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.methods import SendMessage
 from conftest import CONTACT, OWNER, USER2

@@ -48,31 +48,21 @@ def _plural_ru(n: int, one: str, few: str, many: str) -> str:
     return many
 
 
+def plural_form(n: int) -> str:
+    """CLDR-style plural category for Russian (``one``/``few``/``many``); Uzbek catalogs use the same text for all."""
+    return _plural_ru(n, "one", "few", "many")
+
+
 def human_duration(seconds: int | float, lang: str = "ru", max_parts: int = 2) -> str:
+    from ..localization import tr
     s = int(max(0, seconds))
     days, s = divmod(s, 86400)
     hours, s = divmod(s, 3600)
     minutes, secs = divmod(s, 60)
-    parts: list[str] = []
-    if lang == "uz":
-        units = [(days, "kun"), (hours, "soat"), (minutes, "daqiqa"), (secs, "soniya")]
-        for v, u in units:
-            if v:
-                parts.append(f"{v} {u}")
-    else:
-        units_ru = [
-            (days, ("день", "дня", "дней")),
-            (hours, ("час", "часа", "часов")),
-            (minutes, ("минута", "минуты", "минут")),
-            (secs, ("секунда", "секунды", "секунд")),
-        ]
-        for v, forms in units_ru:
-            if v:
-                parts.append(f"{v} {_plural_ru(v, *forms)}")
+    parts = [tr(lang, f"time.{unit}.{plural_form(v)}", n=v)
+             for v, unit in ((days, "day"), (hours, "hour"), (minutes, "minute"), (secs, "second")) if v]
     if not parts:
-        return "0 soniya" if lang == "uz" else "меньше минуты" if seconds < 60 else "0"
-    if len(parts) > 1 and not days and not hours and minutes and secs and max_parts >= 2:
-        pass
+        return tr(lang, "time.under_second")
     return " ".join(parts[:max_parts])
 
 

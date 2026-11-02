@@ -28,11 +28,10 @@ PRE_CONNECT_COMMANDS = frozenset({"help", "lang", "support", "menu", "about", "p
 
 def locked_reply(lang: str) -> tuple[str, Any]:
     from ..keyboards import kb
-    text = tr(lang, "🔒 Ваш Telegram-аккаунт ещё не подключён.\nПодключите Chat helper, чтобы использовать команды.",
-              "🔒 Telegram akkauntingiz hali ulanmagan.\nBuyruqlardan foydalanish uchun Chat helper'ni ulang.")
-    markup = kb([[(tr(lang, "🔗 Подключить", "🔗 Ulash"), "m:connect")],
-                 [(tr(lang, "📖 Инструкция", "📖 Yo'riqnoma"), "ob:guide")],
-                 [(tr(lang, "🔄 Проверить подключение", "🔄 Ulanishni tekshirish"), "ob:check")]])
+    text = tr(lang, "executor.vash_telegram_akkaunt_eschyo_podklyuchyon")
+    markup = kb([[(tr(lang, "executor.podklyuchit"), "m:connect")],
+                 [(tr(lang, "executor.instruktsiya"), "ob:guide")],
+                 [(tr(lang, "executor.proverit_podklyuchenie"), "ob:check")]])
     return text, markup
 
 
@@ -97,7 +96,7 @@ class CommandExecutor:
                 sugg = self.registry.suggestions(parsed.name)
                 hint = p(lang, "unknown_cmd", cmd=esc(parsed.prefix + parsed.name), prefix=settings.get("prefix", "."))
                 if sugg:
-                    hint += "\n" + tr(lang, "Возможно: ", "Balki: ") + ", ".join(settings.get("prefix", ".") + s for s in sugg)
+                    hint += "\n" + tr(lang, "executor.vozmozhno") + ", ".join(settings.get("prefix", ".") + s for s in sugg)
                 await message.answer(hint)
                 return True
             return False  # unknown ".word" in a real chat is just text
@@ -137,21 +136,20 @@ class CommandExecutor:
         except UsageError as e:
             error = "usage"
             msg = (f"⚠️ {e}\n" if str(e) else "") + ctx.usage()
-            if spec.examples:
-                msg += "\n" + tr(lang, "Пример: ", "Misol: ") + "<code>" + esc(spec.examples[0].replace(".", ctx.prefix, 1)) + "</code>"
+            examples = spec.examples_for(lang)
+            if examples:
+                msg += "\n" + tr(lang, "executor.primer") + "<code>" + esc(examples[0].replace(".", ctx.prefix, 1)) + "</code>"
             await self._reject(ctx, msg)
         except CommandError as e:
             error = str(e)[:200]
             await self._reject(ctx, str(e))
         except asyncio.TimeoutError:
             error = "timeout"
-            await self._reject(ctx, tr(lang, "⏱ Команда выполнялась слишком долго и была остановлена.",
-                                       "⏱ Buyruq juda uzoq bajarildi va to'xtatildi."))
+            await self._reject(ctx, tr(lang, "executor.komanda_vypolnyalas_slishkom_dolgo_byla"))
         except Exception as e:  # isolation: one broken command never breaks the bot
             error = f"{type(e).__name__}: {str(e)[:150]}"
             log.exception("command %s failed", spec.id)
-            await self._reject(ctx, tr(lang, "⚠️ Внутренняя ошибка команды. Она записана в журнал.",
-                                       "⚠️ Buyruqning ichki xatosi. U jurnalga yozildi."))
+            await self._reject(ctx, tr(lang, "executor.vnutrennyaya_oshibka_komandy_ona_zapisana"))
         finally:
             if source != "sandbox":
                 await self._record(ctx, ok, error, int((time.monotonic() - started) * 1000))
@@ -160,24 +158,21 @@ class CommandExecutor:
     async def authorize(self, ctx: CommandContext) -> str | None:
         app, spec, lang = self.app, ctx.spec, ctx.lang
         if await app.users.is_restricted(ctx.user_id):
-            return tr(lang, "⛔ Доступ к Chat helper ограничен администратором.", "⛔ Chat helper'ga kirish administrator tomonidan cheklangan.")
+            return tr(lang, "executor.dostup_chat_helper_ogranichen_administratorom")
         if app.runtime.emergency_stop and ctx.is_business and spec.id not in ("status", "ping"):
             return p(lang, "emergency")
         if spec.admin_only and not ctx.is_admin:
             return p(lang, "not_allowed")
         if spec.where == "business" and ctx.source == "private":
-            return tr(lang, "💬 Эта команда работает в чатах подключённого бизнес-аккаунта.",
-                      "💬 Bu buyruq ulangan biznes akkaunt chatlarida ishlaydi.")
+            return tr(lang, "executor.eta_komanda_rabotaet_chatah_podklyuchyonnogo")
         if spec.where == "private" and ctx.is_business:
-            return tr(lang, "🔒 Эта команда доступна только в личном чате с Chat helper.",
-                      "🔒 Bu buyruq faqat Chat helper bilan shaxsiy chatda mavjud.")
+            return tr(lang, "executor.eta_komanda_dostupna_tolko_lichnom")
         enabled, min_plan = self._global_state(spec)
         if not enabled:
-            return tr(lang, "⏸ Команда {cmd} отключена администратором.", "⏸ {cmd} buyrug'i administrator tomonidan o'chirilgan.",
+            return tr(lang, "executor.komanda_otklyuchena_administratorom",
                       cmd=ctx.prefix + spec.id)
         if spec.id in (ctx.settings.get("disabled_commands") or []):
-            return tr(lang, "⏸ Вы отключили команду {cmd}. Включить: меню → Команды.",
-                      "⏸ Siz {cmd} buyrug'ini o'chirgansiz. Yoqish: menyu → Buyruqlar.", cmd=ctx.prefix + spec.id)
+            return tr(lang, "executor.vy_otklyuchili_komandu_vklyuchit_menyu", cmd=ctx.prefix + spec.id)
         if app.runtime.is_module_paused(spec.module):
             return p(lang, "module_off", module=spec.module)
         if spec.module == "games" and not ctx.settings.get("games_enabled", True):
@@ -192,12 +187,11 @@ class CommandExecutor:
                 return why
         for dep in spec.deps:
             if dep == "ffmpeg" and not app.health.ffmpeg_ok:
-                return tr(lang, "🎞 FFmpeg не найден. Установите: pkg install ffmpeg", "🎞 FFmpeg topilmadi. O'rnating: pkg install ffmpeg")
+                return tr(lang, "executor.ffmpeg_nayden_ustanovite_pkg_install")
             if dep == "ai" and not app.ai.available():
                 return p(lang, "requires_ai")
             if dep == "ai_stt" and not app.ai.available("stt"):
-                return tr(lang, "🎙 Распознавание речи требует ключ OpenAI или Gemini (STT).",
-                          "🎙 Nutqni aniqlash uchun OpenAI yoki Gemini kaliti kerak (STT).")
+                return tr(lang, "executor.raspoznavanie_rechi_trebuet_klyuch_openai")
         return None
 
     async def _reject(self, ctx: CommandContext, text: str) -> None:

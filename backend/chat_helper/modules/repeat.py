@@ -80,14 +80,11 @@ async def _loop(app: "AppContext", job_id: int, owner: int, chat_id: int, bc_id:
         await app.controls.close_card(token)
         if status == "failed":
             s = await app.settings.all(owner)
-            await app.sender.send_text(owner, tr(s["lang"], "🔁 Повтор остановлен: Telegram вернул ошибку «{e}».",
-                                                 "🔁 Takrorlash to'xtatildi: Telegram «{e}» xatosini qaytardi.", e=error))
+            await app.sender.send_text(owner, tr(s["lang"], "repeat.povtor_ostanovlen_telegram_vernul_oshibku", e=error))
 
 
 @registry.command("re", "chat", aliases=["повтор", "qaytar", "loop"],
-                  ru="Повтор сообщения: отправляет текст и каждые 5 с удаляет предыдущую копию и отправляет снова (до 2 минут); stop — остановить",
-                  uz="Xabarni takrorlash: matnni yuboradi va har 5 s oldingi nusxani o'chirib qayta yuboradi (2 daqiqagacha); stop — to'xtatish",
-                  syntax=".re текст | .re stop", examples=[".re Ты где? 👀", ".re stop"], where="business",
+                  where="business",
                   rights=["can_reply", "can_delete_sent_messages"], rate=(3, 60))
 async def cmd_re(ctx: CommandContext) -> None:
     app, owner, chat_id = ctx.app, ctx.user_id, ctx.chat_id
@@ -95,22 +92,21 @@ async def cmd_re(ctx: CommandContext) -> None:
         stopped = await stop_repeat(app, owner, chat_id, reason="command")
         await ctx.cleanup_command(fallback_text="⏹")
         if not stopped:
-            await app.sender.send_text(owner, ctx.t("В этом чате повтор не запущен.", "Bu chatda takrorlash ishga tushmagan."))
+            await app.sender.send_text(owner, ctx.t("repeat.etom_chate_povtor_zapuschen"))
         return
     text = ctx.raw.strip()
     if not text or len(text) > 1000:
-        raise UsageError(ctx.t("Нужен текст до 1000 символов.", "1000 belgigacha matn kerak."))
+        raise UsageError(ctx.t("repeat.nuzhen_tekst_1000_simvolov"))
     if (owner, chat_id) in _tasks:
-        raise CommandError(ctx.t("В этом чате уже идёт повтор. Остановить: {p}re stop", "Bu chatda takrorlash ketmoqda. To'xtatish: {p}re stop",
+        raise CommandError(ctx.t("repeat.etom_chate_idyot_povtor_ostanovit",
                                  p=ctx.prefix))
     if sum(1 for k in _tasks if k[0] == owner) >= MAX_PER_USER:
-        raise CommandError(ctx.t("Не больше {n} повторов одновременно.", "Bir vaqtda {n} tadan ko'p emas.", n=MAX_PER_USER))
+        raise CommandError(ctx.t("repeat.bolshe_povtorov_odnovremenno", n=MAX_PER_USER))
     if not ctx.is_super and PLAN_RANK.get(ctx.plan, 0) < PLAN_RANK["plus"] and await runs_today(app, owner) >= FREE_RUNS_PER_DAY:
-        raise CommandError(ctx.t("💎 На тарифе Free — {n} запуска в сутки. Plus снимает ограничение.",
-                                 "💎 Free tarifida kuniga {n} marta. Plus cheklovni olib tashlaydi.", n=FREE_RUNS_PER_DAY))
+        raise CommandError(ctx.t("repeat.tarife_free_zapuska_sutki_plus", n=FREE_RUNS_PER_DAY))
     ok, retry = app.limiter.check(f"re:cooldown:{owner}", 1, 10)
     if not ok:
-        raise CommandError(ctx.t("⏳ Подождите {s} с.", "⏳ {s} soniya kuting.", s=retry))
+        raise CommandError(ctx.t("repeat.podozhdite", s=retry))
     await ctx.cleanup_command()
     ends_at = int(time.time()) + MAX_DURATION
     job_id = await app.db.execute(
